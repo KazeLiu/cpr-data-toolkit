@@ -9,6 +9,7 @@
 - `AGENTS.md`：已核对的接入合同、数据边界和验证约定
 - `docs/requirements-discussion.md`：当前四项需求与尚待决定的口径
 - `docs/initial-research.md`：固定源码基线与初次调研；其中候选功能以最新需求讨论为准
+- `docs/write-capability-audit.md`：关键写入能力核对、源码证据与发给 CPR 开发者的说明
 
 当前功能范围：
 
@@ -17,4 +18,4 @@
 - 手动调整：填写 token 和请求次数的增减量，提交前提醒派生指标可能不一致
 - 模型定价：同步并批量维护模型价目，覆盖 OpenAI 兼容接口上的其他模型
 
-管理页面采用上述四个标签，需求说明以 `docs/requirements-discussion.md` 为准。定价作用域和宿主接入方式仍待讨论。
+管理页面采用上述四个标签，需求说明以 `docs/requirements-discussion.md` 为准。账号导入和模型定价已有公开写入路径；历史用量与手动修正需要确认或补充宿主写入入口。定价作用域仍待讨论。
