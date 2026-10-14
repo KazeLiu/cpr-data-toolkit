@@ -107,4 +107,4 @@ cargo +1.97.0 zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.1
 
 多平台构建使用 `.github/workflows/package.yml`，在 GitHub Actions 手动运行「Build release packages」或使用 `gh workflow run package.yml --ref main`。工作流只构建产物，不自动发布；前端资源构建一次后供三个平台使用，Rust、SDK、CLI 和构建工具版本固定，Linux 使用 glibc 2.17 目标。下载对应构建产物后，通过 GitHub CLI 将安装包附到 Release。
 
-0.5 已完成本机前端类型检查与生产构建、Linux ARM64 release 构建和包内文件检查；本次多平台发布进度见 `docs/implementation-plan.md`。
+0.5 的前端类型检查、生产构建和三平台 release 构建已通过 [GitHub Actions](https://github.com/KazeLiu/cpr-data-toolkit/actions/runs/38541559697)。安装包已核对版本、实际架构、资源和执行权限，三份 ZIP 内容及 CRC 检查通过；Linux 最低 glibc 为 2.17，macOS ARM64 二进制声明最低 macOS 11.0。下载见 [0.5 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v0.5.0)，目标宿主运行效果仍由用户确认。
