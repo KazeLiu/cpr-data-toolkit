@@ -1,7 +1,7 @@
 # CPR 数据工具箱实现计划
 
 - 日期：2026-10-13
-- 状态：0.5 社区价目过滤与历史费用同步弹窗已完成，Linux ARM64 插件包已生成，等待用户测试后再发布多平台 Release
+- 状态：用户已授权 0.5 多平台构建、GitHub Release 发布及源码和文档提交推送，正在执行发布
 - 项目：`D:\code\cpr-data-toolkit`
 
 用户已批准本计划，源码实现及当前确认范围见第五节。
@@ -264,8 +264,16 @@ T1～T7 的源码交付已完成。统计原生写入仍保留为后续依赖；
 - [x] 「价格同步」位于社区价目按钮右侧，每次打开默认只补全缺失费用，也可选择覆盖全部历史费用；用户确认暂时只做弹窗，确认提示「上游接口未开放」，不修改历史记录、不增加后端空接口、不修改 CPR 宿主
 - [x] 版本同步为 `0.5.0`，前端 `vue-tsc --noEmit` 与 Vite 生产构建通过，Linux ARM64 后端 release 构建通过；官方 CLI 包内已核对版本、五项文件、后端执行权限、ARM64 ELF 和 glibc 2.17
 - [x] ZIP 包含标准安装包、官方校验文件和安装说明，文件清单与 CRC 检查通过；交付文件为 `dist/cpr-data-toolkit-0.5-linux-arm64.zip`，副本位于 `C:/Users/蓝芷怡/Documents/Codex/2026-10-14/https-github-com-kazeliu-cpr-data/outputs/cpr-data-toolkit-0.5-linux-arm64.zip`
-- [ ] 用户确认测试可用后，按当前发行版本构建 Linux x86_64、Linux ARM64、macOS ARM64 的原生包及官方校验文件，生成中文说明并通过 GitHub CLI 发布到 `KazeLiu/cpr-data-toolkit`，在确认前不发布 Release
+- [ ] 用户已授权按当前 0.5 版本构建 Linux x86_64、Linux ARM64、macOS ARM64 原生包及官方校验文件，生成中文说明并通过 GitHub CLI 发布到 `KazeLiu/cpr-data-toolkit`
 
 多平台产物参考 [插件工作台 v0.3.1 Release](https://github.com/zyycn/codex-proxy-plugins/releases/tag/v0.3.1)。本机 GitHub CLI 位于 `C:/Program Files/GitHub CLI/gh.exe`，已通过只读查询确认参考版本的六项平台包与校验文件。
 
 本轮按用户约定未运行测试或启动页面，筛选及弹窗操作由用户在目标 CPR 确认；没有执行真实历史费用写入，也没有提交、推送或发布 Release。
+
+## 14. 0.5 多平台发布
+
+- 保持展示版本 0.5 和内部版本 `0.5.0`，本次是同一版本的平台包补充，不递增为 0.6
+- 用户已明确授权更新并提交、推送源码和 Markdown 文档，Release 使用对应源码提交，标签为 `v0.5.0`
+- 新增手动 GitHub Actions 构建，前端资源只构建一次，Linux x86_64、Linux ARM64 使用 glibc 2.17 目标，macOS ARM64 使用 macOS runner；官方 CLI 固定到 SDK 同一提交
+- 每个平台交付原生 `.tar.gz`、官方 `.sha256` 与含安装说明的 ZIP，中文发布说明位于 `docs/releases/0.5.md`
+- 当前正在构建，完成后记录实际结果并发布；不运行测试、不启动页面或向真实宿主写入数据

@@ -1,6 +1,14 @@
 # 安装 CPR 数据工具箱
 
-本次版本为 **0.5**，CPR 内部版本为 `0.5.0`，目标为 **Linux ARM64**（`aarch64-unknown-linux-gnu`），需要 glibc 2.17 或更高，适用于 CPR v3.26.1 至 4.0.0 之前的兼容版本。仅有 musl 的系统或容器不能直接运行本包。
+本次版本为 **0.5**，CPR 内部版本为 `0.5.0`，最低宿主为 **CPR v3.26.1**，清单兼容范围为 `>=3.26.1, <4.0.0`。按 CPR 宿主进程的平台选择安装包，不按打开管理页的电脑平台选择。
+
+| 宿主平台 | 原生安装包 |
+| --- | --- |
+| Linux x86_64 | `kazeliu.cpr-data-toolkit-0.5.0-x86_64-unknown-linux-gnu.tar.gz` |
+| Linux ARM64 | `kazeliu.cpr-data-toolkit-0.5.0-aarch64-unknown-linux-gnu.tar.gz` |
+| macOS ARM64 / Apple Silicon | `kazeliu.cpr-data-toolkit-0.5.0-aarch64-apple-darwin.tar.gz` |
+
+Linux 包需要 glibc 2.17 或更高，仅有 musl 的系统或容器不能直接运行。每个平台提供原生包、对应 `.sha256` 文件及 ZIP，发布入口为 [0.5 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v0.5.0)。
 
 ## 解压 ZIP 后上传安装包
 

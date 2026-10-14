@@ -101,8 +101,10 @@ cargo +1.97.0 zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.1
 
 ### 交付与版本递增
 
-本次 ZIP 为 `dist/cpr-data-toolkit-0.5-linux-arm64.zip`，内含标准 `.tar.gz`、官方 CLI 生成的 `.sha256` 和 `INSTALL.md`。解压 ZIP 后在 CPR 插件管理页上传 `.tar.gz`。
+0.5 提供 Linux x86_64、Linux ARM64 和 macOS ARM64 的原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，中文发布说明见 `docs/releases/0.5.md`。
 
 以后每次交付新包增加 `0.1`，下次为 `0.6`（内部 `0.6.0`）；打包前同步 `plugin.json`、`Cargo.toml`、`web/package.json` 和 Cargo 锁文件中的本项目版本。失败修复及同一次打包重试不重复递增，约定见 `AGENTS.md`。
 
-0.5 已完成前端类型检查与生产构建、Linux ARM64 release 构建和包内文件检查，记录见 `docs/implementation-plan.md`。用户在目标宿主测试确认后，再按当前发行版本构建多平台原生包并发布中文 GitHub Release。
+多平台构建使用 `.github/workflows/package.yml`，在 GitHub Actions 手动运行「Build release packages」或使用 `gh workflow run package.yml --ref main`。工作流只构建产物，不自动发布；前端资源构建一次后供三个平台使用，Rust、SDK、CLI 和构建工具版本固定，Linux 使用 glibc 2.17 目标。下载对应构建产物后，通过 GitHub CLI 将安装包附到 Release。
+
+0.5 已完成本机前端类型检查与生产构建、Linux ARM64 release 构建和包内文件检查；本次多平台发布进度见 `docs/implementation-plan.md`。
