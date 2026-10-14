@@ -1,0 +1,32 @@
+{
+  "name": "@kazeliu/cpr-data-toolkit-web",
+  "private": true,
+  "version": "0.5.0",
+  "type": "module",
+  "packageManager": "pnpm@12.6.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit",
+    "lint": "eslint .",
+    "build": "vue-tsc --noEmit && vite build",
+    "dev": "vite --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@codex-proxy/ui": "github:zyycn/codex-proxy-ui#db615f3d72975e0d09847a07d03ed5fe7ba8c8b0",
+    "vue": "3.5.42"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "9.5.1",
+    "@tailwindcss/vite": "4.3.3",
+    "@vitejs/plugin-vue": "6.0.8",
+    "eslint": "10.10.0",
+    "eslint-plugin-format": "2.0.1",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.3",
+    "vite": "8.3.0",
+    "vue-tsc": "3.3.11",
+    "@types/node": "26.5.1"
+  }
+}

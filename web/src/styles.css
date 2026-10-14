@@ -1,0 +1,232 @@
+@import 'tailwindcss/theme.css' layer(theme);
+@import '@codex-proxy/ui/tailwind.css';
+@import 'tailwindcss/utilities.css' layer(utilities) source('./');
+
+html,
+body,
+#app {
+  min-width: 0;
+  height: auto;
+}
+body {
+  margin: 0;
+  background: transparent;
+}
+#app,
+.toolkit {
+  min-height: inherit;
+}
+.toolkit {
+  color: var(--cp-color-text);
+  font-size: var(--cp-font-size);
+  line-height: 1.6;
+  padding: 8px 0 24px;
+}
+.tabs,
+.toolbar,
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tabs {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--cp-color-border-secondary);
+  margin-bottom: 20px;
+}
+.panel {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.section {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--cp-color-border-secondary);
+  border-radius: var(--cp-border-radius);
+  background: var(--cp-color-bg-container);
+}
+.section h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 650;
+}
+.muted {
+  color: var(--cp-color-text-secondary);
+}
+.notice,
+.error,
+.success {
+  padding: 10px 14px;
+  border-radius: var(--cp-border-radius);
+  overflow-wrap: anywhere;
+}
+.notice {
+  background: var(--cp-color-warning-container);
+  color: var(--cp-color-warning-on-container);
+}
+.error {
+  background: var(--cp-color-error-container);
+  color: var(--cp-color-error-on-container);
+}
+.success {
+  background: var(--cp-color-success-container);
+  color: var(--cp-color-success-on-container);
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.field > span {
+  font-weight: 600;
+}
+.mono {
+  font-family: ui-monospace, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.metrics strong {
+  display: block;
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+.group {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid var(--cp-color-border-secondary);
+  padding: 14px;
+  border-radius: var(--cp-border-radius);
+}
+.native-check {
+  accent-color: var(--cp-color-primary);
+  width: 16px;
+  height: 16px;
+}
+.table-select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.match-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-width: 0;
+}
+.import-cell {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.import-secret-cell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+  min-width: 0;
+}
+.import-secret-actions,
+.import-name-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.import-name-option {
+  cursor: pointer;
+  min-height: 32px;
+}
+.diagnostic-result {
+  display: grid;
+  gap: 12px;
+}
+.diagnostic-details > :not(summary) {
+  margin-top: 10px;
+}
+.ua-log-cell {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  white-space: normal;
+}
+.ua-log-time {
+  font-variant-numeric: tabular-nums;
+  white-space: normal;
+}
+.ua-log-header {
+  white-space: pre-wrap;
+}
+.ua-log-status {
+  justify-self: start;
+  padding: 4px 8px;
+}
+.ua-log-details > :not(summary) {
+  display: block;
+  margin-top: 8px;
+}
+.ua-log-details > dl {
+  display: grid;
+}
+.cp-modal-panel {
+  align-self: start;
+  max-height: min(720px, calc(100dvh - 48px));
+}
+textarea {
+  width: 100%;
+  resize: vertical;
+  color: var(--cp-color-text);
+  background: var(--cp-color-bg-container);
+  border: 1px solid var(--cp-color-border);
+  border-radius: var(--cp-border-radius);
+  padding: 8px 12px;
+}
+.group legend {
+  font-weight: 600;
+  padding: 0 4px;
+}
+.empty {
+  padding: 28px;
+  text-align: center;
+  color: var(--cp-color-text-secondary);
+}
+dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 16px;
+}
+dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.compact-list {
+  margin: 0;
+  padding-left: 20px;
+}
+@media (max-width: 600px) {
+  .section {
+    padding: 12px;
+  }
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}

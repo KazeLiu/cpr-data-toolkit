@@ -1,0 +1,4 @@
+packages:
+  - .
+allowBuilds:
+  '@codex-proxy/ui@https://codeload.github.com/zyycn/codex-proxy-ui/tar.gz/db615f3d72975e0d09847a07d03ed5fe7ba8c8b0': true

@@ -1,0 +1,19 @@
+[package]
+name = "cpr-data-toolkit"
+version = "0.5.0"
+edition = "2024"
+rust-version = "1.97"
+publish = false
+
+[dependencies]
+gateway-plugin-sdk = { git = "https://github.com/zyycn/codex-proxy-rs", rev = "5358de53ddd4bda529cb63c422fd5c6af070f9c9", features = ["io"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = { version = "1.0.150", features = ["arbitrary_precision"] }
+tokio = { version = "1.52.3", features = ["io-std", "macros", "rt", "sync", "time"] }
+http = "1.4.0"
+rusqlite = { version = "0.38.0", features = ["bundled", "hooks", "limits"] }
+rust_decimal = "1.40.0"
+toml = "0.9.8"
+url = "2.5.8"
+uuid = { version = "1.20.0", features = ["v4"] }
+base64 = "0.22.1"
