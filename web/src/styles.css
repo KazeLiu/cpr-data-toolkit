@@ -198,6 +198,15 @@ textarea {
   border-radius: var(--cp-border-radius);
   padding: 8px 12px;
 }
+input[type='datetime-local'] {
+  min-width: 0;
+  font: inherit;
+  color: var(--cp-color-text);
+  background: var(--cp-color-bg-container);
+  border: 1px solid var(--cp-color-border);
+  border-radius: var(--cp-border-radius);
+  padding: 6px 12px;
+}
 .group legend {
   font-weight: 600;
   padding: 0 4px;

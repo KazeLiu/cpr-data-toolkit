@@ -3,10 +3,10 @@
   "publisher": "kazeliu",
   "name": "cpr-data-toolkit",
   "displayName": "CPR 数据工具箱",
-  "version": "0.5.0",
-  "description": "连接导入、用量预览、模型定价与模型UA定制",
+  "version": "0.8.0",
+  "description": "连接与用量导入、统计调整、模型定价与模型UA定制",
   "license": "UNLICENSED",
-  "engines": { "codex-proxy-rs": ">=3.26.1, <4.0.0" },
+  "engines": { "codex-proxy-rs": ">=3.29.0, <4.0.0" },
   "main": "bin/plugin",
   "runtime": "trustedProcess",
   "configurationSchema": {
@@ -15,9 +15,9 @@
     "additionalProperties": false
   },
   "contributes": {
-    "management": {},
+    "management": { "version": 2 },
     "middleware": {
-      "version": 4,
+      "version": 5,
       "stages": ["request"],
       "inputFormats": ["openai"],
       "outputFormats": ["openai"]
@@ -111,6 +111,33 @@
       "maximumRecords": 1,
       "maximumBytes": 262144,
       "maximumValueBytes": 262144,
+      "migratesFrom": []
+    },
+    {
+      "namespace": "usage_adjustment",
+      "schemaVersion": 1,
+      "schema": {
+        "type": "object",
+        "required": ["command", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "status": { "enum": ["pending", "saved", "rejected"] },
+          "command": {
+            "type": "object",
+            "required": ["id", "atMs", "tokens", "requests"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "maxLength": 36 },
+              "atMs": { "type": "integer" },
+              "tokens": { "type": "string", "maxLength": 20 },
+              "requests": { "type": "string", "maxLength": 20 }
+            }
+          }
+        }
+      },
+      "maximumRecords": 1,
+      "maximumBytes": 4096,
+      "maximumValueBytes": 4096,
       "migratesFrom": []
     }
   ]

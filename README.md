@@ -1,23 +1,26 @@
 # CPR 数据工具箱
 
-Codex Proxy RS 的连接导入、统计预览和请求身份维护插件，项目标识为 `cpr-data-toolkit`，开发目录为 `D:\code\cpr-data-toolkit`。
+Codex Proxy RS 的连接与用量导入、统计维护和请求身份维护插件，项目标识为 `cpr-data-toolkit`，开发目录为 `D:\code\cpr-data-toolkit`。
 
-项目包含 Rust 后端和 Vue 管理页，SDK 固定到 CPR v3.26.1。当前版本为 **0.5**（包内 `0.5.0`），新增社区价目过滤和历史费用同步选项；历史费用同步确认后提示「上游接口未开放」，不写回历史记录。安装入口见 `docs/installation.md`。
+项目包含 Rust 后端和 Vue 管理页，SDK 与官方打包 CLI 固定到 CPR v3.29.4，最低宿主为 v3.29.0。当前版本为 **0.8**（包内 `0.8.0`），支持筛选用量导入、原生请求疑似重复核对、Token／请求数修正及历史 Token 费用写回。安装入口见 `docs/installation.md`。
+
+0.8 安装包可从 [GitHub Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v0.8.0) 下载，本地产物位于 `dist/0.8/`，支持当前 CCS 来源的时段覆盖，使用宿主同款日期时间选择器，发布说明见 `docs/releases/0.8.md`
 
 阅读入口：
 
 - `AGENTS.md`：已核对的接入合同、数据边界和验证约定
-- `docs/implementation-plan.md`：已批准的功能口径、实现进度和验收边界
+- `docs/usage-integration-plan.md`：0.6 原生用量接入、失败恢复及交付记录
+- `docs/implementation-plan.md`：0.5 阶段的功能口径与发行记录
 - `docs/requirements-discussion.md`：当前五项需求与已确定的功能边界
 - `docs/initial-research.md`：固定源码基线与初次调研；其中候选功能以最新需求讨论为准
-- `docs/write-capability-audit.md`：关键写入能力核对、源码证据与发给 CPR 开发者的说明
+- `docs/write-capability-audit.md`：关键写入能力、源码证据、用量口径与恢复边界
 
 ## 五个标签页
 
 - **API 导入**：解析 CCS 完整手动 SQL 导出，提取 Claude、Codex 和 Gemini 的名称、地址与 Key，选择后通过宿主账号合同接入 OpenAI Responses 兼容上游，不按来源协议拦截。表格支持多选、跨页全选、复制 API，以及主动查看或复制隐藏的 Key。相同地址与 Key 只接入一次，名称不同在弹窗中选择；更新已有账号使用精确凭据版本
-- **用量导入**：按 CCS 有效用量规则去除代理／会话重复，归一缓存语义，展示来源模型、时间、Token 与原始 USD 费用。明细和日聚合分开，不在缺少来源时区时合并总量。确认导入仅提示「上游接口未开放」
-- **手动调整**：填写 Token 总量和请求次数的正负增减量，读取今天／近 7 天／近 30 天的真实原值并预览。确认提醒派生指标可能不一致，随后提示「上游接口未开放」，保留输入且不修改统计
-- **模型定价**：读取 CPR 全局价目、预览并确认宿主同步、批量维护标准价；价目表支持全选当前筛选结果，社区和同步表支持全选本页。models.dev 社区价目支持关键词及模型 ID 过滤，核对实际上游模型 ID 后写入，缓存价格缺失或留空按零处理，输入与输出价格必填。「价格同步」提供补全缺失费用或覆盖全部历史费用的选项，默认补全，确认仅提示「上游接口未开放」
+- **用量导入**：按应用、模型和来源时区的请求时间筛选完整 CCS 来源，预览 Token、费用与原生请求疑似重复项。确认后替换所选时段内该来源的全部旧贡献，再写入筛选结果；保留源内代理／会话去重、稳定记录键、时段外贡献、CPR 原生请求和其他来源
+- **手动调整**：填写 Token 总量和请求次数的正负增减量，读取今天／近 7 天／近 30 天的真实原值并预览，确认后写入首次提交时刻。结果未确认时保留原操作 ID，重新打开页面可继续核对
+- **模型定价**：读取、同步和批量维护 CPR 全局价目；社区价目支持关键词与模型 ID 过滤，缓存价格缺失或留空按零处理，输入与输出价格必填。「价格同步」按选定时间和 Provider 补全缺失费用或覆盖该范围原生请求的 Token 估算费用
 - **模型UA定制**：忽略大小写，按顺序使用第一条命中的启用规则覆盖 `User-Agent`；可选配套 `originator`、`version`，未填写的头不变更，未命中不改写。预览和安全验证用绿／红色块显示结果；请求改写日志展示时间、模型、命中规则及替换前后 UA
 
 ## 配置模型 UA
@@ -54,17 +57,44 @@ Codex Proxy RS 的连接导入、统计预览和请求身份维护插件，项�
 
 保存结果逐项显示；账号保存与来源映射不是同一事务，结果未知时停止后续项，先在宿主核对再重新预览，不自动重复创建。多个宿主账号匹配同组连接时必须选择具体宿主账号，其他账号不会被删除。
 
-CPR v3.26.1 的历史用量补入、统计修正和历史费用重算仍等待公开写入合同，预览不会进入原生历史或预算。停用插件只停止后续 UA 改写，已经保存的账号和价格不会自动撤销。
+## 导入历史用量
+
+1. 上传同一 CCS 安装的完整手动 SQL 导出，打开「用量导入」
+2. 为该 CCS 安装填写固定来源标识，例如 `cc-switch`；不同安装使用不同标识
+3. 核对「CCS 来源时区」，默认 `Asia/Shanghai`，可修改；日期解释、显示和时间范围均使用该时区，不取 CPR 服务器或浏览器时区
+4. 选择应用（默认 Codex，可选全部），填写模型包含条件（默认 `gpt`，忽略大小写，清空不限）；模型匹配表格展示的模型，不改原始名称
+5. 使用宿主同款日期时间选择器填写开始／结束时间，可单独清空任一边界，默认不限；按 CCS 记录的请求时间筛选，包含开始、不包含结束。三个条件同时应用于完整来源数据，再分页和汇总
+6. 点击「预览导入变更」，确认来源及时间后点击「覆盖并导入」。覆盖会替换该时段内本来源的全部旧贡献，**不限旧贡献的应用和模型**，然后导入本次筛选结果；时间全部留空表示覆盖该来源的全部历史。「查看判重记录」仍可按需核对原生请求疑似重复项
+
+使用完整手动导出作为只读来源，由插件筛选需要导入的记录。请求数据保留 CCS 原始秒级时间；日聚合使用来源日期的午夜，只有时间范围完整覆盖该来源日期时才纳入，部分覆盖的日期排除并说明，不能拆成小时用量。保留明细与日聚合日期交叠检查。CCS 新增输入转换为宿主含缓存输入，未知 Token 和费用不补零。来源费用是 CCS 原始 USD 记录，不代表供应商账单。
+
+用量进入 CPR 原生总量、趋势与模型维度，不生成请求明细、账号、Provider、Key 或耗时样本。未映射的账号／Provider／Key 维度保持空值，相应筛选不包含这些贡献。
+
+预览固定来源、时区、筛选条件和待执行变更；修改条件后旧预览失效，需要重新预览。已开始任务先继续或结束，再改变条件。每批最多 100 项，整批失败回滚，跨批次不是事务；暂停、超时或断线后点击「继续导入」核对同一快照的原批次。页面或进程重启后，使用同一来源标识重新上传完整导出并预览；稳定键覆盖不会重复累计。闲置任务 15 分钟过期，来源行数和贡献核对各限 200000 项。
+
+筛选条件不进入记录键。覆盖范围按宿主旧贡献的 `bucket_start_ms` 归属时间判断，不要求还原旧记录的应用或粒度；同一范围内本次未选中的模型、应用及来源已不存在的旧记录也会清理。日聚合旧贡献整体归属来源日期午夜，不拆分到其他时刻。内容未变的贡献不重复写入，确认与原生请求重复的来源贡献不再导入。范围外贡献、CPR 原生请求和其他来源保持不变；选中记录已有范围外且内容不同的贡献时，扩大时间范围后再预览。没有符合条件的数据时不写入，也不清空该来源。
+
+### 疑似重复的范围与限制
+
+代理日志只对成功记录判重，CCS 代理日志记录时间与 CPR 完成时间相差不超过 30 秒，模型去除首尾空格后忽略大小写比较，不合并不同模型；含缓存输入与输出必须完全相同，双方有缓存数据时同时核对缓存读写。来源和 CPR 必须唯一对应，同一 CPR 请求不能排除多个 CCS 记录。当前完整来源中的未选中记录也参与候选冲突判断，防止换一个筛选范围就重复认领同一请求。
+
+CCS 代理日志的 `created_at` 是写日志时的 UTC 秒，适合与 CPR 完成时间比较；会话日志采用各自事件时间，含义不同，保留并显示无法确认原因。[CCS 固定版本记录实现](https://github.com/farion1231/cc-switch/blob/99277921d9363c78e656ada0ca3bf39e30938b23/src-tauri/src/proxy/usage/logger.rs#L113)
+
+当前公开 SDK 只按 CPR 开始时间筛选。插件按所选时间范围查询原生开始时段；未填的边界使用选中 CCS 记录的最早／最晚时间，再向前后各扩展 30 秒。逐页读取、不逐条查询、不扫描更早历史；每页 50 条、最多 200 页，超过容量要求缩小时间范围。比较仍使用实际完成时间，查询范围外更早开始的长请求不推断重复。日聚合、丢失原生明细的历史、未知时间／模型／Token、全零 Token、失败或未完成请求不自动排除。多候选保留，并提供前 20 条候选供核对。
+
+用量导入与手动调整不修改 Key 预算。负修正不能超过归属时间桶的已有量，否则相应统计可能无法读取。停用插件不会撤销已经保存的账号、价格、统计贡献或历史费用。
 
 ## 筛选社区价目与历史费用选项
 
 在「models.dev 社区价目」输入名称、模型 ID 或价格关键词，也可在「社区模型 ID」表头输入包含条件，点击「筛选」或按 Enter 应用。两项条件同时生效，忽略大小写，在整个选定来源中过滤后再分页；翻页保持已应用的条件，点击「清空筛选」恢复目录。
 
-社区价目按钮右侧的「价格同步」打开历史费用同步弹窗，每次打开默认选择「只补全缺失费用」，已有 0 费用不视为缺失；另可选择「覆盖全部历史费用」。当前确认只显示「上游接口未开放」，不请求费用写入或改变历史记录。
+社区价目按钮右侧的「价格同步」打开历史费用同步弹窗，选择时间范围和 Provider，默认「只补全缺失费用」，已有 0 费用不视为缺失；另可选择覆盖范围内全部历史费用。每页扫描 50 条，只将能确定的 Token 估算费用写回；无法计价、缺少必要用量或包含图像的项显示跳过原因。覆盖会替换原费用并清除原计价快照，工具等附加费用不参与试算，Key 预算不变。CCS 导入的聚合贡献不参与费用重算。
+
+可暂停后续页并继续当前范围。响应未确认时停止，不自动重发；继续时重新核对当前页，已确认数量不含未知结果。页面重载后需要重新选择范围，补全模式会保留已经写回的费用。
 
 ## 构建与打包入口
 
-需要 Node.js 24 或更高、pnpm 12.6.0、Rust 1.97.0，以及宿主目标的 Rust target 和链接工具。前端 Git 依赖 `@codex-proxy/ui` 需要执行其构建脚本，已在 `web/pnpm-workspace.yaml` 明确允许；不要用 `--ignore-scripts` 安装后直接构建页面。
+需要 Node.js 24 或更高、pnpm 12.6.0、Rust 1.99.1，以及宿主目标的 Rust target 和链接工具。前端 Git 依赖 `@codex-proxy/ui` 固定到 0.5.0 的提交 `5dec2c78fba37ee1f4c5007e4a0316837a72655a`，需要执行其构建脚本，已在 `web/pnpm-workspace.yaml` 明确允许；不要用 `--ignore-scripts` 安装后直接构建页面。
 
 在项目根目录执行以下命令前，先确认宿主 target；开发电脑为 Windows 不代表宿主也是 Windows。
 
@@ -75,36 +105,36 @@ $target = Read-Host 'CPR 宿主的 Rust target'
 cargo build --release --locked --target $target
 ```
 
-打包 CLI 同样固定到 v3.26.1 的提交：
+打包 CLI 同样固定到 v3.29.4 的提交：
 
 ```powershell
-cargo install --locked --git https://github.com/zyycn/codex-proxy-rs.git --rev 5358de53ddd4bda529cb63c422fd5c6af070f9c9 codex-proxy-plugin-cli --root .tools/plugin-cli
-.tools/plugin-cli/bin/cpr-plugin package --manifest plugin.json --binary "target/$target/release/cpr-data-toolkit" --target $target --resource-map web=web/dist --output-dir dist
+cargo install --locked --git https://github.com/zyycn/codex-proxy-rs.git --rev bad2a245ab3522f8332d39b0c4ea3d7fb6a61f43 codex-proxy-plugin-cli --root .tools/plugin-cli-v3.29.4
+.tools/plugin-cli-v3.29.4/bin/cpr-plugin package --manifest plugin.json --binary "target/$target/release/cpr-data-toolkit" --target $target --resource-map web=web/dist --output-dir dist
 ```
 
-该版本 CLI 支持 `x86_64-unknown-linux-gnu`、`aarch64-unknown-linux-gnu` 和 `aarch64-apple-darwin`，没有 Windows 原生包目标。资源映射将 `web/dist` 中的三个页面文件放入包内 `web/`；输出包位于 `dist/`。详见[固定版本打包合同](https://github.com/zyycn/codex-proxy-rs/blob/5358de53ddd4bda529cb63c422fd5c6af070f9c9/backend/apps/plugin-cli/README.md)。
+该版本 CLI 支持 `x86_64-unknown-linux-gnu`、`aarch64-unknown-linux-gnu` 和 `aarch64-apple-darwin`，没有 Windows 原生包目标。资源映射将 `web/dist` 中的三个页面文件放入包内 `web/`；输出包位于 `dist/`。详见[固定版本打包合同](https://github.com/zyycn/codex-proxy-rs/blob/bad2a245ab3522f8332d39b0c4ea3d7fb6a61f43/backend/apps/plugin-cli/README.md)。
 
 ### 本机 Windows 交叉构建
 
-本次准备了项目内 Node 24.21.0、pnpm 12.6.0、cargo-zigbuild 0.21.7、Zig 0.14.1 和官方打包 CLI，并安装 Rust 1.97.0 的 ARM64 Linux target。工具位于忽略的 `.tools/`；在本机复用这些工具时，从项目根目录执行：
+本机使用项目内 Node 24.21.0、pnpm 12.6.0、cargo-zigbuild 0.23.4、Zig 0.14.1 和官方打包 CLI，以及 Rust 1.99.1 的 ARM64、x86_64 Linux target。工具位于忽略的 `.tools/`；从项目根目录执行：
 
 ```powershell
-$env:Path = "$PWD/.tools/node-v24.21.0-win-x64;$PWD/.tools/cargo-zigbuild/bin;$env:Path"
+$env:Path = "$PWD/.tools/node-v24.21.0-win-x64;$PWD/.tools/cargo-zigbuild-0.23.4/bin;$env:Path"
 .tools/node-v24.21.0-win-x64/node.exe .tools/pnpm/node_modules/pnpm/bin/pnpm.mjs --dir web build
 $env:CARGO_ZIGBUILD_ZIG_PATH = "$PWD/.tools/zig-pypi/ziglang/zig.exe"
 $env:CARGO_ZIGBUILD_CACHE_DIR = "$PWD/.tools/zig-cache"
-cargo +1.97.0 zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.17
-.tools/plugin-cli/bin/cpr-plugin.exe package --manifest plugin.json --binary target/aarch64-unknown-linux-gnu/release/cpr-data-toolkit --target aarch64-unknown-linux-gnu --resource-map web=web/dist --output-dir dist
+cargo +1.99.1 zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.17
+.tools/plugin-cli-v3.29.4/bin/cpr-plugin.exe package --manifest plugin.json --binary target/aarch64-unknown-linux-gnu/release/cpr-data-toolkit --target aarch64-unknown-linux-gnu --resource-map web=web/dist --output-dir dist
 ```
 
-锁文件已由 pnpm 12.6 生成并保留发布年龄策略；`allowBuilds` 只允许固定提交的 UI Git 依赖执行准备脚本。安装包已核对为 ARM64 ELF、glibc 2.17，后端执行权限和三份页面资源完整。
+构建 x86_64 时将命令中的 target 替换为 `x86_64-unknown-linux-gnu`。锁文件保留发布年龄策略；`allowBuilds` 只允许固定提交的 UI Git 依赖执行准备脚本。
 
 ### 交付与版本递增
 
-0.5 提供 Linux x86_64、Linux ARM64 和 macOS ARM64 的原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，中文发布说明见 `docs/releases/0.5.md`。
+0.8 交付 Linux x86_64、Linux ARM64 的原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/0.8.md`。
 
-以后每次交付新包增加 `0.1`，下次为 `0.6`（内部 `0.6.0`）；打包前同步 `plugin.json`、`Cargo.toml`、`web/package.json` 和 Cargo 锁文件中的本项目版本。失败修复及同一次打包重试不重复递增，约定见 `AGENTS.md`。
+以后每次交付新包增加 `0.1`，下次为 `0.9`（内部 `0.9.0`）；打包前同步 `plugin.json`、`Cargo.toml`、`web/package.json` 和 Cargo 锁文件中的本项目版本。失败修复及同一次打包重试不重复递增，约定见 `AGENTS.md`。
 
 多平台构建使用 `.github/workflows/package.yml`，在 GitHub Actions 手动运行「Build release packages」或使用 `gh workflow run package.yml --ref main`。工作流只构建产物，不自动发布；前端资源构建一次后供三个平台使用，Rust、SDK、CLI 和构建工具版本固定，Linux 使用 glibc 2.17 目标。下载对应构建产物后，通过 GitHub CLI 将安装包附到 Release。
 
-0.5 的前端类型检查、生产构建和三平台 release 构建已通过 [GitHub Actions](https://github.com/KazeLiu/cpr-data-toolkit/actions/runs/38541559697)。安装包已核对版本、实际架构、资源和执行权限，三份 ZIP 内容及 CRC 检查通过；Linux 最低 glibc 为 2.17，macOS ARM64 二进制声明最低 macOS 11.0。下载见 [0.5 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v0.5.0)，目标宿主运行效果仍由用户确认。
+本次本机构建与包检查见 `docs/releases/0.8.md`；未安装到宿主或写入真实数据，用户安装后验收。CI 仍保留 macOS ARM64 构建入口，本次没有交付该平台。

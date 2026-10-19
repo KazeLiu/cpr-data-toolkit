@@ -70,9 +70,8 @@ export async function request<T>(
   }
   return parse(value)
 }
-export function json(method: 'GET' | 'POST', path: string, body?: unknown) {
-  return request(method, path, body, object)
-}
+export const json = (method: 'GET' | 'POST', path: string, body?: unknown) =>
+  request(method, path, body, object)
 export function message(error: unknown): string {
   return error instanceof Error ? error.message : '操作未完成'
 }
@@ -199,8 +198,9 @@ export const getUaLogs = (offset: number) =>
           status !== 'unmatched' &&
           status !== 'missing_model' &&
           status !== 'rules_error'
-        )
+        ) {
           return invalid()
+        }
         const matched = entry.rule === null ? null : object(entry.rule)
         return {
           id: text(entry.id),
@@ -358,8 +358,51 @@ export interface UsageGroup {
   totalTokens: string | null
   originalCostUsd: string | null
 }
-export const getUsage = (sourceId: string, offset: number) =>
-  request('POST', 'api/import/usage', { sourceId, offset }, (value) => {
+export interface UsageOptions {
+  sourceId: string
+  sourceName: string
+  timezone: string
+  app: string | null
+  model: string
+  startTime: string | null
+  endTime: string | null
+}
+export interface DuplicateCandidate {
+  id: string
+  startedAtMs: number
+  completedAtMs: number
+  deltaMs: number
+  input: string
+  output: string
+  cacheRead: string | null
+  cacheWrite: string | null
+}
+export interface UsageEvidence {
+  sourceId: string
+  app: string
+  provider: string
+  model: string
+  date: string | null
+  sourceTimeMs: number | null
+  input: string | null
+  output: string | null
+  cacheRead: string | null
+  cacheWrite: string | null
+  excluded: boolean
+  reason: string
+  candidateCount: number
+  candidates: DuplicateCandidate[]
+}
+function signedInteger(value: unknown): number {
+  return typeof value === 'number' && Number.isSafeInteger(value) ? value : invalid()
+}
+export const getUsage = (
+  options: UsageOptions,
+  offset: number,
+  taskId: string | null = null,
+  reviewOffset = 0,
+) =>
+  request('POST', 'api/import/usage', { options, offset, taskId, reviewOffset }, (value) => {
     const r = object(value)
     return {
       total: integer(r.total),
@@ -367,6 +410,43 @@ export const getUsage = (sourceId: string, offset: number) =>
       excludedDuplicates: text(r.excludedDuplicates),
       rollupRows: text(r.rollupRows),
       warnings: array(r.warnings, text),
+      totals: {
+        requests: nullable(object(r.totals).requests),
+        tokens: nullable(object(r.totals).tokens),
+        costUsd: nullable(object(r.totals).costUsd),
+      },
+      evidenceTotal: integer(r.evidenceTotal),
+      evidence: array(r.evidence, (value): UsageEvidence => {
+        const item = object(value)
+        return {
+          sourceId: text(item.sourceId),
+          app: text(item.app),
+          provider: text(item.provider),
+          model: text(item.model),
+          date: nullable(item.date),
+          sourceTimeMs: item.sourceTimeMs === null ? null : signedInteger(item.sourceTimeMs),
+          input: nullable(item.input),
+          output: nullable(item.output),
+          cacheRead: nullable(item.cacheRead),
+          cacheWrite: nullable(item.cacheWrite),
+          excluded: boolean(item.excluded),
+          reason: text(item.reason),
+          candidateCount: integer(item.candidateCount),
+          candidates: array(item.candidates, (value): DuplicateCandidate => {
+            const candidate = object(value)
+            return {
+              id: text(candidate.id),
+              startedAtMs: signedInteger(candidate.startedAtMs),
+              completedAtMs: signedInteger(candidate.completedAtMs),
+              deltaMs: signedInteger(candidate.deltaMs),
+              input: text(candidate.input),
+              output: text(candidate.output),
+              cacheRead: nullable(candidate.cacheRead),
+              cacheWrite: nullable(candidate.cacheWrite),
+            }
+          }),
+        }
+      }),
       groups: array(r.groups, (value): UsageGroup => {
         const g = object(value)
         return {
@@ -403,6 +483,95 @@ export const getSummary = (period: string) =>
     const requests = text(r.requests)
     if (!/^\d+$/.test(tokens) || !/^\d+$/.test(requests)) return invalid()
     return { tokens, requests, period: text(r.period) }
+  })
+
+export interface UsageTask {
+  taskId: string
+  offset: number
+  total: number
+  imported: number
+  removed: number
+  updated: number
+  preserved: number
+  filtered: number
+  excluded: number
+  uncertain: number
+  options: UsageOptions
+  done: boolean
+}
+function usageTask(value: unknown): UsageTask {
+  const r = object(value)
+  return {
+    taskId: text(r.taskId),
+    offset: integer(r.offset),
+    total: integer(r.total),
+    imported: integer(r.imported),
+    removed: integer(r.removed),
+    updated: integer(r.updated),
+    preserved: integer(r.preserved),
+    filtered: integer(r.filtered),
+    excluded: integer(r.excluded),
+    uncertain: integer(r.uncertain),
+    options: (() => {
+      const options = object(r.options)
+      return {
+        sourceId: text(options.sourceId),
+        sourceName: text(options.sourceName),
+        timezone: text(options.timezone),
+        app: nullable(options.app),
+        model: text(options.model),
+        startTime: nullable(options.startTime),
+        endTime: nullable(options.endTime),
+      }
+    })(),
+    done: boolean(r.done),
+  }
+}
+export const prepareUsage = (options: UsageOptions) =>
+  request('POST', 'api/import/usage/prepare', options, usageTask)
+export const applyUsage = (taskId: string, offset: number, options: UsageOptions) =>
+  request('POST', 'api/import/usage/apply', { taskId, offset, options }, usageTask)
+export const discardUsage = (taskId: string) =>
+  request('POST', 'api/import/usage/discard', { taskId }, (value) => boolean(object(value).cleared))
+
+export interface Adjustment {
+  id: string
+  atMs: number
+  tokens: string
+  requests: string
+}
+export const getPendingAdjustment = () =>
+  request('GET', 'api/usage/adjustment', undefined, (value): Adjustment | null => {
+    const pending = object(value).pending
+    if (pending === null) return null
+    const r = object(pending)
+    return {
+      id: text(r.id),
+      atMs: integer(r.atMs),
+      tokens: text(r.tokens),
+      requests: text(r.requests),
+    }
+  })
+export const saveAdjustment = (command: Adjustment) =>
+  request('POST', 'api/usage/adjust', command, (value) => boolean(object(value).saved))
+
+export interface HistoryFilter {
+  startMs: number
+  endMs: number
+  provider: string
+  mode: string
+}
+export const syncHistoryPage = (filter: HistoryFilter, cursor: string | null) =>
+  request('POST', 'api/pricing/history', { ...filter, cursor }, (value) => {
+    const r = object(value)
+    return {
+      scanned: integer(r.scanned),
+      nextCursor: nullable(r.nextCursor),
+      results: array(r.results, (value) => {
+        const row = object(value)
+        return { id: text(row.id), status: text(row.status), message: text(row.message) }
+      }),
+    }
   })
 
 export interface TokenPrice {

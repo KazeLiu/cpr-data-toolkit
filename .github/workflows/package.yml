@@ -57,7 +57,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     env:
-      CPR_REV: 5358de53ddd4bda529cb63c422fd5c6af070f9c9
+      CPR_REV: bad2a245ab3522f8332d39b0c4ea3d7fb6a61f43
       MACOSX_DEPLOYMENT_TARGET: '11.0'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -65,9 +65,9 @@ jobs:
         with:
           name: web-resources
           path: web/dist/
-      - uses: dtolnay/rust-toolchain@1a3a6d54512beeaffd394f8d516ca16f2c506a20 # 1.97
+      - uses: dtolnay/rust-toolchain@1a3a6d54512beeaffd394f8d516ca16f2c506a20
         with:
-          toolchain: 1.97.0
+          toolchain: 1.99.1
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
@@ -75,7 +75,7 @@ jobs:
       - name: Install Linux link tools
         if: runner.os == 'Linux'
         run: |
-          cargo install --locked cargo-zigbuild --version 0.21.7
+          cargo install --locked cargo-zigbuild --version 0.23.4
           python3 -m pip install --target "$RUNNER_TEMP/zig" ziglang==0.14.1
           echo "CARGO_ZIGBUILD_ZIG_PATH=$RUNNER_TEMP/zig/ziglang/zig" >> "$GITHUB_ENV"
       - name: Install pinned package tool

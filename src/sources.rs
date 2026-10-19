@@ -1,3 +1,5 @@
+//! CCS 只读 SQL 来源解析、有效用量记录与共享汇总
+
 use crate::api::{ApiError, Result};
 use rusqlite::{
     Connection,
@@ -10,6 +12,7 @@ use serde_json::Value;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     str::FromStr,
+    sync::Arc,
     time::{Duration, Instant},
 };
 use tokio::sync::Mutex;
@@ -43,7 +46,7 @@ struct Upload {
     touched: Instant,
 }
 struct Source {
-    parsed: ParsedSource,
+    parsed: Arc<ParsedSource>,
     touched: Instant,
 }
 #[derive(Default)]
@@ -105,7 +108,7 @@ impl SourceStore {
         upload.touched = Instant::now();
         Ok(upload.bytes.len())
     }
-    pub async fn finish(&self, id: &str) -> Result<ParsedSource> {
+    pub async fn finish(&self, id: &str) -> Result<Arc<ParsedSource>> {
         let upload = self
             .uploads
             .lock()
@@ -118,6 +121,7 @@ impl SourceStore {
         let parsed = tokio::task::spawn_blocking(move || parse(&upload.bytes))
             .await
             .map_err(|_| ApiError::new(500, "parse", "来源文件处理失败"))??;
+        let parsed = Arc::new(parsed);
         let mut sources = self.sources.lock().await;
         sources.retain(|_, source| source.touched.elapsed() < TTL);
         if sources.len() >= 2 {
@@ -136,7 +140,7 @@ impl SourceStore {
         );
         Ok(parsed)
     }
-    pub async fn get(&self, id: &str) -> Result<ParsedSource> {
+    pub async fn get(&self, id: &str) -> Result<Arc<ParsedSource>> {
         let mut sources = self.sources.lock().await;
         let source = sources
             .get_mut(id)
@@ -535,6 +539,28 @@ pub struct UsagePreview {
     pub rollup_rows: String,
     pub groups: Vec<UsageGroup>,
     pub warnings: Vec<String>,
+    #[serde(skip)]
+    pub rows: Vec<UsageRow>,
+}
+#[derive(Clone)]
+pub struct UsageRow {
+    pub identity: String,
+    pub app: String,
+    pub provider: String,
+    pub model: String,
+    pub date: Option<String>,
+    pub time: Option<i64>,
+    pub requests: i64,
+    pub successes: i64,
+    pub tokens: [Option<i64>; 4],
+    pub cost: Option<String>,
+    pub request_id: Option<String>,
+    pub request_model: Option<String>,
+    pub pricing_model: Option<String>,
+    pub data_source: Option<String>,
+    pub raw_input: Option<i64>,
+    pub semantics: i64,
+    pub internal_duplicate: bool,
 }
 struct Aggregate {
     requests: u128,
@@ -597,29 +623,13 @@ fn fresh(
 }
 const EFFECTIVE: &str = "NOT (COALESCE(l.data_source,'proxy') IN ('session_log','codex_session','gemini_session','opencode_session') AND EXISTS (SELECT 1 FROM proxy_request_logs p WHERE COALESCE(p.data_source,'proxy')='proxy' AND p.app_type IN (l.app_type,CASE WHEN l.app_type='claude' THEN 'claude-desktop' ELSE l.app_type END) AND p.status_code>=200 AND p.status_code<300 AND p.input_tokens=l.input_tokens AND p.output_tokens=l.output_tokens AND p.cache_read_tokens=l.cache_read_tokens AND (p.cache_creation_tokens=l.cache_creation_tokens OR (l.cache_creation_tokens=0 AND COALESCE(l.data_source,'proxy') IN ('codex_session','gemini_session','opencode_session')) OR (p.cache_creation_tokens=0 AND p.input_token_semantics=0 AND COALESCE(l.data_source,'proxy')='codex_session')) AND p.created_at BETWEEN l.created_at-600 AND l.created_at+600 AND (LOWER(p.model)=LOWER(l.model) OR LOWER(p.model)='unknown' OR LOWER(l.model)='unknown')))";
 fn usage(conn: &Connection) -> Result<UsagePreview> {
-    let original: i64 = conn
-        .query_row("SELECT COUNT(*) FROM proxy_request_logs", [], |r| r.get(0))
-        .map_err(database_error)?;
-    let mut groups: BTreeMap<
-        (
-            String,
-            String,
-            String,
-            String,
-            Option<String>,
-            Option<String>,
-            Option<String>,
-        ),
-        Aggregate,
-    > = BTreeMap::new();
-    let mut detail_rows = 0u128;
-    let mut rollup_rows = 0u128;
+    let mut import_rows = Vec::new();
     for rollup in [false, true] {
         let sql = if rollup {
-            "SELECT app_type,provider_id,model,date,NULL,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens,input_token_semantics,total_cost_usd,request_count,success_count,request_model,pricing_model,NULL FROM usage_daily_rollups".into()
+            "SELECT app_type,provider_id,model,date,NULL,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens,input_token_semantics,total_cost_usd,request_count,success_count,request_model,pricing_model,NULL,NULL,0 FROM usage_daily_rollups".into()
         } else {
             format!(
-                "SELECT app_type,provider_id,model,NULL,created_at,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens,input_token_semantics,total_cost_usd,1,CASE WHEN status_code>=200 AND status_code<300 THEN 1 ELSE 0 END,request_model,pricing_model,data_source FROM proxy_request_logs l WHERE {EFFECTIVE}"
+                "SELECT app_type,provider_id,model,NULL,created_at,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens,input_token_semantics,total_cost_usd,1,CASE WHEN status_code>=200 AND status_code<300 THEN 1 ELSE 0 END,request_model,pricing_model,data_source,request_id,CASE WHEN {EFFECTIVE} THEN 0 ELSE 1 END FROM proxy_request_logs l"
             )
         };
         let mut statement = conn.prepare(&sql).map_err(database_error)?;
@@ -645,50 +655,105 @@ fn usage(conn: &Connection) -> Result<UsagePreview> {
                 return Err(ApiError::invalid("来源请求计数无效"));
             }
             let normalized_input = fresh(&app, input, read, write, semantics);
-            let group = groups
-                .entry((
-                    if rollup { "daily" } else { "detail" }.into(),
-                    app,
-                    provider,
-                    model,
-                    date,
-                    request_model,
-                    pricing_model,
-                ))
-                .or_default();
-            group.requests += requests as u128;
-            group.successes += successes as u128;
-            add_tokens(&mut group.raw_input, input);
-            for (old, value) in group
-                .tokens
-                .iter_mut()
-                .zip([normalized_input, output, read, write])
-            {
-                add_tokens(old, value);
+            let request_id: Option<String> = row.get(16).map_err(database_error)?;
+            import_rows.push(UsageRow {
+                identity: serde_json::to_string(&(
+                    if rollup { "daily" } else { "detail" },
+                    &app,
+                    &provider,
+                    &request_id,
+                    if rollup {
+                        Some((&date, &model, &request_model, &pricing_model))
+                    } else {
+                        None
+                    },
+                ))?,
+                app: app.clone(),
+                provider: provider.clone(),
+                model: model.clone(),
+                date: date.clone(),
+                time,
+                requests,
+                successes,
+                tokens: [normalized_input, output, read, write],
+                cost: cost.clone(),
+                request_id,
+                request_model,
+                pricing_model,
+                data_source,
+                raw_input: input,
+                semantics,
+                internal_duplicate: row.get(17).map_err(database_error)?,
+            });
+            if import_rows.len() > 200000 {
+                return Err(ApiError::invalid("来源用量超过 200000 行，请缩小导出范围"));
             }
-            group.cost = match (group.cost, cost) {
-                (Some(old), Some(value)) => old.checked_add(
-                    Decimal::from_str(&value)
-                        .map_err(|_| ApiError::invalid("来源金额不是有效十进制数字"))?,
-                ),
-                _ => None,
-            };
-            if let Some(time) = time {
-                group.first = Some(group.first.map_or(time, |v| v.min(time)));
-                group.last = Some(group.last.map_or(time, |v| v.max(time)));
-            }
-            group.semantics.insert(semantics);
-            group.data_sources.insert(data_source);
-            if rollup {
-                rollup_rows += 1;
-            } else {
-                detail_rows += 1;
-            }
-            if groups.len() > 10000 {
-                return Err(ApiError::invalid(
-                    "来源用量分组超过 10000 项，请缩小导出范围",
-                ));
-            }
+        }
+    }
+    summarize(import_rows)
+}
+
+pub fn summarize(rows: Vec<UsageRow>) -> Result<UsagePreview> {
+    let mut groups: BTreeMap<
+        (
+            String,
+            String,
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+        ),
+        Aggregate,
+    > = BTreeMap::new();
+    let mut detail_rows = 0u128;
+    let mut rollup_rows = 0u128;
+    let mut duplicates = 0u128;
+    for row in &rows {
+        if row.internal_duplicate {
+            duplicates += 1;
+            continue;
+        }
+        let rollup = row.date.is_some();
+        let group = groups
+            .entry((
+                if rollup { "daily" } else { "detail" }.into(),
+                row.app.clone(),
+                row.provider.clone(),
+                row.model.clone(),
+                row.date.clone(),
+                row.request_model.clone(),
+                row.pricing_model.clone(),
+            ))
+            .or_default();
+        group.requests += row.requests as u128;
+        group.successes += row.successes as u128;
+        add_tokens(&mut group.raw_input, row.raw_input);
+        for (old, value) in group.tokens.iter_mut().zip(row.tokens) {
+            add_tokens(old, value);
+        }
+        group.cost = match (group.cost, &row.cost) {
+            (Some(old), Some(value)) => old.checked_add(
+                Decimal::from_str(value)
+                    .map_err(|_| ApiError::invalid("来源金额不是有效十进制数字"))?,
+            ),
+            _ => None,
+        };
+        if let Some(time) = row.time {
+            group.first = Some(group.first.map_or(time, |v| v.min(time)));
+            group.last = Some(group.last.map_or(time, |v| v.max(time)));
+        }
+        group.semantics.insert(row.semantics);
+        group.data_sources.insert(row.data_source.clone());
+        if rollup {
+            rollup_rows += 1;
+        } else {
+            detail_rows += 1;
+        }
+        if groups.len() > 10000 {
+            return Err(ApiError::invalid(
+                "来源用量分组超过 10000 项，请缩小导出范围",
+            ));
         }
     }
     let groups = groups
@@ -734,15 +799,15 @@ fn usage(conn: &Connection) -> Result<UsagePreview> {
         .collect();
     let mut warnings = vec!["费用为来源原值，币种按 CCS USD 字段保留，不代表供应商账单".into()];
     if rollup_rows > 0 {
-        warnings.push(
-            "日聚合未记录来源时区，无法确认与明细的日界覆盖，二者分开展示且不合并总量".into(),
-        );
+        warnings
+            .push("日聚合未记录来源时区，导入前须填写来源时区并核对明细与日聚合的日期覆盖".into());
     }
     Ok(UsagePreview {
         detail_rows: detail_rows.to_string(),
-        excluded_duplicates: (original as u128 - detail_rows).to_string(),
+        excluded_duplicates: duplicates.to_string(),
         rollup_rows: rollup_rows.to_string(),
         groups,
         warnings,
+        rows,
     })
 }

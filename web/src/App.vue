@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, reactive } from 'vue'
 import { ZButton } from '@codex-proxy/ui'
+import { computed, onBeforeUnmount, onMounted, reactive } from 'vue'
 import { host, message } from './api'
 import SourceUpload from './components/SourceUpload.vue'
 import ApiImport from './features/ApiImport.vue'
-import UsageImport from './features/UsageImport.vue'
 import ManualAdjust from './features/ManualAdjust.vue'
-import Pricing from './features/Pricing.vue'
 import ModelUa from './features/ModelUa.vue'
+import Pricing from './features/Pricing.vue'
+import UsageImport from './features/UsageImport.vue'
 
 const tabs = ['API 导入', '用量导入', '手动调整', '模型定价', '模型UA定制']
 const page = reactive({
@@ -17,8 +17,10 @@ const page = reactive({
   sourceId: '',
   filename: '',
   uploadBusy: false,
-  importBusy: false,
+  apiImportBusy: false,
+  usageImportBusy: false,
 })
+const importBusy = computed(() => page.apiImportBusy || page.usageImportBusy)
 function theme() {
   document.documentElement.dataset.theme = host().theme
 }
@@ -61,14 +63,15 @@ onBeforeUnmount(() => window.removeEventListener('codex-proxy-themechange', them
           :type="page.tab === index ? 'primary' : 'default'"
           :variant="page.tab === index ? 'solid' : 'text'"
           @click="page.tab = index"
-          >{{ tab }}</ZButton
         >
+          {{ tab }}
+        </ZButton>
       </nav>
       <SourceUpload
         v-show="page.tab < 2"
         :source-id="page.sourceId"
         :filename="page.filename"
-        :locked="page.importBusy"
+        :locked="importBusy"
         @busy="page.uploadBusy = $event"
         @changed="
           (id, filename) => {
@@ -77,24 +80,28 @@ onBeforeUnmount(() => window.removeEventListener('codex-proxy-themechange', them
           }
         "
       />
-      <div id="panel-0" v-show="page.tab === 0" role="tabpanel" aria-labelledby="tab-0">
+      <div v-show="page.tab === 0" id="panel-0" role="tabpanel" aria-labelledby="tab-0">
         <ApiImport
           :source-id="page.sourceId"
-          :locked="page.uploadBusy"
+          :locked="page.uploadBusy || page.usageImportBusy"
           :active="page.tab === 0"
-          @busy="page.importBusy = $event"
+          @busy="page.apiImportBusy = $event"
         />
       </div>
-      <div id="panel-1" v-show="page.tab === 1" role="tabpanel" aria-labelledby="tab-1">
-        <UsageImport :source-id="page.sourceId" />
+      <div v-show="page.tab === 1" id="panel-1" role="tabpanel" aria-labelledby="tab-1">
+        <UsageImport
+          :source-id="page.sourceId"
+          :locked="page.uploadBusy || page.apiImportBusy"
+          @busy="page.usageImportBusy = $event"
+        />
       </div>
-      <div id="panel-2" v-show="page.tab === 2" role="tabpanel" aria-labelledby="tab-2">
+      <div v-show="page.tab === 2" id="panel-2" role="tabpanel" aria-labelledby="tab-2">
         <ManualAdjust />
       </div>
-      <div id="panel-3" v-show="page.tab === 3" role="tabpanel" aria-labelledby="tab-3">
+      <div v-show="page.tab === 3" id="panel-3" role="tabpanel" aria-labelledby="tab-3">
         <Pricing />
       </div>
-      <div id="panel-4" v-show="page.tab === 4" role="tabpanel" aria-labelledby="tab-4">
+      <div v-show="page.tab === 4" id="panel-4" role="tabpanel" aria-labelledby="tab-4">
         <ModelUa />
       </div>
     </template>

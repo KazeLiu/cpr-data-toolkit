@@ -1,11 +1,13 @@
+//! 插件管理路由注册与来源、用量、定价操作的类型化入口
+
 use crate::{
     accounts,
     api::{self, ApiError, Result},
-    host,
+    history_pricing, host,
     model_ua::{self, Configuration, RequestLogs},
     pricing,
     sources::SourceStore,
-    state,
+    state, usage,
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
 use gateway_plugin_sdk::{
@@ -16,16 +18,16 @@ use gateway_plugin_sdk::{
             ManagementPage, ManagementRegistration, ManagementRequest, ManagementResource,
             ManagementResponse, ManagementRoute,
         },
-        middleware::{MiddlewareHeader, http::Version},
+        middleware::MiddlewareHeader,
         services::settings::SyncPricing,
     },
-    client::{HttpBody, HttpFrame, HttpRequest, TypedCall, TypedReply},
+    client::{TypedCall, TypedReply},
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 pub fn registration() -> ManagementRegistration {
-    let get = ["api/keys", "api/ua", "api/pricing"];
+    let get = ["api/keys", "api/ua", "api/pricing", "api/usage/adjustment"];
     let post = [
         "api/models",
         "api/ua/save",
@@ -46,6 +48,11 @@ pub fn registration() -> ManagementRegistration {
         "api/import/key",
         "api/import/save",
         "api/import/usage",
+        "api/import/usage/prepare",
+        "api/import/usage/apply",
+        "api/import/usage/discard",
+        "api/usage/adjust",
+        "api/pricing/history",
     ];
     let mut routes = Vec::new();
     for (method, paths) in [("GET", get.as_slice()), ("POST", post.as_slice())] {
@@ -74,7 +81,7 @@ pub fn registration() -> ManagementRegistration {
         pages: vec![ManagementPage {
             id: "toolkit".into(),
             title: "CPR 数据工具箱".into(),
-            description: Some("连接导入、统计预览、定价与模型UA定制".into()),
+            description: Some("连接与用量导入、统计调整、定价与模型UA定制".into()),
             entry: "web/index.html".into(),
             icon: None,
         }],
@@ -84,9 +91,10 @@ pub fn registration() -> ManagementRegistration {
 pub async fn handle(
     sources: &SourceStore,
     logs: &RequestLogs,
+    imports: &usage::Imports,
     call: TypedCall<ManagementRequest>,
 ) -> std::result::Result<TypedReply<ManagementResponse>, PluginFault> {
-    match route(sources, logs, call).await {
+    match route(sources, logs, imports, call).await {
         Ok(value) => api::reply(200, &value),
         Err(error) => error.reply(),
     }
@@ -145,12 +153,6 @@ struct ImportKey {
     candidate_id: String,
 }
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct UsagePage {
-    source_id: String,
-    offset: usize,
-}
-#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Summary {
     period: String,
@@ -174,6 +176,7 @@ struct LogQuery {
 async fn route(
     sources: &SourceStore,
     logs: &RequestLogs,
+    imports: &usage::Imports,
     call: TypedCall<ManagementRequest>,
 ) -> Result<Value> {
     if !call.request.query.is_empty()
@@ -297,6 +300,24 @@ async fn route(
             )
         }
         ("GET", "api/pricing") => pricing::catalog(host).await,
+        ("GET", "api/usage/adjustment") => usage::pending_adjustment(host).await,
+        ("POST", "api/usage/adjust") => {
+            let _guard = sources.import_lock.lock().await;
+            usage::adjust(host, api::decode(&call.payload)?).await
+        }
+        ("POST", "api/import/usage/prepare") => {
+            let options: usage::ImportOptions = api::decode(&call.payload)?;
+            let source = sources.get(&options.source_id).await?;
+            imports.prepare(host, &source, options).await
+        }
+        ("POST", "api/import/usage/apply") => {
+            imports.apply(host, api::decode(&call.payload)?).await
+        }
+        ("POST", "api/import/usage/discard") => imports.discard(api::decode(&call.payload)?).await,
+        ("POST", "api/pricing/history") => {
+            let _guard = sources.import_lock.lock().await;
+            history_pricing::sync_page(host, api::decode(&call.payload)?).await
+        }
         ("POST", "api/pricing/update") => {
             pricing::update(host, request_id, api::decode(&call.payload)?).await
         }
@@ -324,35 +345,11 @@ async fn route(
             if !matches!(request.period.as_str(), "today" | "7d" | "30d") {
                 return Err(ApiError::invalid("统计范围无效"));
             }
-            let mut response = host
-                .dispatch_http(HttpRequest {
-                    settings: Value::Null,
-                    method: "GET".into(),
-                    uri: format!("/api/admin/usage/records/summary?period={}", request.period),
-                    version: Version::Http11,
-                    headers: vec![],
-                    timeout_ms: Some(30000),
-                    body: HttpBody::empty(),
-                })
-                .await?;
-            if response.status != 200 {
-                response.body.close().await?;
-                return Err(ApiError::new(502, "summary", "当前统计不可用"));
-            }
-            let mut bytes = Vec::new();
-            while let Some(frame) = response.body.read().await? {
-                if let HttpFrame::Data(data) = frame {
-                    if bytes.len() + data.len() > 256 * 1024 {
-                        response.body.close().await?;
-                        return Err(ApiError::new(502, "summary", "统计响应超过容量"));
-                    }
-                    bytes.extend(data);
-                }
-            }
-            let value: Value = serde_json::from_slice(&bytes)?;
-            let tokens = integer(value.pointer("/data/logicalRequests/totalTokens"))?;
-            let requests = integer(value.pointer("/data/logicalRequests/requestCount"))?;
-            Ok(json!({"period":request.period,"tokens":tokens,"requests":requests}))
+            let (tokens, requests) =
+                usage::read_summary(host, &format!("period={}", request.period)).await?;
+            Ok(
+                json!({"period":request.period,"tokens":tokens.to_string(),"requests":requests.to_string()}),
+            )
         }
         ("POST", "api/uploads/start") => {
             let request: UploadStart = api::decode(&call.payload)?;
@@ -383,38 +380,28 @@ async fn route(
         }
         ("POST", "api/import/preview") => {
             let request: SourceId = api::decode(&call.payload)?;
-            accounts::preview(host, &sources.get(&request.source_id).await?).await
+            let source = sources.get(&request.source_id).await?;
+            accounts::preview(host, &source).await
         }
         ("POST", "api/import/key") => {
             let request: ImportKey = api::decode(&call.payload)?;
-            accounts::key(
-                &sources.get(&request.source_id).await?,
-                &request.candidate_id,
-            )
+            let source = sources.get(&request.source_id).await?;
+            accounts::key(&source, &request.candidate_id)
         }
         ("POST", "api/import/save") => {
             let request: Import = api::decode(&call.payload)?;
             let _guard = sources.import_lock.lock().await;
-            accounts::import(
-                host,
-                &sources.get(&request.source_id).await?,
-                request.selections,
-            )
-            .await
+            let source = sources.get(&request.source_id).await?;
+            accounts::import(host, &source, request.selections).await
         }
         ("POST", "api/import/usage") => {
-            let request: UsagePage = api::decode(&call.payload)?;
-            let source = sources.get(&request.source_id).await?;
-            let groups: Vec<_> = source
-                .usage
-                .groups
-                .iter()
-                .skip(request.offset)
-                .take(100)
-                .collect();
-            Ok(
-                json!({"groups":groups,"total":source.usage.groups.len(),"detailRows":source.usage.detail_rows,"excludedDuplicates":source.usage.excluded_duplicates,"rollupRows":source.usage.rollup_rows,"warnings":source.usage.warnings}),
-            )
+            let request: usage::PreviewPage = api::decode(&call.payload)?;
+            let source = if request.task_id.is_none() {
+                Some(sources.get(&request.options.source_id).await?)
+            } else {
+                None
+            };
+            imports.preview(source.as_deref(), request).await
         }
         _ => Err(ApiError::new(404, "not_found", "未找到插件接口")),
     }
@@ -431,15 +418,4 @@ fn require_empty_object(bytes: &[u8]) -> Result<()> {
     } else {
         Ok(())
     }
-}
-fn integer(value: Option<&Value>) -> Result<String> {
-    let text = match value {
-        Some(Value::Number(n)) => n.to_string(),
-        Some(Value::String(s)) => s.clone(),
-        _ => return Err(ApiError::new(502, "summary", "统计原值缺失")),
-    };
-    if text.is_empty() || !text.bytes().all(|b| b.is_ascii_digit()) {
-        return Err(ApiError::new(502, "summary", "统计原值格式不正确"));
-    }
-    Ok(text)
 }

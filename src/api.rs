@@ -46,6 +46,25 @@ impl From<serde_json::Error> for ApiError {
         Self::new(500, "encoding", "数据格式处理失败")
     }
 }
+impl From<gateway_plugin_sdk::call::services::ServiceError> for ApiError {
+    fn from(error: gateway_plugin_sdk::call::services::ServiceError) -> Self {
+        let status = match error.kind.as_str() {
+            "invalid_input" | "capacity_exceeded" => 400,
+            "not_found" => 404,
+            "conflict" => 409,
+            _ => 502,
+        };
+        Self::new(
+            status,
+            "usage_service",
+            if status == 502 {
+                "宿主用量操作结果未确认，请保留本次任务并继续核对".into()
+            } else {
+                error.message
+            },
+        )
+    }
+}
 pub fn decode<T: DeserializeOwned>(bytes: &[u8]) -> Result<T> {
     serde_json::from_slice(bytes).map_err(|_| ApiError::invalid("请求正文格式不正确"))
 }

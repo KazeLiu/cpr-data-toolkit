@@ -1,6 +1,6 @@
 # CPR 数据工具箱：历史数据补入与维护
 
-记录日期：2026-10-13。项目名称为 CPR 数据工具箱，标识为 `cpr-data-toolkit`，开发目录为 `D:\code\cpr-data-toolkit`。CC Switch 是首个明确的导入来源。实现口径和任务顺序见已批准的 `implementation-plan.md`，首版源码已完成。
+记录日期：2026-10-13。本文保留首版需求及 0.5 阶段决策。0.6 已接入 CPR 新公开的原生用量写入合同，当前能力见 README，接入方案与验收边界见 [用量接入计划](usage-integration-plan.md)。项目标识为 `cpr-data-toolkit`，开发目录为 `D:\code\cpr-data-toolkit`，CC Switch 是首个明确的导入来源。
 
 ## 用户明确的五项需求
 

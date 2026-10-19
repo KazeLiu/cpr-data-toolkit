@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive } from 'vue'
-import { ZButton, ZDialog, ZInput, ZRadio, ZSelect, ZTable } from '@codex-proxy/ui'
 import type { TableColumn } from '@codex-proxy/ui'
+import type { Catalog, CommunityPrice, HistoryFilter, OperationResult, TokenPrice } from '../api'
+import { ZButton, ZDialog, ZInput, ZRadio, ZSelect, ZTable } from '@codex-proxy/ui'
+import { computed, onMounted, reactive } from 'vue'
 import {
   array,
   getCommunity,
@@ -11,10 +12,11 @@ import {
   operationResults,
   prices,
   request,
+  syncHistoryPage,
   text,
 } from '../api'
-import type { Catalog, CommunityPrice, OperationResult, TokenPrice } from '../api'
 import OperationResults from '../components/OperationResults.vue'
+import { localDateTime } from '../dates'
 
 interface Row {
   id: string
@@ -72,7 +74,24 @@ const community = reactive({
   error: '',
 })
 const drafts = reactive({ rows: [] as Draft[], open: false, error: '' })
-const history = reactive({ open: false, mode: 'missing', notice: '' })
+const history = reactive({
+  open: false,
+  mode: 'missing',
+  notice: '',
+  error: '',
+  busy: false,
+  pause: false,
+  start: localDateTime(new Date(Date.now() - 30 * 86400000)),
+  end: localDateTime(),
+  provider: 'openai',
+  filter: null as HistoryFilter | null,
+  cursor: null as string | null,
+  done: false,
+  scanned: 0,
+  saved: 0,
+  skipped: 0,
+  results: [] as { id: string; status: string; message: string }[],
+})
 const sync = reactive({
   open: false,
   preview: null as Record<string, unknown> | null,
@@ -305,13 +324,50 @@ async function openCommunity() {
   await loadCommunity()
 }
 function openHistory() {
-  history.mode = 'missing'
-  history.notice = ''
+  if (!history.filter || history.done) {
+    history.mode = 'missing'
+    history.provider = state.provider
+    history.end = localDateTime()
+  }
   history.open = true
 }
-function confirmHistory() {
+async function confirmHistory() {
+  if (!history.filter || history.done) {
+    const startMs = Date.parse(history.start)
+    const endMs = Date.parse(history.end)
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || startMs >= endMs) {
+      history.error = '请选择有效的起止时间'
+      return
+    }
+    history.filter = { startMs, endMs, provider: history.provider, mode: history.mode }
+    history.cursor = null
+    history.scanned = history.saved = history.skipped = 0
+    history.results = []
+    history.done = false
+  }
   history.open = false
-  history.notice = '上游接口未开放'
+  history.busy = true
+  state.busy = true
+  history.pause = false
+  history.error = ''
+  history.notice = ''
+  try {
+    do {
+      const page = await syncHistoryPage(history.filter, history.cursor)
+      history.scanned += page.scanned
+      history.saved += page.results.filter((row) => row.status === 'saved').length
+      history.skipped += page.results.filter((row) => row.status === 'skipped').length
+      history.results = page.results
+      history.cursor = page.nextCursor
+      history.done = page.nextCursor === null
+    } while (!history.done && !history.pause)
+    history.notice = history.done ? '历史 Token 费用同步完成' : '已暂停，可继续本次范围的同步'
+  } catch (error) {
+    history.error = `${message(error)}；后续页已停止，继续时重新核对当前页，已确认数量不含本次未知结果`
+  } finally {
+    history.busy = false
+    state.busy = false
+  }
 }
 function addCommunity() {
   const selected = community.rows.filter((row) => community.selected[row.model])
@@ -366,8 +422,9 @@ async function saveDrafts() {
   if (
     state.results.length === drafts.rows.length &&
     state.results.every((row) => row.status === 'saved')
-  )
+  ) {
     drafts.rows = []
+  }
 }
 async function previewSync() {
   state.busy = true
@@ -446,24 +503,25 @@ onMounted(load)
     <div class="toolbar">
       <ZSelect
         :model-value="state.provider"
-        @update:model-value="state.provider = $event ?? ''"
         aria-label="计价 Provider"
         :options="[
           { value: 'openai', label: 'OpenAI 兼容' },
           { value: 'xai', label: '原生 xAI' },
         ]"
         style="width: 180px"
+        @update:model-value="state.provider = $event ?? ''"
       /><ZInput
         v-model="state.search"
         aria-label="筛选模型"
         placeholder="筛选模型"
         style="max-width: 280px"
-      /><ZButton :loading="state.busy" @click="load">重新读取</ZButton
-      ><ZButton :disabled="state.busy || !state.catalog || selected.length > 500" @click="edit()"
-        >新增或批量编辑</ZButton
-      ><ZButton :disabled="state.busy || !state.catalog" @click="previewSync">宿主同步预览</ZButton
-      ><ZButton :disabled="state.busy" @click="openCommunity">models.dev 社区价目</ZButton
-      ><ZButton :disabled="state.busy" @click="openHistory">价格同步</ZButton>
+      /><ZButton :loading="state.busy" @click="load"> 重新读取 </ZButton
+      ><ZButton :disabled="state.busy || !state.catalog || selected.length > 500" @click="edit()">
+        新增或批量编辑 </ZButton
+      ><ZButton :disabled="state.busy || !state.catalog" @click="previewSync">
+        宿主同步预览 </ZButton
+      ><ZButton :disabled="state.busy" @click="openCommunity"> models.dev 社区价目 </ZButton
+      ><ZButton :disabled="state.busy || history.busy" @click="openHistory"> 价格同步 </ZButton>
     </div>
     <div class="toolbar">
       <ZButton
@@ -485,9 +543,38 @@ onMounted(load)
         >待写列表 {{ drafts.rows.length }}</ZButton
       ><span class="muted">已选 {{ selected.length }} 个 · 内置模型不能删除</span>
     </div>
-    <p v-if="state.error" class="error" role="alert">{{ state.error }}</p>
-    <p v-if="state.notice" class="success" role="status">{{ state.notice }}</p>
-    <p v-if="history.notice" class="notice" role="status">{{ history.notice }}</p>
+    <p v-if="state.error" class="error" role="alert">
+      {{ state.error }}
+    </p>
+    <p v-if="state.notice" class="success" role="status">
+      {{ state.notice }}
+    </p>
+    <p v-if="history.notice" class="notice" role="status">
+      {{ history.notice }}
+    </p>
+    <p v-if="history.error" class="error" role="alert">
+      {{ history.error }}
+    </p>
+    <div v-if="history.filter" class="section">
+      <p role="status">
+        已确认扫描 {{ history.scanned }} 条 · 写回 {{ history.saved }} 条 · 跳过
+        {{ history.skipped }} 条
+      </p>
+      <div class="toolbar">
+        <ZButton v-if="history.busy" :disabled="history.pause" @click="history.pause = true">
+          暂停后续页
+        </ZButton>
+        <ZButton v-else-if="!history.done" @click="openHistory"> 继续核对同步 </ZButton>
+      </div>
+      <details v-if="history.results.length">
+        <summary>最近一页处理结果</summary>
+        <ul>
+          <li v-for="row in history.results" :key="row.id">
+            <span class="mono">{{ row.id }}</span> · {{ row.message }}
+          </li>
+        </ul>
+      </details>
+    </div>
     <p v-if="selected.length > 500" class="notice">
       单次最多写入 500 个模型，请缩小筛选范围后重新全选
     </p>
@@ -530,11 +617,11 @@ onMounted(load)
           ><span>Provider</span
           ><ZSelect
             :model-value="editor.provider"
-            @update:model-value="editor.provider = $event ?? ''"
             :options="[
               { value: 'openai', label: 'OpenAI 兼容' },
               { value: 'xai', label: '原生 xAI' },
-            ]" /></label
+            ]"
+            @update:model-value="editor.provider = $event ?? ''" /></label
         ><label class="field"
           ><span>实际上游模型 ID，每行一个</span
           ><textarea v-model="editor.models" rows="4" class="mono" aria-label="实际上游模型 ID" />
@@ -589,30 +676,72 @@ onMounted(load)
     >
     <ZDialog v-model="history.open" title="同步历史费用" type="warning">
       <div class="panel">
-        <p>选择按当前 CPR 全局价目同步历史请求费用的方式</p>
+        <p>按当前 CPR 全局价目试算并写回选定范围的原生请求费用</p>
+        <div class="form-grid">
+          <label class="field"
+            ><span>开始时间（本机时区）</span
+            ><input
+              v-model="history.start"
+              type="datetime-local"
+              :disabled="!!history.filter && !history.done"
+          /></label>
+          <label class="field"
+            ><span>结束时间（不含）</span
+            ><input
+              v-model="history.end"
+              type="datetime-local"
+              :disabled="!!history.filter && !history.done"
+          /></label>
+          <label class="field"
+            ><span>Provider</span
+            ><ZSelect
+              :model-value="history.provider"
+              :options="[
+                { value: 'openai', label: 'OpenAI 兼容' },
+                { value: 'xai', label: '原生 xAI' },
+              ]"
+              :disabled="!!history.filter && !history.done"
+              @update:model-value="history.provider = $event ?? ''"
+          /></label>
+        </div>
         <div class="field" role="radiogroup" aria-label="历史费用同步方式">
           <ZRadio
             :model-value="history.mode"
-            @update:model-value="history.mode = String($event)"
             name="history-pricing-mode"
             value="missing"
-            >只补全缺失费用</ZRadio
+            :disabled="!!history.filter && !history.done"
+            @update:model-value="history.mode = String($event)"
           >
+            只补全缺失费用
+          </ZRadio>
           <p class="muted">保留已有费用，0 费用不视为缺失</p>
           <ZRadio
             :model-value="history.mode"
-            @update:model-value="history.mode = String($event)"
             name="history-pricing-mode"
             value="all"
-            >覆盖全部历史费用</ZRadio
+            :disabled="!!history.filter && !history.done"
+            @update:model-value="history.mode = String($event)"
           >
+            覆盖范围内全部历史费用
+          </ZRadio>
           <p class="muted">按当前价目重新计算并替换已有费用</p>
         </div>
-        <p class="notice">当前仅提供同步选项，确认后不会修改历史费用</p>
+        <p class="notice">
+          仅计算 Token 费用，不包含工具等附加费用 · 覆盖会替换原费用并清除原计价快照，不改变 Key
+          预算
+        </p>
+        <p class="muted">
+          缺少 Token、图像用量或无法计价的记录跳过 · CCS 导入的聚合贡献不参与费用重算
+        </p>
+        <p v-if="history.error" class="error" role="alert">
+          {{ history.error }}
+        </p>
       </div>
       <template #footer>
-        <ZButton @click="history.open = false">取消</ZButton>
-        <ZButton type="primary" @click="confirmHistory">确认同步</ZButton>
+        <ZButton @click="history.open = false"> 取消 </ZButton>
+        <ZButton type="primary" @click="confirmHistory">
+          {{ history.filter && !history.done ? '继续核对同步' : '确认同步' }}
+        </ZButton>
       </template>
     </ZDialog>
     <ZDialog v-model="community.open" title="models.dev 社区价目" width="min(1100px, 94vw)"
@@ -623,25 +752,25 @@ onMounted(load)
         <div class="toolbar">
           <ZSelect
             :model-value="community.provider"
-            @update:model-value="community.provider = $event ?? ''"
             :options="community.providers.map((p) => ({ value: p.id, label: p.name }))"
             aria-label="社区供应商"
             filterable
             :disabled="community.busy"
             style="width: 240px"
+            @update:model-value="community.provider = $event ?? ''"
             @change="loadCommunity()"
           /><ZSelect
             :model-value="community.target"
-            @update:model-value="community.target = $event ?? ''"
             :options="[
               { value: 'openai', label: '写入 OpenAI 兼容价目' },
               { value: 'xai', label: '写入原生 xAI 价目' },
             ]"
             aria-label="目标 Provider"
             style="width: 240px"
-          /><ZButton :loading="community.busy" @click="loadCommunity(community.offset, false)"
-            >重新获取</ZButton
-          >
+            @update:model-value="community.target = $event ?? ''"
+          /><ZButton :loading="community.busy" @click="loadCommunity(community.offset, false)">
+            重新获取
+          </ZButton>
         </div>
         <div class="toolbar">
           <ZInput
@@ -664,8 +793,9 @@ onMounted(load)
                 !community.appliedModelFilter)
             "
             @click="clearCommunityFilters"
-            >清空筛选</ZButton
           >
+            清空筛选
+          </ZButton>
         </div>
         <p
           v-if="
