@@ -2,9 +2,9 @@
 
 Codex Proxy RS 的连接与用量导入、统计维护和请求身份维护插件，项目标识为 `cpr-data-toolkit`，开发目录为 `D:\code\cpr-data-toolkit`。
 
-项目包含 Rust 后端和 Vue 管理页，SDK 与官方打包 CLI 固定到 CPR v3.29.4，最低宿主为 v3.29.0。当前版本为 **0.8**（包内 `0.8.0`），支持筛选用量导入、原生请求疑似重复核对、Token／请求数修正及历史 Token 费用写回。安装入口见 `docs/installation.md`。
+项目包含 Rust 后端和 Vue 管理页，SDK 与官方打包 CLI 固定到 CPR v3.29.7，最低宿主为 v3.29.7，使用 RPC v5。当前版本为 **0.9**（包内 `0.9.0`），支持筛选用量导入、原生请求疑似重复核对、Token／请求数修正及历史 Token 费用写回。安装入口见 `docs/installation.md`。
 
-0.8 安装包可从 [GitHub Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v0.8.0) 下载，本地产物位于 `dist/0.8/`，支持当前 CCS 来源的时段覆盖，使用宿主同款日期时间选择器，发布说明见 `docs/releases/0.8.md`
+0.9 安装包可从 [GitHub Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v0.9.0) 下载，本地产物位于 `dist/0.9/`，已用新 SDK 重新编译以适配 RPC v5，发布说明见 `docs/releases/0.9.md`。宿主 v3.29.0 至 v3.29.6 继续使用 0.8，不要只修改旧包清单后安装到新版宿主
 
 阅读入口：
 
@@ -105,14 +105,14 @@ $target = Read-Host 'CPR 宿主的 Rust target'
 cargo build --release --locked --target $target
 ```
 
-打包 CLI 同样固定到 v3.29.4 的提交：
+打包 CLI 同样固定到 v3.29.7 的提交：
 
 ```powershell
-cargo install --locked --git https://github.com/zyycn/codex-proxy-rs.git --rev bad2a245ab3522f8332d39b0c4ea3d7fb6a61f43 codex-proxy-plugin-cli --root .tools/plugin-cli-v3.29.4
-.tools/plugin-cli-v3.29.4/bin/cpr-plugin package --manifest plugin.json --binary "target/$target/release/cpr-data-toolkit" --target $target --resource-map web=web/dist --output-dir dist
+cargo install --locked --git https://github.com/zyycn/codex-proxy-rs.git --rev 78bc57c5cf24b01a38e985cdd739bb4ae89ce11f codex-proxy-plugin-cli --root .tools/plugin-cli-v3.29.7
+.tools/plugin-cli-v3.29.7/bin/cpr-plugin package --manifest plugin.json --binary "target/$target/release/cpr-data-toolkit" --target $target --resource-map web=web/dist --output-dir dist
 ```
 
-该版本 CLI 支持 `x86_64-unknown-linux-gnu`、`aarch64-unknown-linux-gnu` 和 `aarch64-apple-darwin`，没有 Windows 原生包目标。资源映射将 `web/dist` 中的三个页面文件放入包内 `web/`；输出包位于 `dist/`。详见[固定版本打包合同](https://github.com/zyycn/codex-proxy-rs/blob/bad2a245ab3522f8332d39b0c4ea3d7fb6a61f43/backend/apps/plugin-cli/README.md)。
+该版本 CLI 支持 `x86_64-unknown-linux-gnu`、`aarch64-unknown-linux-gnu` 和 `aarch64-apple-darwin`，没有 Windows 原生包目标。资源映射将 `web/dist` 中的三个页面文件放入包内 `web/`；输出包位于 `dist/`。详见[固定版本打包合同](https://github.com/zyycn/codex-proxy-rs/blob/78bc57c5cf24b01a38e985cdd739bb4ae89ce11f/backend/apps/plugin-cli/README.md)。
 
 ### 本机 Windows 交叉构建
 
@@ -124,17 +124,17 @@ $env:Path = "$PWD/.tools/node-v24.21.0-win-x64;$PWD/.tools/cargo-zigbuild-0.23.4
 $env:CARGO_ZIGBUILD_ZIG_PATH = "$PWD/.tools/zig-pypi/ziglang/zig.exe"
 $env:CARGO_ZIGBUILD_CACHE_DIR = "$PWD/.tools/zig-cache"
 cargo +1.99.1 zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.17
-.tools/plugin-cli-v3.29.4/bin/cpr-plugin.exe package --manifest plugin.json --binary target/aarch64-unknown-linux-gnu/release/cpr-data-toolkit --target aarch64-unknown-linux-gnu --resource-map web=web/dist --output-dir dist
+.tools/plugin-cli-v3.29.7/bin/cpr-plugin.exe package --manifest plugin.json --binary target/aarch64-unknown-linux-gnu/release/cpr-data-toolkit --target aarch64-unknown-linux-gnu --resource-map web=web/dist --output-dir dist
 ```
 
 构建 x86_64 时将命令中的 target 替换为 `x86_64-unknown-linux-gnu`。锁文件保留发布年龄策略；`allowBuilds` 只允许固定提交的 UI Git 依赖执行准备脚本。
 
 ### 交付与版本递增
 
-0.8 交付 Linux x86_64、Linux ARM64 的原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/0.8.md`。
+0.9 交付 Linux x86_64、Linux ARM64 的原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/0.9.md`。
 
-以后每次交付新包增加 `0.1`，下次为 `0.9`（内部 `0.9.0`）；打包前同步 `plugin.json`、`Cargo.toml`、`web/package.json` 和 Cargo 锁文件中的本项目版本。失败修复及同一次打包重试不重复递增，约定见 `AGENTS.md`。
+以后每次交付新包增加 `0.1`，下次为 `1.0`（内部 `1.0.0`）；打包前同步 `plugin.json`、`Cargo.toml`、`web/package.json` 和 Cargo 锁文件中的本项目版本。失败修复及同一次打包重试不重复递增，约定见 `AGENTS.md`。
 
 多平台构建使用 `.github/workflows/package.yml`，在 GitHub Actions 手动运行「Build release packages」或使用 `gh workflow run package.yml --ref main`。工作流只构建产物，不自动发布；前端资源构建一次后供三个平台使用，Rust、SDK、CLI 和构建工具版本固定，Linux 使用 glibc 2.17 目标。下载对应构建产物后，通过 GitHub CLI 将安装包附到 Release。
 
-本次本机构建与包检查见 `docs/releases/0.8.md`；未安装到宿主或写入真实数据，用户安装后验收。CI 仍保留 macOS ARM64 构建入口，本次没有交付该平台。
+本次本机构建与包检查见 `docs/releases/0.9.md`；未安装到宿主或写入真实数据，用户安装后验收。CI 仍保留 macOS ARM64 构建入口，本次没有交付该平台。

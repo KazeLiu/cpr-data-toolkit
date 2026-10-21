@@ -57,7 +57,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     env:
-      CPR_REV: bad2a245ab3522f8332d39b0c4ea3d7fb6a61f43
+      CPR_REV: 78bc57c5cf24b01a38e985cdd739bb4ae89ce11f
       MACOSX_DEPLOYMENT_TARGET: '11.0'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

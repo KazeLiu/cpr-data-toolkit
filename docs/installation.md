@@ -1,13 +1,15 @@
 # 安装 CPR 数据工具箱
 
-本次版本为 **0.8**，CPR 内部版本为 `0.8.0`，最低宿主为 **CPR v3.29.0**，清单兼容范围为 `>=3.29.0, <4.0.0`。SDK 和官方 CLI 固定到 v3.29.4，使用 RPC v4。按 CPR 宿主进程的平台选择安装包，不按打开管理页的电脑平台选择。
+本次版本为 **0.9**，CPR 内部版本为 `0.9.0`，最低宿主为 **CPR v3.29.7**，清单兼容范围为 `>=3.29.7, <4.0.0`。SDK 和官方 CLI 固定到 v3.29.7，使用 RPC v5。按 CPR 宿主进程的平台选择安装包，不按打开管理页的电脑平台选择。
+
+先升级宿主到 v3.29.7，再安装 0.9。旧版 0.8 使用 RPC v4，不能继续配合新版宿主使用；0.9 已用新 SDK 重新编译，不能安装到 v3.29.6 或更早的宿主。
 
 | 宿主平台 | 原生安装包 |
 | --- | --- |
-| Linux x86_64 | `kazeliu.cpr-data-toolkit-0.8.0-x86_64-unknown-linux-gnu.tar.gz` |
-| Linux ARM64 | `kazeliu.cpr-data-toolkit-0.8.0-aarch64-unknown-linux-gnu.tar.gz` |
+| Linux x86_64 | `kazeliu.cpr-data-toolkit-0.9.0-x86_64-unknown-linux-gnu.tar.gz` |
+| Linux ARM64 | `kazeliu.cpr-data-toolkit-0.9.0-aarch64-unknown-linux-gnu.tar.gz` |
 
-Linux 包需要 glibc 2.17 或更高，仅有 musl 的系统或容器不能直接运行。每个平台提供原生包、对应 `.sha256` 文件及 ZIP，下载入口为 [GitHub Release 0.8](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v0.8.0)，本地产物位于 `dist/0.8/`；本次没有提供 macOS 或 Windows 包。
+Linux 包需要 glibc 2.17 或更高，仅有 musl 的系统或容器不能直接运行。每个平台提供原生包、对应 `.sha256` 文件及 ZIP，下载入口为 [GitHub Release 0.9](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v0.9.0)，本地产物位于 `dist/0.9/`；本次没有提供 macOS 或 Windows 包。
 
 ## 解压 ZIP 后上传安装包
 
