@@ -5,8 +5,10 @@ mod host;
 mod management;
 mod model_ua;
 mod pricing;
+mod quota_export;
 mod sources;
 mod state;
+mod upstream;
 mod usage;
 
 use gateway_plugin_sdk::client::{PluginBuilder, PluginSession, SessionConfig, SessionError};
@@ -39,9 +41,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
     let plugin = builder
-        .middleware(move |call| {
+        .middleware(move |call: gateway_plugin_sdk::client::RequestCall| {
             let logs = Arc::clone(&middleware_logs);
-            async move { model_ua::middleware(&logs, call).await }
+            async move {
+                if call.request.head.endpoint == "/v1/quota" {
+                    quota_export::handle(call).await
+                } else {
+                    model_ua::middleware(&logs, call).await
+                }
+            }
         })?
         .management(management::registration(), move |call| {
             let sources = Arc::clone(&sources);

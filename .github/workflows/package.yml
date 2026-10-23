@@ -57,7 +57,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     env:
-      CPR_REV: 78bc57c5cf24b01a38e985cdd739bb4ae89ce11f
+      CPR_REV: 28799cc150c6d5fe8288d3d8a0d83ba99b1407cf
       MACOSX_DEPLOYMENT_TARGET: '11.0'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -79,7 +79,7 @@ jobs:
           python3 -m pip install --target "$RUNNER_TEMP/zig" ziglang==0.14.1
           echo "CARGO_ZIGBUILD_ZIG_PATH=$RUNNER_TEMP/zig/ziglang/zig" >> "$GITHUB_ENV"
       - name: Install pinned package tool
-        run: cargo install --locked --git https://github.com/zyycn/codex-proxy-rs.git --rev "$CPR_REV" codex-proxy-plugin-cli
+        run: cargo install --locked --git https://github.com/KazeLiu/codex-proxy-rs.git --rev "$CPR_REV" codex-proxy-plugin-cli
       - name: Build and package
         env:
           PLUGIN_TARGET: ${{ matrix.target }}

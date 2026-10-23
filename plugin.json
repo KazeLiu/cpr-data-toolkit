@@ -3,10 +3,10 @@
   "publisher": "kazeliu",
   "name": "cpr-data-toolkit",
   "displayName": "CPR 数据工具箱",
-  "version": "0.9.0",
-  "description": "连接与用量导入、统计调整、模型定价与模型UA定制",
+  "version": "1.0.0",
+  "description": "连接与用量导入、统计调整、模型定价、模型UA与上游额度查询",
   "license": "UNLICENSED",
-  "engines": { "codex-proxy-rs": ">=3.29.7, <4.0.0" },
+  "engines": { "codex-proxy-rs": ">=3.29.8, <4.0.0" },
   "main": "bin/plugin",
   "runtime": "trustedProcess",
   "configurationSchema": {

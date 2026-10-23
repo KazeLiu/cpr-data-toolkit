@@ -8,8 +8,9 @@ import ManualAdjust from './features/ManualAdjust.vue'
 import ModelUa from './features/ModelUa.vue'
 import Pricing from './features/Pricing.vue'
 import UsageImport from './features/UsageImport.vue'
+import UpstreamQuota from './features/UpstreamQuota.vue'
 
-const tabs = ['API 导入', '用量导入', '手动调整', '模型定价', '模型UA定制']
+const tabs = ['API 导入', '用量导入', '手动调整', '模型定价', '模型UA定制', '上游额度']
 const page = reactive({
   tab: 0,
   ready: false,
@@ -103,6 +104,9 @@ onBeforeUnmount(() => window.removeEventListener('codex-proxy-themechange', them
       </div>
       <div v-show="page.tab === 4" id="panel-4" role="tabpanel" aria-labelledby="tab-4">
         <ModelUa />
+      </div>
+      <div v-show="page.tab === 5" id="panel-5" role="tabpanel" aria-labelledby="tab-5">
+        <UpstreamQuota :active="page.tab === 5" />
       </div>
     </template>
   </main>

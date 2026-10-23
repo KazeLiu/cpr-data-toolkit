@@ -2,9 +2,9 @@
 
 Codex Proxy RS 的连接与用量导入、统计维护和请求身份维护插件，项目标识为 `cpr-data-toolkit`，开发目录为 `D:\code\cpr-data-toolkit`。
 
-项目包含 Rust 后端和 Vue 管理页，SDK 与官方打包 CLI 固定到 CPR v3.29.7，最低宿主为 v3.29.7，使用 RPC v5。当前版本为 **0.9**（包内 `0.9.0`），支持筛选用量导入、原生请求疑似重复核对、Token／请求数修正及历史 Token 费用写回。安装入口见 `docs/installation.md`。
+项目包含 Rust 后端和 Vue 管理页，当前预发行版本为 **1.0**（包内 `1.0.0`），使用 SDK **0.2.0**、RPC v5。需要包含 [宿主 PR #505](https://github.com/zyycn/codex-proxy-rs/pull/505) 的宿主（能力版本 **3.29.8**），不能直接安装到正式版 v3.29.7。安装入口见 `docs/installation.md`。
 
-0.9 安装包可从 [GitHub Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v0.9.0) 下载，本地产物位于 `dist/0.9/`，已用新 SDK 重新编译以适配 RPC v5，发布说明见 `docs/releases/0.9.md`。宿主 v3.29.0 至 v3.29.6 继续使用 0.8，不要只修改旧包清单后安装到新版宿主
+1.0 安装包见 [GitHub 预发行版](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.0.0)，发布说明见 `docs/releases/1.0.md`。正式版宿主 v3.29.7 继续使用 [插件 0.9](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v0.9.0)；v3.29.0 至 v3.29.6 使用 0.8，不要只修改旧包清单后安装到新版宿主
 
 阅读入口：
 
@@ -15,13 +15,41 @@ Codex Proxy RS 的连接与用量导入、统计维护和请求身份维护插�
 - `docs/initial-research.md`：固定源码基线与初次调研；其中候选功能以最新需求讨论为准
 - `docs/write-capability-audit.md`：关键写入能力、源码证据、用量口径与恢复边界
 
-## 五个标签页
+## 六个标签页
 
 - **API 导入**：解析 CCS 完整手动 SQL 导出，提取 Claude、Codex 和 Gemini 的名称、地址与 Key，选择后通过宿主账号合同接入 OpenAI Responses 兼容上游，不按来源协议拦截。表格支持多选、跨页全选、复制 API，以及主动查看或复制隐藏的 Key。相同地址与 Key 只接入一次，名称不同在弹窗中选择；更新已有账号使用精确凭据版本
 - **用量导入**：按应用、模型和来源时区的请求时间筛选完整 CCS 来源，预览 Token、费用与原生请求疑似重复项。确认后替换所选时段内该来源的全部旧贡献，再写入筛选结果；保留源内代理／会话去重、稳定记录键、时段外贡献、CPR 原生请求和其他来源
 - **手动调整**：填写 Token 总量和请求次数的正负增减量，读取今天／近 7 天／近 30 天的真实原值并预览，确认后写入首次提交时刻。结果未确认时保留原操作 ID，重新打开页面可继续核对
 - **模型定价**：读取、同步和批量维护 CPR 全局价目；社区价目支持关键词与模型 ID 过滤，缓存价格缺失或留空按零处理，输入与输出价格必填。「价格同步」按选定时间和 Provider 补全缺失费用或覆盖该范围原生请求的 Token 估算费用
 - **模型UA定制**：忽略大小写，按顺序使用第一条命中的启用规则覆盖 `User-Agent`；可选配套 `originator`、`version`，未填写的头不变更，未命中不改写。预览和安全验证用绿／红色块显示结果；请求改写日志展示时间、模型、命中规则及替换前后 UA
+- **上游额度**：选择宿主 API Key 账号，显式配置 CPR、Kimi、DeepSeek 或 Sub2API 查询。百分比使用额度进度条，余额按原币种展示；CPR 账号列表默认展开，支持查看上游分享的模型
+
+## 查看上游额度
+
+打开「上游额度」，选择已有的 OpenAI API Key 账号和查询类型，点击「保存并获取」。每个账号独立保存查询类型和最近快照，默认不查询，不根据地址或模型自动识别上游。
+
+- **CPR**：查询账号地址对应的 `/v1/quota`，使用 `schemaVersion: 1` 数组协议。上游也需安装并启用本插件，为此 Key 开启额度分享；账号名称和模型列表由上游的分享设置决定，未分享时不推测。卡片显示剩余额度，名称旁的「模型详情」打开模型列表
+- **Kimi**：按量付费和编程订阅分别选择国内或海外，使用对应的官方查询地址。编程订阅的短周期与周额度并排显示已用进度，按量余额保留现金和代金券明细
+- **DeepSeek**：查询账号地址的 `/user/balance`，分别显示 CNY、USD 余额及赠送、充值明细
+- **Sub2API**：查询账号地址的 `/v1/usage`，显示钱包、Key 总额度、订阅及限额窗口，金额不换算成百分比
+
+保存开启设置后由宿主获取首个快照，随后使用宿主额度后台任务刷新，关闭页面后仍继续获取。「刷新额度」手动查询，「重新读取」只读取已保存快照，不请求上游。CPR 后台间隔一分钟，其他模式五分钟；手动查询至少间隔十秒，Kimi 编程订阅至少十五秒。
+
+卡片使用主题淡底色、默认展开和限高内部滚动，标题及收起操作不随列表滚动。右侧「上游额度最后获取时间」使用上游观测时间，界面时间按浏览器本地时区显示；未知额度保持未知，重置时间已过也不自动把百分比恢复。
+
+查询失败保留同一凭据的旧快照，并显示错误和「数据过期」。更换账号 Key、切换查询类型或关闭查询后，不再使用旧凭据版本的快照。保存设置按宿主凭据版本条件更新，冲突时重新读取，不覆盖其他页面的设置。
+
+查询、解析和保存均由宿主 Provider 完成，使用账号当前凭据与单账号出站代理；插件不读取 Key，不保存独立额度状态，也不运行额度定时器。超时、大小上限、刷新互斥和迟到结果隔离由宿主管理，不影响账号调度、凭据健康与本地计费。金额按十进制原值展示，不补零或换算为百分比。
+
+### 向下游分享
+
+上游 A 与下游 B 均安装并启用插件。A 在「上游额度 → 向下游分享额度」选择 B 使用的 Client Key，开启分享；名称和模型默认不分享。B 为接入 A 的 API Key 账号选择 CPR 查询，宿主便会自动获取并保存快照。
+
+`/v1/quota` 由插件的请求中间件响应，未安装或停用插件时不提供透传。宿主负责 Client Key 鉴权、账号分组和访问范围、模型过滤、匿名 ID 与分享授权，插件通过 `ExportQuota` 获取过滤后的数据，不接收原始 Key。停用账号不导出，上游拒绝认证或权限后停止下传旧快照，成功恢复查询后再开放。
+
+### SDK 来源
+
+SDK 和打包 CLI 固定到已推送的 [宿主提交 `28799cc1`](https://github.com/KazeLiu/codex-proxy-rs/commit/28799cc150c6d5fe8288d3d8a0d83ba99b1407cf)，正式锁文件使用该 Git 来源，不需要本地 Cargo patch。该能力尚未随宿主正式版发布，接入时核对宿主是否包含此提交。
 
 ## 配置模型 UA
 
@@ -96,7 +124,7 @@ CCS 代理日志的 `created_at` 是写日志时的 UTC 秒，适合与 CPR 完�
 
 需要 Node.js 24 或更高、pnpm 12.6.0、Rust 1.99.1，以及宿主目标的 Rust target 和链接工具。前端 Git 依赖 `@codex-proxy/ui` 固定到 0.5.0 的提交 `5dec2c78fba37ee1f4c5007e4a0316837a72655a`，需要执行其构建脚本，已在 `web/pnpm-workspace.yaml` 明确允许；不要用 `--ignore-scripts` 安装后直接构建页面。
 
-在项目根目录执行以下命令前，先确认宿主 target；开发电脑为 Windows 不代表宿主也是 Windows。
+构建前确认宿主 target；开发电脑为 Windows 不代表宿主也是 Windows。
 
 ```powershell
 pnpm --dir web install --frozen-lockfile
@@ -105,14 +133,14 @@ $target = Read-Host 'CPR 宿主的 Rust target'
 cargo build --release --locked --target $target
 ```
 
-打包 CLI 同样固定到 v3.29.7 的提交：
+打包 CLI 与 SDK 使用同一固定提交：
 
 ```powershell
-cargo install --locked --git https://github.com/zyycn/codex-proxy-rs.git --rev 78bc57c5cf24b01a38e985cdd739bb4ae89ce11f codex-proxy-plugin-cli --root .tools/plugin-cli-v3.29.7
-.tools/plugin-cli-v3.29.7/bin/cpr-plugin package --manifest plugin.json --binary "target/$target/release/cpr-data-toolkit" --target $target --resource-map web=web/dist --output-dir dist
+cargo install --locked --git https://github.com/KazeLiu/codex-proxy-rs.git --rev 28799cc150c6d5fe8288d3d8a0d83ba99b1407cf codex-proxy-plugin-cli --root .tools/plugin-cli-quota
+.tools/plugin-cli-quota/bin/cpr-plugin package --manifest plugin.json --binary "target/$target/release/cpr-data-toolkit" --target $target --resource-map web=web/dist --output-dir dist
 ```
 
-该版本 CLI 支持 `x86_64-unknown-linux-gnu`、`aarch64-unknown-linux-gnu` 和 `aarch64-apple-darwin`，没有 Windows 原生包目标。资源映射将 `web/dist` 中的三个页面文件放入包内 `web/`；输出包位于 `dist/`。详见[固定版本打包合同](https://github.com/zyycn/codex-proxy-rs/blob/78bc57c5cf24b01a38e985cdd739bb4ae89ce11f/backend/apps/plugin-cli/README.md)。
+该版本 CLI 支持 `x86_64-unknown-linux-gnu`、`aarch64-unknown-linux-gnu` 和 `aarch64-apple-darwin`，没有 Windows 原生包目标。资源映射将 `web/dist` 中的三个页面文件放入包内 `web/`；输出包位于 `dist/`。详见[固定版本打包合同](https://github.com/KazeLiu/codex-proxy-rs/blob/28799cc150c6d5fe8288d3d8a0d83ba99b1407cf/backend/apps/plugin-cli/README.md)。
 
 ### 本机 Windows 交叉构建
 
@@ -124,17 +152,17 @@ $env:Path = "$PWD/.tools/node-v24.21.0-win-x64;$PWD/.tools/cargo-zigbuild-0.23.4
 $env:CARGO_ZIGBUILD_ZIG_PATH = "$PWD/.tools/zig-pypi/ziglang/zig.exe"
 $env:CARGO_ZIGBUILD_CACHE_DIR = "$PWD/.tools/zig-cache"
 cargo +1.99.1 zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.17
-.tools/plugin-cli-v3.29.7/bin/cpr-plugin.exe package --manifest plugin.json --binary target/aarch64-unknown-linux-gnu/release/cpr-data-toolkit --target aarch64-unknown-linux-gnu --resource-map web=web/dist --output-dir dist
+.tools/plugin-cli-quota/bin/cpr-plugin.exe package --manifest plugin.json --binary target/aarch64-unknown-linux-gnu/release/cpr-data-toolkit --target aarch64-unknown-linux-gnu --resource-map web=web/dist --output-dir dist
 ```
 
 构建 x86_64 时将命令中的 target 替换为 `x86_64-unknown-linux-gnu`。锁文件保留发布年龄策略；`allowBuilds` 只允许固定提交的 UI Git 依赖执行准备脚本。
 
 ### 交付与版本递增
 
-0.9 交付 Linux x86_64、Linux ARM64 的原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/0.9.md`。
+1.0 预发行版提供 Linux x86_64、Linux ARM64 和 macOS ARM64 的原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/1.0.md`。
 
-以后每次交付新包增加 `0.1`，下次为 `1.0`（内部 `1.0.0`）；打包前同步 `plugin.json`、`Cargo.toml`、`web/package.json` 和 Cargo 锁文件中的本项目版本。失败修复及同一次打包重试不重复递增，约定见 `AGENTS.md`。
+以后每次交付新包增加 `0.1`；打包前同步 `plugin.json`、`Cargo.toml`、`web/package.json` 和 Cargo 锁文件中的本项目版本。失败修复及同一次打包重试不重复递增，约定见 `AGENTS.md`。
 
-多平台构建使用 `.github/workflows/package.yml`，在 GitHub Actions 手动运行「Build release packages」或使用 `gh workflow run package.yml --ref main`。工作流只构建产物，不自动发布；前端资源构建一次后供三个平台使用，Rust、SDK、CLI 和构建工具版本固定，Linux 使用 glibc 2.17 目标。下载对应构建产物后，通过 GitHub CLI 将安装包附到 Release。
+多平台构建使用 `.github/workflows/package.yml`，在 GitHub Actions 手动运行「Build release packages」，选择待发布提交所在分支。工作流只构建产物，不自动发布；前端资源构建一次后供三个平台使用，Rust、SDK、CLI 和构建工具版本固定，Linux 使用 glibc 2.17 目标。下载对应构建产物后，通过 GitHub CLI 将安装包附到 Release。
 
-本次本机构建与包检查见 `docs/releases/0.9.md`；未安装到宿主或写入真实数据，用户安装后验收。CI 仍保留 macOS ARM64 构建入口，本次没有交付该平台。
+实际发行物和已验证平台以对应 Release 附件与说明为准。Windows 隔离 A/B 环境已用模拟账号验证额度透传；Linux/macOS 安装和真实上游接入仍需验收。

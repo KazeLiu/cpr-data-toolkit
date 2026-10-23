@@ -7,7 +7,7 @@ use crate::{
     model_ua::{self, Configuration, RequestLogs},
     pricing,
     sources::SourceStore,
-    state, usage,
+    state, upstream, usage,
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
 use gateway_plugin_sdk::{
@@ -27,9 +27,20 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 pub fn registration() -> ManagementRegistration {
-    let get = ["api/keys", "api/ua", "api/pricing", "api/usage/adjustment"];
+    let get = [
+        "api/keys",
+        "api/ua",
+        "api/pricing",
+        "api/usage/adjustment",
+        "api/upstream/accounts",
+    ];
     let post = [
         "api/models",
+        "api/upstream/get",
+        "api/upstream/save",
+        "api/upstream/refresh",
+        "api/upstream/sharing",
+        "api/upstream/sharing/save",
         "api/ua/save",
         "api/ua/preview",
         "api/ua/diagnose",
@@ -81,7 +92,7 @@ pub fn registration() -> ManagementRegistration {
         pages: vec![ManagementPage {
             id: "toolkit".into(),
             title: "CPR 数据工具箱".into(),
-            description: Some("连接与用量导入、统计调整、定价与模型UA定制".into()),
+            description: Some("连接与用量导入、统计调整、定价、模型UA与上游额度".into()),
             entry: "web/index.html".into(),
             icon: None,
         }],
@@ -192,6 +203,18 @@ async fn route(
         .clone()
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     match (call.request.method.as_str(), call.request.path.as_str()) {
+        ("GET", "api/upstream/accounts") => upstream::accounts(host).await,
+        ("POST", "api/upstream/get") => upstream::get(host, api::decode(&call.payload)?).await,
+        ("POST", "api/upstream/save") => upstream::save(host, api::decode(&call.payload)?).await,
+        ("POST", "api/upstream/refresh") => {
+            upstream::refresh(host, api::decode(&call.payload)?).await
+        }
+        ("POST", "api/upstream/sharing") => {
+            upstream::sharing(host, api::decode(&call.payload)?).await
+        }
+        ("POST", "api/upstream/sharing/save") => {
+            upstream::save_sharing(host, api::decode(&call.payload)?).await
+        }
         ("GET", "api/keys") => {
             let mut keys = Vec::new();
             let mut cursor = None;
