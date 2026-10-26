@@ -1,8 +1,8 @@
 # 安装 CPR 数据工具箱
 
-当前开发版本为 **1.2**，内部版本 `1.2.0`，使用公开 SDK 0.1.0、RPC v6 和 middleware v6，不兼容 RPC v5。宿主必须包含[通用接口提交 `af6fc21d`](https://github.com/KazeLiu/codex-proxy-rs/commit/af6fc21d70540a92fe4d5695ce1a7e999a65e6a3)，仅有正式版 v3.32.0 尚不能使用这些接口。SDK 与打包 CLI 均固定到该提交
+当前版本为 **1.2 预发行版**，内部版本 `1.2.0`，使用公开 SDK 0.1.0、RPC v6 和 middleware v6，不兼容 RPC v5。宿主必须包含 [PR #525](https://github.com/zyycn/codex-proxy-rs/pull/525)的通用接口（固定 SDK 提交 [`af6fc21d`](https://github.com/KazeLiu/codex-proxy-rs/commit/af6fc21d70540a92fe4d5695ce1a7e999a65e6a3)），仅有正式版 v3.32.0 尚不能使用这些接口。SDK 与打包 CLI 均固定到该提交
 
-1.2 尚未生成或发布安装包。已发布的 1.1 实验包依赖 #505 和 RPC v5，不能通过改清单安装到 RPC v6 宿主。构建命令见 README「构建与打包」
+从 [1.2 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.2.0)下载对应平台的 `.tar.gz` 和 `.sha256`，或下载 ZIP 后解压。通过宿主 GitHub 来源安装时，仓库填写 `KazeLiu/cpr-data-toolkit`，标签明确填写 `v1.2.0` 并允许预发行；标签留空不会选择此版本。1.1 实验包依赖 #505 和 RPC v5，不能通过改清单安装到 RPC v6 宿主
 
 按 CPR 宿主进程的平台选择 Linux x86_64、Linux ARM64 或 macOS ARM64 构建目标，不按打开管理页的电脑平台选择。Linux 目标为 glibc 2.17 或更高；仅有 musl 的系统或容器不能直接运行，没有 Windows 正式包
 

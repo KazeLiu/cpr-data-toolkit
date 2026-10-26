@@ -2,9 +2,9 @@
 
 Codex Proxy RS 的连接与用量导入、统计维护和请求身份维护插件，项目标识为 `cpr-data-toolkit`，开发目录为 `D:\code\cpr-data-toolkit`。
 
-项目包含 Rust 后端和 Vue 管理页，当前开发版本为 **1.2**（包内 `1.2.0`），使用公开 SDK **0.1.0**、RPC v6 和 middleware v6，不兼容 RPC v5。需要包含[宿主通用接口提交 `af6fc21d`](https://github.com/KazeLiu/codex-proxy-rs/commit/af6fc21d70540a92fe4d5695ce1a7e999a65e6a3)的宿主；仅有正式版 v3.32.0 还不包含这些接口。安装入口见 `docs/installation.md`
+项目包含 Rust 后端和 Vue 管理页，当前版本为 **1.2 预发行版**（包内 `1.2.0`），使用公开 SDK **0.1.0**、RPC v6 和 middleware v6，不兼容 RPC v5。需要包含[宿主 PR #525](https://github.com/zyycn/codex-proxy-rs/pull/525)的宿主，SDK 固定到[通用接口提交 `af6fc21d`](https://github.com/KazeLiu/codex-proxy-rs/commit/af6fc21d70540a92fe4d5695ce1a7e999a65e6a3)；仅有正式版 v3.32.0 还不包含这些接口。安装入口见 `docs/installation.md`
 
-1.2 尚未打包或发布。已发布的 [1.1 实验包](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.1.0)依赖已关闭的 #505 和 RPC v5，不能安装到 RPC v6 宿主；不要只修改旧包清单
+从 [1.2 预发行版](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.2.0)选择对应平台附件。已发布的 [1.1 实验包](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.1.0)依赖已关闭的 #505 和 RPC v5，不能安装到 RPC v6 宿主；不要只修改旧包清单。最新稳定发行仍为 0.9
 
 阅读入口：
 
@@ -174,10 +174,10 @@ cargo +1.99.1 zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.1
 
 ### 交付与版本递增
 
-1.1 预发行版提供 Linux x86_64、Linux ARM64 和 macOS ARM64 的原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/1.1.md`。
+1.2 预发行版提供 Linux x86_64、Linux ARM64 和 macOS ARM64 的原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/1.2.md`。
 
 以后每次交付新包增加 `0.1`；打包前同步 `plugin.json`、`Cargo.toml`、`web/package.json` 和 Cargo 锁文件中的本项目版本。失败修复及同一次打包重试不重复递增，约定见 `AGENTS.md`。
 
 多平台构建使用 `.github/workflows/package.yml`，在 GitHub Actions 手动运行「Build release packages」，选择待发布提交所在分支。工作流只构建产物，不自动发布；前端资源构建一次后供三个平台使用，Rust、SDK、CLI 和构建工具版本固定，Linux 使用 glibc 2.17 目标。下载对应构建产物后，通过 GitHub CLI 将安装包附到 Release。
 
-实际发行物和已验证平台以对应 Release 附件与说明为准。当前开发版本尚未完成运行验收，原实验包的模拟环境证据不能替代 RPC v6 和插件自有状态链路的验收
+实际发行物和已验证平台以对应 Release 附件与说明为准。1.2 尚未完成目标宿主运行验收，原实验包的模拟环境证据不能替代 RPC v6 和插件自有状态链路的验收
