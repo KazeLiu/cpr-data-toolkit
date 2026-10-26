@@ -160,29 +160,37 @@ impl Query<'_> {
         if tokio::time::Instant::now() >= self.deadline {
             return Err("timeout");
         }
-        let request = self.host.account_http(AccountHttpRequest {
-            account_id: self.credential.account_id.clone(),
-            credential_revision: self.credential.credential_revision,
-            request: HttpRequest {
-                method: "GET".into(),
-                url: url.into(),
-                headers: vec![
-                    (
-                        "authorization".into(),
-                        format!("Bearer {}", self.key).into_bytes(),
-                    ),
-                    ("accept".into(), b"application/json".to_vec()),
-                ],
+        let request = self.host.account_http(
+            AccountHttpRequest {
+                account_id: self.credential.account_id.clone(),
+                credential_revision: self.credential.credential_revision,
+                request: HttpRequest {
+                    method: "GET".into(),
+                    url: url.into(),
+                    headers: vec![
+                        (
+                            "authorization".into(),
+                            format!("Bearer {}", self.key).into_bytes(),
+                        ),
+                        ("accept".into(), b"application/json".to_vec()),
+                    ],
+                },
             },
-            body: vec![],
-        });
+            vec![],
+        );
         let mut response = tokio::time::timeout_at(self.deadline, request)
             .await
             .map_err(|_| "timeout")?
-            .map_err(|error| match error.code {
-                ErrorCode::Timeout => "timeout",
-                ErrorCode::Conflict => "conflict",
-                _ => "network_error",
+            .map_err(|error| {
+                if super::support::is_missing(&error) {
+                    "host_unsupported"
+                } else {
+                    match error.code {
+                        ErrorCode::Timeout => "timeout",
+                        ErrorCode::Conflict => "conflict",
+                        _ => "network_error",
+                    }
+                }
             })?;
         let result = async {
             match response.status {

@@ -2,9 +2,9 @@
 
 Codex Proxy RS 的连接与用量导入、统计维护和请求身份维护插件，项目标识为 `cpr-data-toolkit`，开发目录为 `D:\code\cpr-data-toolkit`。
 
-项目包含 Rust 后端和 Vue 管理页，当前版本为 **1.2 预发行版**（包内 `1.2.0`），使用公开 SDK **0.1.0**、RPC v6 和 middleware v6，不兼容 RPC v5。需要包含[宿主 PR #525](https://github.com/zyycn/codex-proxy-rs/pull/525)的宿主，SDK 固定到[通用接口提交 `af6fc21d`](https://github.com/KazeLiu/codex-proxy-rs/commit/af6fc21d70540a92fe4d5695ce1a7e999a65e6a3)；仅有正式版 v3.32.0 还不包含这些接口。安装入口见 `docs/installation.md`
+项目包含 Rust 后端和 Vue 管理页，当前版本为 **1.3 稳定版**（包内 `1.3.0`），使用公开 SDK **0.1.0**、RPC v7 和 middleware v6，不兼容旧 RPC。SDK 与打包 CLI 固定到 [PR #525 的提交 `1fcfc977`](https://github.com/KazeLiu/codex-proxy-rs/commit/1fcfc9771d2f15b6c45a60b55ce332b8b2065871)，需要支持 RPC v7 的宿主。安装入口见 `docs/installation.md`
 
-从 [1.2 预发行版](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.2.0)选择对应平台附件。已发布的 [1.1 实验包](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.1.0)依赖已关闭的 #505 和 RPC v5，不能安装到 RPC v6 宿主；不要只修改旧包清单。最新稳定发行仍为 0.9
+从 [1.3 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.3.0)选择对应平台附件。RPC v6 的 1.2 与 RPC v5 的 1.0/1.1 安装包均不能用于 RPC v7 宿主，不能只改清单版本号
 
 阅读入口：
 
@@ -62,9 +62,11 @@ CPR 查询期限五秒，Kimi 编程订阅与 Command Code 十五秒，其他模
 
 ### SDK 来源
 
-SDK 和打包 CLI 固定到[宿主提交 `af6fc21d`](https://github.com/KazeLiu/codex-proxy-rs/commit/af6fc21d70540a92fe4d5695ce1a7e999a65e6a3)。插件只使用公开 `gateway-plugin-sdk` 0.1.0，不依赖宿主内部模块
+SDK 和打包 CLI 固定到[宿主提交 `1fcfc977`](https://github.com/KazeLiu/codex-proxy-rs/commit/1fcfc9771d2f15b6c45a60b55ce332b8b2065871)。插件只使用公开 `gateway-plugin-sdk` 0.1.0，不依赖宿主内部模块
 
 新增第三方查询类型只需修改插件。宿主需具备通用账号 HTTP、入口验证、授权检查与原生额度明细接口；这些接口尚未随宿主正式版发布
+
+页面会检查所需接口，缺失时显示宿主升级提示和「重新检查」，分别禁用额度查询或分享操作；后台不会反复调用缺失的查询接口，其他标签页仍可使用。该提示适用于插件可启动的 RPC v7 宿主，RPC v6 及更早宿主不能启动本版本，应先升级宿主
 
 ## 配置模型 UA
 
@@ -151,11 +153,11 @@ cargo build --release --locked --target $target
 打包 CLI 与 SDK 使用同一固定提交：
 
 ```powershell
-cargo install --locked --git https://github.com/KazeLiu/codex-proxy-rs.git --rev af6fc21d70540a92fe4d5695ce1a7e999a65e6a3 codex-proxy-plugin-cli --root .tools/plugin-cli-v6
-.tools/plugin-cli-v6/bin/cpr-plugin package --manifest plugin.json --binary "target/$target/release/cpr-data-toolkit" --target $target --resource-map web=web/dist --output-dir dist
+cargo install --locked --git https://github.com/KazeLiu/codex-proxy-rs.git --rev 1fcfc9771d2f15b6c45a60b55ce332b8b2065871 codex-proxy-plugin-cli --root .tools/plugin-cli-v7
+.tools/plugin-cli-v7/bin/cpr-plugin package --manifest plugin.json --binary "target/$target/release/cpr-data-toolkit" --target $target --resource-map web=web/dist --output-dir dist
 ```
 
-该版本 CLI 支持 `x86_64-unknown-linux-gnu`、`aarch64-unknown-linux-gnu` 和 `aarch64-apple-darwin`，没有 Windows 原生包目标。资源映射将 `web/dist` 中的三个页面文件放入包内 `web/`；输出包位于 `dist/`。详见[固定版本打包合同](https://github.com/KazeLiu/codex-proxy-rs/blob/af6fc21d70540a92fe4d5695ce1a7e999a65e6a3/backend/apps/plugin-cli/README.md)。
+该版本 CLI 支持 `x86_64-unknown-linux-gnu`、`aarch64-unknown-linux-gnu` 和 `aarch64-apple-darwin`，没有 Windows 原生包目标。资源映射将 `web/dist` 中的三个页面文件放入包内 `web/`；输出包位于 `dist/`。详见[固定版本打包合同](https://github.com/KazeLiu/codex-proxy-rs/blob/1fcfc9771d2f15b6c45a60b55ce332b8b2065871/backend/apps/plugin-cli/README.md)。
 
 ### 本机 Windows 交叉构建
 
@@ -167,17 +169,17 @@ $env:Path = "$PWD/.tools/node-v24.21.0-win-x64;$PWD/.tools/cargo-zigbuild-0.23.4
 $env:CARGO_ZIGBUILD_ZIG_PATH = "$PWD/.tools/zig-pypi/ziglang/zig.exe"
 $env:CARGO_ZIGBUILD_CACHE_DIR = "$PWD/.tools/zig-cache"
 cargo +1.99.1 zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.17
-.tools/plugin-cli-v6/bin/cpr-plugin.exe package --manifest plugin.json --binary target/aarch64-unknown-linux-gnu/release/cpr-data-toolkit --target aarch64-unknown-linux-gnu --resource-map web=web/dist --output-dir dist
+.tools/plugin-cli-v7/bin/cpr-plugin.exe package --manifest plugin.json --binary target/aarch64-unknown-linux-gnu/release/cpr-data-toolkit --target aarch64-unknown-linux-gnu --resource-map web=web/dist --output-dir dist
 ```
 
 构建 x86_64 时将命令中的 target 替换为 `x86_64-unknown-linux-gnu`。锁文件保留发布年龄策略；`allowBuilds` 只允许固定提交的 UI Git 依赖执行准备脚本。
 
 ### 交付与版本递增
 
-1.2 预发行版提供 Linux x86_64、Linux ARM64 和 macOS ARM64 的原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/1.2.md`。
+1.3 稳定版提供 Linux x86_64、Linux ARM64 和 macOS ARM64 的原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/1.3.md`。
 
 以后每次交付新包增加 `0.1`；打包前同步 `plugin.json`、`Cargo.toml`、`web/package.json` 和 Cargo 锁文件中的本项目版本。失败修复及同一次打包重试不重复递增，约定见 `AGENTS.md`。
 
 多平台构建使用 `.github/workflows/package.yml`，在 GitHub Actions 手动运行「Build release packages」，选择待发布提交所在分支。工作流只构建产物，不自动发布；前端资源构建一次后供三个平台使用，Rust、SDK、CLI 和构建工具版本固定，Linux 使用 glibc 2.17 目标。下载对应构建产物后，通过 GitHub CLI 将安装包附到 Release。
 
-实际发行物和已验证平台以对应 Release 附件与说明为准。1.2 尚未完成目标宿主运行验收，原实验包的模拟环境证据不能替代 RPC v6 和插件自有状态链路的验收
+实际发行物和已验证平台以对应 Release 附件与说明为准。RPC v7 安装、接口缺失提示和真实上游链路仍需在目标宿主验收

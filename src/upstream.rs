@@ -2,6 +2,7 @@
 
 mod network;
 mod parse;
+pub(crate) mod support;
 pub(crate) mod types;
 
 use crate::{
@@ -156,6 +157,9 @@ pub async fn get(host: &HostClient, input: Selection) -> Result<Value> {
 }
 
 pub async fn save(host: &HostClient, input: Save) -> Result<Value> {
+    if input.query_type != QuotaQueryMode::Disabled {
+        support::require_query(host).await?;
+    }
     let account = runtime(host, &input.account_id).await?;
     if account.authentication_kind != "api_key" {
         return Err(ApiError::invalid("该账号不是 API Key 账号"));
@@ -190,6 +194,7 @@ pub async fn save(host: &HostClient, input: Save) -> Result<Value> {
 }
 
 pub async fn refresh(host: &HostClient, input: Selection) -> Result<Value> {
+    support::require_query(host).await?;
     refresh_account(host, &input.account_id, true).await
 }
 
@@ -290,6 +295,9 @@ async fn refresh_account(host: &HostClient, id: &str, manual: bool) -> Result<Va
 }
 
 pub async fn maintain(host: &HostClient) -> Result<()> {
+    if !support::query_available(host).await? {
+        return Ok(());
+    }
     let mut accounts = directory(host)
         .await?
         .into_iter()
@@ -366,6 +374,9 @@ pub async fn sharing(host: &HostClient, input: SharingSelection) -> Result<Value
 }
 
 pub async fn save_sharing(host: &HostClient, input: SaveSharing) -> Result<Value> {
+    if input.enabled {
+        support::require_sharing(host).await?;
+    }
     host.key_facts(gateway_plugin_sdk::call::data::ClientKeyFactsQuery {
         client_key_id: input.client_key_id.clone(),
     })
@@ -396,6 +407,7 @@ fn query_error(code: &str) -> &str {
     match code {
         "refreshing" => "上次查询未完成，等待后台重试",
         "unsupported" => "上游不支持额度查询",
+        "host_unsupported" => support::UPGRADE_HINT,
         "sharing_disabled" => "上游未开放额度共享",
         "unauthorized" => "上游额度查询认证失败",
         "forbidden" => "没有上游额度查询权限",
