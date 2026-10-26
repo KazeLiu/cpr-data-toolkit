@@ -9,21 +9,25 @@ export type QueryType
     | 'kimi_coding_global'
     | 'deepseek'
     | 'sub2api'
+    | 'command_code'
 
-export const queryOptions: { label: string, value: QueryType }[] = [
-  { label: '不查询', value: 'disabled' },
-  { label: 'CPR 上游账号额度', value: 'cpr' },
-  { label: 'Kimi 按量付费 · 国内', value: 'kimi' },
-  { label: 'Kimi 按量付费 · 海外', value: 'kimi_global' },
-  { label: 'Kimi 编程订阅 · 国内', value: 'kimi_coding' },
-  { label: 'Kimi 编程订阅 · 海外', value: 'kimi_coding_global' },
-  { label: 'DeepSeek 余额', value: 'deepseek' },
-  { label: 'Sub2API 钱包与订阅', value: 'sub2api' },
+export const queryOptions: { path: string[], value: QueryType }[] = [
+  { path: ['不查询'], value: 'disabled' },
+  { path: ['CPR'], value: 'cpr' },
+  { path: ['Kimi', '按量付费', '国内'], value: 'kimi' },
+  { path: ['Kimi', '按量付费', '海外'], value: 'kimi_global' },
+  { path: ['Kimi', '编程订阅', '国内'], value: 'kimi_coding' },
+  { path: ['Kimi', '编程订阅', '海外'], value: 'kimi_coding_global' },
+  { path: ['DeepSeek'], value: 'deepseek' },
+  { path: ['Sub2API'], value: 'sub2api' },
+  { path: ['Command Code'], value: 'command_code' },
 ]
 
 export interface QuotaWindow {
   key: string
   label: string
+  role: 'primary' | 'secondary' | 'monthly' | null
+  windowSeconds: number | null
   usedPercent: number | null
   resetAt: string | null
 }
@@ -96,6 +100,9 @@ function parseAccount(value: unknown): UpstreamAccount {
     windows: array(account.windows, (value) => {
       const window = object(value)
       const percent = window.usedPercent
+      const role = window.role
+      if (role !== null && role !== 'primary' && role !== 'secondary' && role !== 'monthly')
+        return invalid()
       if (
         percent !== null
         && (typeof percent !== 'number' || !Number.isFinite(percent) || percent < 0 || percent > 100)
@@ -105,6 +112,8 @@ function parseAccount(value: unknown): UpstreamAccount {
       return {
         key: text(window.key),
         label: text(window.label),
+        role,
+        windowSeconds: window.windowSeconds === null ? null : integer(window.windowSeconds),
         usedPercent: percent,
         resetAt: timestamp(window.resetAt),
       }

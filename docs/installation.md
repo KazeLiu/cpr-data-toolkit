@@ -1,16 +1,16 @@
 # 安装 CPR 数据工具箱
 
-当前预发行版本为 **1.0**，CPR 内部版本为 `1.0.0`，清单兼容范围为 `>=3.29.8, <4.0.0`，使用 SDK 0.2.0 和 RPC v5。需要包含 [宿主 PR #505](https://github.com/zyycn/codex-proxy-rs/pull/505) 的宿主；SDK 与官方打包 CLI 固定到 [提交 `28799cc1`](https://github.com/KazeLiu/codex-proxy-rs/commit/28799cc150c6d5fe8288d3d8a0d83ba99b1407cf)。按 CPR 宿主进程的平台选择安装包，不按打开管理页的电脑平台选择。
+当前预发行版本为 **1.1**，CPR 内部版本为 `1.1.0`，清单兼容范围为 `>=3.30.1, <4.0.0`，使用 SDK 0.2.0 和 RPC v5。需要包含 [宿主 PR #505](https://github.com/zyycn/codex-proxy-rs/pull/505) 的宿主；SDK 与官方打包 CLI 固定到 [提交 `b3f00b4e`](https://github.com/KazeLiu/codex-proxy-rs/commit/b3f00b4e654496d4cfee5577b47b2af157045e83)。按 CPR 宿主进程的平台选择安装包，不按打开管理页的电脑平台选择。
 
-上述宿主能力尚未正式发布，不要将 1.0 安装到正式版 v3.29.7。v3.29.7 继续使用插件 0.9，v3.29.0～v3.29.6 使用 0.8。
+上述宿主能力尚未正式发布，不要将 1.1 安装到正式版 v3.30.0。正式版宿主继续使用插件 0.9。
 
 | 宿主平台 | 原生安装包 |
 | --- | --- |
-| Linux x86_64 | `kazeliu.cpr-data-toolkit-1.0.0-x86_64-unknown-linux-gnu.tar.gz` |
-| Linux ARM64 | `kazeliu.cpr-data-toolkit-1.0.0-aarch64-unknown-linux-gnu.tar.gz` |
-| macOS ARM64 | `kazeliu.cpr-data-toolkit-1.0.0-aarch64-apple-darwin.tar.gz` |
+| Linux x86_64 | `kazeliu.cpr-data-toolkit-1.1.0-x86_64-unknown-linux-gnu.tar.gz` |
+| Linux ARM64 | `kazeliu.cpr-data-toolkit-1.1.0-aarch64-unknown-linux-gnu.tar.gz` |
+| macOS ARM64 | `kazeliu.cpr-data-toolkit-1.1.0-aarch64-apple-darwin.tar.gz` |
 
-Linux 包需要 glibc 2.17 或更高，仅有 musl 的系统或容器不能直接运行。每个平台提供原生包、对应 `.sha256` 文件及 ZIP，下载入口为 [GitHub 预发行版 1.0](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.0.0)；没有 Windows 正式包。
+Linux 包需要 glibc 2.17 或更高，仅有 musl 的系统或容器不能直接运行。每个平台提供原生包、对应 `.sha256` 文件及 ZIP，下载入口为 [GitHub 预发行版 1.1](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.1.0)；没有 Windows 正式包。
 
 ## 解压 ZIP 后上传安装包
 
@@ -22,8 +22,8 @@ Linux 包需要 glibc 2.17 或更高，仅有 musl 的系统或容器不能直�
 
 ## 查询与分享上游额度
 
-1. 在「上游额度」选择已有 API Key 账号，明确选择 CPR、Kimi、DeepSeek 或 Sub2API 查询类型，点击「保存并获取」
-2. 宿主使用该账号当前凭据和出站代理查询、保存并在后台定时刷新；「重新读取」不请求上游，「刷新额度」主动查询
+1. 在「上游额度」选择已有 API Key 账号，明确选择 CPR、Kimi、DeepSeek、Sub2API 或 Command Code 查询类型，点击「保存并获取」
+2. 宿主使用该账号当前凭据和出站代理查询、保存并在后台定时刷新；「刷新额度」主动查询
 3. 向下游分享时，上游与下游均安装并启用插件；上游启用插件 `middleware` 的 `request` 绑定，范围包含下游使用的 Client Key
 4. 上游在「向下游分享额度」为该 Client Key 开启分享；账号名称和模型列表默认不分享，按需单独开启
 5. 下游为接入上游的账号选择 CPR 查询，读取 `/v1/quota` 的授权快照

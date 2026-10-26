@@ -63,28 +63,33 @@ watch(() => props.active, (active) => {
 <template>
   <section class="section">
     <h3>向下游分享额度</h3>
-    <label class="field"><span>Client Key</span><ZSelect
-      v-model="state.keyId" :options="state.keys.map((key) => ({ value: key.id, label: `${key.name}${key.enabled ? '' : '（已停用）'}` }))"
-      :disabled="state.busy" filterable placeholder="选择 Client Key" @change="read"
-    /></label>
-    <div v-if="state.value" class="toolbar">
-      <label class="quota-auto"><ZSwitch v-model="state.value.enabled" :disabled="state.busy" aria-label="开启额度分享" /><span>开启额度分享</span></label>
-      <template v-if="state.value.enabled">
-        <label class="quota-auto"><ZSwitch v-model="state.value.includeNames" :disabled="state.busy" aria-label="分享账号名称" /><span>分享账号名称</span></label>
-        <label class="quota-auto"><ZSwitch v-model="state.value.includeModels" :disabled="state.busy" aria-label="分享模型列表" /><span>分享模型列表</span></label>
+    <div class="quota-sharing-controls">
+      <ZSelect
+        v-model="state.keyId" :options="state.keys.map((key) => ({ value: key.id, label: `${key.name}${key.enabled ? '' : '（已停用）'}` }))"
+        :disabled="state.busy" filterable placeholder="选择 API 秘钥" @change="read"
+        class="quota-sharing-key" aria-label="选择分享额度的 API 秘钥"
+      />
+      <template v-if="state.value">
+        <div class="quota-sharing-switches">
+          <ZSwitch v-model="state.value.enabled" :disabled="state.busy" label="开启分享" />
+          <ZSwitch v-model="state.value.includeNames" :disabled="state.busy || !state.value.enabled" label="账号名称" aria-label="分享账号名称" />
+          <ZSwitch v-model="state.value.includeModels" :disabled="state.busy || !state.value.enabled" label="模型列表" aria-label="分享模型列表" />
+        </div>
+        <div class="toolbar quota-sharing-actions">
+          <ZButton type="primary" :disabled="!dirty" :loading="state.busy" @click="save">
+            保存设置
+          </ZButton>
+          <ZButton variant="text" :disabled="state.busy" @click="load">
+            重新读取
+          </ZButton>
+        </div>
       </template>
-      <ZButton type="primary" :disabled="!dirty" :loading="state.busy" @click="save">
-        保存分享设置
-      </ZButton>
-      <ZButton variant="text" :disabled="state.busy" @click="load">
-        重新读取分享设置
-      </ZButton>
     </div>
     <p class="muted">
-      下游使用此 Key 查询 /v1/quota，仅返回其有权访问的启用账号；停用插件后不再提供透传
+      下游使用此 API 秘钥查询 /v1/quota，仅返回其有权访问的启用账号，停用插件后不再提供透传
     </p>
     <p v-if="state.loaded && !state.keys.length" class="muted">
-      暂无 Client Key，请先在宿主创建
+      暂无 API 秘钥，请先在宿主创建
     </p>
     <p v-if="state.error" class="error" role="alert">
       {{ state.error }}

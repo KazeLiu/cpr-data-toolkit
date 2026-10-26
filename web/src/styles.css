@@ -14,6 +14,7 @@ body {
 }
 #app,
 .toolkit {
+  container: toolkit / inline-size;
   min-height: inherit;
 }
 .toolkit {
@@ -57,15 +58,27 @@ body {
 .muted {
   color: var(--cp-color-text-secondary);
 }
-.quota-auto,
 .quota-account-title {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
 }
-.quota-auto {
-  margin-left: auto;
+.quota-account-title {
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+}
+.quota-account-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-width: 0;
+}
+.quota-source-tag {
+  flex-shrink: 0;
+  max-width: 50%;
 }
 .quota-details {
   min-width: 0;
@@ -88,6 +101,7 @@ body {
   outline-offset: 2px;
 }
 .quota-collapse {
+  flex-shrink: 0;
   transform: rotate(-90deg);
 }
 .quota-details[open] > summary .quota-collapse {
@@ -95,24 +109,36 @@ body {
 }
 .quota-cards {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
   gap: 12px;
   min-width: 0;
-  padding: 2px 0 4px;
 }
 .quota-card {
-  display: grid;
-  gap: 10px;
+  box-sizing: border-box;
   min-width: 0;
+  overflow: hidden;
   padding: 12px;
   border-radius: var(--cp-border-radius);
   background: var(--cp-color-fill-quaternary);
 }
 .quota-card-heading {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 4px 12px;
+  display: grid;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  gap: 4px;
+  padding-bottom: 8px;
+  background: linear-gradient(var(--cp-color-fill-quaternary), var(--cp-color-fill-quaternary)), var(--cp-color-bg-container);
+}
+.quota-card-scroll {
+  min-height: 0;
+  min-width: 0;
+}
+.quota-card-content {
+  display: grid;
+  gap: 10px;
+  padding-right: 6px;
 }
 .quota-card h3 {
   font-size: inherit;
@@ -123,25 +149,58 @@ body {
   margin: 0;
 }
 .quota-observed,
-.quota-reset {
+.quota-reset,
+.quota-card-meta {
   font-size: var(--cp-font-size-sm, 12px);
+}
+.quota-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+.quota-model-button {
+  margin-left: auto;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  font-size: inherit;
+  line-height: inherit;
 }
 .quota-windows,
 .quota-amounts {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 24px;
-}
-.quota-windows.quota-single {
   grid-template-columns: minmax(0, 1fr);
+  gap: 8px 12px;
+}
+.quota-windows {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  font-size: var(--cp-font-size-sm, 12px);
+}
+.quota-window-monthly,
+.quota-window:only-child {
+  grid-column: 1 / -1;
 }
 .quota-window,
-.quota-amount {
+.quota-amount,
+.quota-amount-fields,
+.quota-balance {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
   align-content: start;
   overflow-wrap: anywhere;
+}
+.quota-balance-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  font-size: var(--cp-font-size-sm, 12px);
+}
+.quota-balance-row .quota-balance-detail {
+  display: grid;
+  align-content: start;
+  gap: 4px;
 }
 .quota-window-heading,
 .quota-reset {
@@ -150,8 +209,13 @@ body {
   justify-content: space-between;
   gap: 8px;
 }
+.quota-window-heading {
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
 .quota-reset time {
   text-align: right;
+  min-width: 0;
 }
 .quota-track {
   height: 6px;
@@ -177,27 +241,87 @@ body {
 .quota-window[data-tone='danger'] strong {
   color: var(--cp-color-error-text);
 }
-.quota-models {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+.quota-settings {
+  display: block;
+}
+.quota-settings > summary {
   padding: 0;
+}
+.quota-settings-body {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+.quota-settings-body p,
+.quota-results p {
   margin: 0;
-  list-style: none;
 }
-.quota-models li {
-  padding: 8px 12px;
-  border-radius: var(--cp-border-radius);
-  background: var(--cp-color-fill-quaternary);
+.quota-query-fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
 }
-@media (max-width: 560px) {
-  .quota-windows,
-  .quota-amounts,
-  .quota-models {
-    grid-template-columns: minmax(0, 1fr);
+.quota-results-actions {
+  margin-left: auto;
+}
+.quota-result-source {
+  width: min(16rem, 100%);
+  min-width: 0;
+}
+.quota-sharing-controls,
+.quota-sharing-switches {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+}
+.quota-sharing-key {
+  flex: 1 1 10rem;
+  min-width: 0;
+  max-width: 16rem;
+}
+.quota-sharing-actions {
+  margin-left: auto;
+}
+.quota-model-content {
+  display: grid;
+  gap: 8px;
+}
+.quota-model-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 2px 6px 2px 2px;
+}
+.quota-model-copy {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+.quota-model-copy:focus-visible {
+  outline: 2px solid var(--cp-color-primary);
+  outline-offset: 2px;
+}
+.quota-model-copy:hover > span {
+  @apply bg-cp-fill-secondary;
+}
+.quota-model-copy:active > span {
+  @apply bg-cp-primary-container text-cp-primary-on-container;
+}
+@container toolkit (max-width: 440px) {
+  .quota-cards,
+  .quota-query-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .quota-auto {
-    margin-left: 0;
+}
+@container toolkit (max-width: 380px) {
+  .quota-cards,
+  .quota-query-fields {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 .notice,
@@ -328,7 +452,7 @@ body {
 .ua-log-details > dl {
   display: grid;
 }
-.cp-modal-panel {
+.cp-modal-panel:not(:has(.quota-model-content)) {
   align-self: start;
   max-height: min(720px, calc(100dvh - 48px));
 }

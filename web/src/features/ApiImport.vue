@@ -4,6 +4,7 @@ import { ZButton, ZDialog, ZIconButton, ZRadio, ZTable } from '@codex-proxy/ui'
 import type { TableColumn } from '@codex-proxy/ui'
 import { getImportKey, message, operationResults, previewImport, request } from '../api'
 import type { Choice, ImportGroup, ImportSource, OperationResult } from '../api'
+import { copyText } from '../clipboard'
 import ImportActionIcon from '../components/ImportActionIcon.vue'
 import OperationResults from '../components/OperationResults.vue'
 
@@ -213,23 +214,7 @@ async function copy(value: string, label: string) {
   state.error = ''
   state.notice = ''
   try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(value)
-    } else {
-      const input = document.createElement('textarea')
-      input.value = value
-      input.style.position = 'fixed'
-      input.style.opacity = '0'
-      document.body.append(input)
-      const focused = document.activeElement as HTMLElement | null
-      try {
-        input.select()
-        if (!document.execCommand('copy')) throw new Error('copy')
-      } finally {
-        input.remove()
-        focused?.focus()
-      }
-    }
+    await copyText(value)
     state.notice = `${label} 已复制`
   } catch {
     state.error = '复制失败，请检查浏览器剪贴板权限'

@@ -2,9 +2,9 @@
 
 Codex Proxy RS 的连接与用量导入、统计维护和请求身份维护插件，项目标识为 `cpr-data-toolkit`，开发目录为 `D:\code\cpr-data-toolkit`。
 
-项目包含 Rust 后端和 Vue 管理页，当前预发行版本为 **1.0**（包内 `1.0.0`），使用 SDK **0.2.0**、RPC v5。需要包含 [宿主 PR #505](https://github.com/zyycn/codex-proxy-rs/pull/505) 的宿主（能力版本 **3.29.8**），不能直接安装到正式版 v3.29.7。安装入口见 `docs/installation.md`。
+项目包含 Rust 后端和 Vue 管理页，当前版本为 **1.1**（包内 `1.1.0`），使用 SDK **0.2.0**、RPC v5。需要包含 [宿主 PR #505](https://github.com/zyycn/codex-proxy-rs/pull/505) 的宿主（能力版本 **3.30.1**），不能直接安装到正式版 v3.30.0。安装入口见 `docs/installation.md`。
 
-1.0 安装包见 [GitHub 预发行版](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.0.0)，发布说明见 `docs/releases/1.0.md`。正式版宿主 v3.29.7 继续使用 [插件 0.9](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v0.9.0)；v3.29.0 至 v3.29.6 使用 0.8，不要只修改旧包清单后安装到新版宿主
+1.1 安装包见 [GitHub 预发行版](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.1.0)，发布说明见 `docs/releases/1.1.md`。正式版宿主 v3.30.0 尚不包含额度 SDK，继续使用 [插件 0.9](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v0.9.0)；不要只修改旧包清单后安装到新版宿主
 
 阅读入口：
 
@@ -17,39 +17,52 @@ Codex Proxy RS 的连接与用量导入、统计维护和请求身份维护插�
 
 ## 六个标签页
 
+- **上游额度**：默认进入此页并聚合全部已配置上游，卡片显示额度与原币种余额，模型详情弹窗支持搜索和点击复制
 - **API 导入**：解析 CCS 完整手动 SQL 导出，提取 Claude、Codex 和 Gemini 的名称、地址与 Key，选择后通过宿主账号合同接入 OpenAI Responses 兼容上游，不按来源协议拦截。表格支持多选、跨页全选、复制 API，以及主动查看或复制隐藏的 Key。相同地址与 Key 只接入一次，名称不同在弹窗中选择；更新已有账号使用精确凭据版本
 - **用量导入**：按应用、模型和来源时区的请求时间筛选完整 CCS 来源，预览 Token、费用与原生请求疑似重复项。确认后替换所选时段内该来源的全部旧贡献，再写入筛选结果；保留源内代理／会话去重、稳定记录键、时段外贡献、CPR 原生请求和其他来源
 - **手动调整**：填写 Token 总量和请求次数的正负增减量，读取今天／近 7 天／近 30 天的真实原值并预览，确认后写入首次提交时刻。结果未确认时保留原操作 ID，重新打开页面可继续核对
 - **模型定价**：读取、同步和批量维护 CPR 全局价目；社区价目支持关键词与模型 ID 过滤，缓存价格缺失或留空按零处理，输入与输出价格必填。「价格同步」按选定时间和 Provider 补全缺失费用或覆盖该范围原生请求的 Token 估算费用
 - **模型UA定制**：忽略大小写，按顺序使用第一条命中的启用规则覆盖 `User-Agent`；可选配套 `originator`、`version`，未填写的头不变更，未命中不改写。预览和安全验证用绿／红色块显示结果；请求改写日志展示时间、模型、命中规则及替换前后 UA
-- **上游额度**：选择宿主 API Key 账号，显式配置 CPR、Kimi、DeepSeek 或 Sub2API 查询。百分比使用额度进度条，余额按原币种展示；CPR 账号列表默认展开，支持查看上游分享的模型
 
 ## 查看上游额度
 
-打开「上游额度」，选择已有的 OpenAI API Key 账号和查询类型，点击「保存并获取」。每个账号独立保存查询类型和最近快照，默认不查询，不根据地址或模型自动识别上游。
+「上游额度」是默认打开的第一个标签页。展开默认折叠的「查询设置」，选择已有上游账号和查询平台，点击「保存并获取」。Kimi 的产品和地区在第三、第四列逐级选择，各级均支持搜索。每个账号独立保存查询类型和最近快照，默认不查询，不根据地址或模型自动识别上游。
 
-- **CPR**：查询账号地址对应的 `/v1/quota`，使用 `schemaVersion: 1` 数组协议。上游也需安装并启用本插件，为此 Key 开启额度分享；账号名称和模型列表由上游的分享设置决定，未分享时不推测。卡片显示剩余额度，名称旁的「模型详情」打开模型列表
-- **Kimi**：按量付费和编程订阅分别选择国内或海外，使用对应的官方查询地址。编程订阅的短周期与周额度并排显示已用进度，按量余额保留现金和代金券明细
-- **DeepSeek**：查询账号地址的 `/user/balance`，分别显示 CNY、USD 余额及赠送、充值明细
+- **CPR**：查询账号地址对应的 `/v1/quota`，使用 `schemaVersion: 1` 数组协议。上游也需安装并启用本插件，为此 API 秘钥（宿主 Client Key）开启额度分享；账号名称和模型列表由上游的分享设置决定，未分享时不推测。卡片直接显示上游已用百分比，点击「最后获取」时间右侧的「X 个模型」打开弹窗，实时搜索并点击复制模型名称
+- **Kimi**：按量付费和编程订阅分别选择国内或海外，使用对应的官方查询地址。编程订阅分别显示短周期与周额度的已用进度，按量余额保留现金和代金券明细
+- **DeepSeek**：查询账号地址的 `/user/balance`，分别显示 CNY、USD 余额；可用、赠送和充值余额同一行展示，可用余额加粗
 - **Sub2API**：查询账号地址的 `/v1/usage`，显示钱包、Key 总额度、订阅及限额窗口，金额不换算成百分比
+- **Command Code**：选择同名查询平台，沿用 CC Switch 的官方 `/alpha` 身份、credits、订阅与用量查询流程，自动带上组织及订阅周期范围。卡片显示五小时、周、月三项已用百分比，月额度按 CC Switch 的账期池口径计算，重置时间取订阅结束时间，不展示 credits 和本期费用明细。该控制面未公开文档化，接口变化可能需要同步适配
 
-保存开启设置后由宿主获取首个快照，随后使用宿主额度后台任务刷新，关闭页面后仍继续获取。「刷新额度」手动查询，「重新读取」只读取已保存快照，不请求上游。CPR 后台间隔一分钟，其他模式五分钟；手动查询至少间隔十秒，Kimi 编程订阅至少十五秒。
+直连 Kimi、DeepSeek、Sub2API、Command Code 时，宿主同时复用账号模型目录缓存和查询入口，取得模型 ID 后随余额快照保存。模型接口不支持或查询失败时保留余额；没有模型时显示禁用的「0 个模型」入口，不另占一行提示。CPR 模式仅显示上游已分享的逐账号模型，不从整站模型目录推测账号归属
 
-卡片使用主题淡底色、默认展开和限高内部滚动，标题及收起操作不随列表滚动。右侧「上游额度最后获取时间」使用上游观测时间，界面时间按浏览器本地时区显示；未知额度保持未知，重置时间已过也不自动把百分比恢复。
+「保存并获取」等待宿主首次查询结束，再显示新卡片，不受页面刷新冷却跳过；并发查询共用宿主刷新锁。查询失败时仍保存设置并显示错误，保留同版本可用快照，不需要再点击刷新才能看到本次结果
 
-查询失败保留同一凭据的旧快照，并显示错误和「数据过期」。更换账号 Key、切换查询类型或关闭查询后，不再使用旧凭据版本的快照。保存设置按宿主凭据版本条件更新，冲突时重新读取，不覆盖其他页面的设置。
+打开插件时刷新一次，之后每三分钟按当前视图刷新，也可点击「刷新额度」立即查询。切换程序、浏览器标签或工具箱标签不会立即刷新；定时触发时页面不可见或不在「上游额度」标签则跳过，切回后等待下一轮，不补刷。关闭插件后清理定时器，已发送的请求仍可完成。查询设置有未保存的修改时暂停页面自动刷新。
 
-查询、解析和保存均由宿主 Provider 完成，使用账号当前凭据与单账号出站代理；插件不读取 Key，不保存独立额度状态，也不运行额度定时器。超时、大小上限、刷新互斥和迟到结果隔离由宿主管理，不影响账号调度、凭据健康与本地计费。金额按十进制原值展示，不补零或换算为百分比。
+宿主原有后台额度任务不受页面开关影响，CPR 后台间隔一分钟，其他模式五分钟。手动查询至少间隔十秒，Kimi 编程订阅和 Command Code 至少十五秒；冷却期间禁用刷新按钮，沿用当前快照。
+
+刷新按钮左侧的「聚合」默认开启，展示全部启用且已配置查询的上游，不自动启用未配置的账号。关闭后在「额度详情」右侧下拉选择上游账号，只展示该上游的账号额度；切换选择只读取已有快照，不额外请求上游。卡片名称和来源标签分居两端，来源只显示账号名称，不显示 Key 内容；部分上游查询失败时，其他卡片和可用旧快照继续展示。
+
+每个上游账号使用独立卡片，常规宽度下一行三列，窄屏缩为两列或一列。同一行卡片按内容最多的一张等高，超出上限后在卡片内部滚动。「额度详情」统一显示已用百分比，与宿主账号管理一致，透传也不转成剩余值。短周期和周额度并排，月额度排在底部并占满一行。模型详情弹窗使用组件默认位置，搜索框下方的模型 Tag 列表单独滚动，点击模型名称复制并显示通知。「最后获取」使用上游观测时间，界面时间按浏览器本地时区显示；未知额度保持未知，重置时间已过也不自动把百分比恢复。
+
+查询失败保留同一凭据的旧快照，并显示错误和「数据过期」。更换账号 Key、切换查询类型或关闭查询后，不再使用旧凭据版本的快照。保存设置按宿主凭据版本条件更新，冲突时载入最新设置供核对，不覆盖其他页面的设置。
+
+查询、解析和保存均由宿主 Provider 完成，使用账号当前凭据与单账号出站代理；插件不读取 Key，不保存独立额度状态。页面定时器仅在查看期间调用公开 SDK 刷新入口，离开后清理。超时、大小上限、刷新互斥和迟到结果隔离由宿主管理，不影响账号调度、凭据健康与本地计费。金额按十进制原值展示，不补零或换算为百分比。
 
 ### 向下游分享
 
-上游 A 与下游 B 均安装并启用插件。A 在「上游额度 → 向下游分享额度」选择 B 使用的 Client Key，开启分享；名称和模型默认不分享。B 为接入 A 的 API Key 账号选择 CPR 查询，宿主便会自动获取并保存快照。
+上游 A 与下游 B 均安装并启用插件。A 在「上游额度 → 向下游分享额度」选择 B 使用的 API 秘钥，开启分享；名称和模型默认不分享。B 为接入 A 的上游账号选择 CPR 查询，宿主便会自动获取并保存快照。
 
 `/v1/quota` 由插件的请求中间件响应，未安装或停用插件时不提供透传。宿主负责 Client Key 鉴权、账号分组和访问范围、模型过滤、匿名 ID 与分享授权，插件通过 `ExportQuota` 获取过滤后的数据，不接收原始 Key。停用账号不导出，上游拒绝认证或权限后停止下传旧快照，成功恢复查询后再开放。
 
+分享的模型是已取得目录与白名单、访问范围的交集，不会仅因勾选而增加上游未返回的模型。账号管理会保留已保存但未出现在当前目录中的 ID，这些勾选项不代表当前可用模型
+
 ### SDK 来源
 
-SDK 和打包 CLI 固定到已推送的 [宿主提交 `28799cc1`](https://github.com/KazeLiu/codex-proxy-rs/commit/28799cc150c6d5fe8288d3d8a0d83ba99b1407cf)，正式锁文件使用该 Git 来源，不需要本地 Cargo patch。该能力尚未随宿主正式版发布，接入时核对宿主是否包含此提交。
+1.1 的 SDK 和打包 CLI 固定到 [宿主提交 `b3f00b4e`](https://github.com/KazeLiu/codex-proxy-rs/commit/b3f00b4e654496d4cfee5577b47b2af157045e83)。插件只使用公开 `gateway-plugin-sdk` 0.2.0，不依赖宿主内部模块
+
+新查询模式需安装包含本次 Command Code 实现的配套宿主，不能只升级插件。该能力尚未随宿主正式版发布
 
 ## 配置模型 UA
 
@@ -136,11 +149,11 @@ cargo build --release --locked --target $target
 打包 CLI 与 SDK 使用同一固定提交：
 
 ```powershell
-cargo install --locked --git https://github.com/KazeLiu/codex-proxy-rs.git --rev 28799cc150c6d5fe8288d3d8a0d83ba99b1407cf codex-proxy-plugin-cli --root .tools/plugin-cli-quota
+cargo install --locked --git https://github.com/KazeLiu/codex-proxy-rs.git --rev b3f00b4e654496d4cfee5577b47b2af157045e83 codex-proxy-plugin-cli --root .tools/plugin-cli-quota
 .tools/plugin-cli-quota/bin/cpr-plugin package --manifest plugin.json --binary "target/$target/release/cpr-data-toolkit" --target $target --resource-map web=web/dist --output-dir dist
 ```
 
-该版本 CLI 支持 `x86_64-unknown-linux-gnu`、`aarch64-unknown-linux-gnu` 和 `aarch64-apple-darwin`，没有 Windows 原生包目标。资源映射将 `web/dist` 中的三个页面文件放入包内 `web/`；输出包位于 `dist/`。详见[固定版本打包合同](https://github.com/KazeLiu/codex-proxy-rs/blob/28799cc150c6d5fe8288d3d8a0d83ba99b1407cf/backend/apps/plugin-cli/README.md)。
+该版本 CLI 支持 `x86_64-unknown-linux-gnu`、`aarch64-unknown-linux-gnu` 和 `aarch64-apple-darwin`，没有 Windows 原生包目标。资源映射将 `web/dist` 中的三个页面文件放入包内 `web/`；输出包位于 `dist/`。详见[固定版本打包合同](https://github.com/KazeLiu/codex-proxy-rs/blob/b3f00b4e654496d4cfee5577b47b2af157045e83/backend/apps/plugin-cli/README.md)。
 
 ### 本机 Windows 交叉构建
 
@@ -159,7 +172,7 @@ cargo +1.99.1 zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.1
 
 ### 交付与版本递增
 
-1.0 预发行版提供 Linux x86_64、Linux ARM64 和 macOS ARM64 的原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/1.0.md`。
+1.1 预发行版提供 Linux x86_64、Linux ARM64 和 macOS ARM64 的原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/1.1.md`。
 
 以后每次交付新包增加 `0.1`；打包前同步 `plugin.json`、`Cargo.toml`、`web/package.json` 和 Cargo 锁文件中的本项目版本。失败修复及同一次打包重试不重复递增，约定见 `AGENTS.md`。
 

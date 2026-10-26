@@ -11,9 +11,10 @@ use gateway_plugin_sdk::{
             ServiceError,
             quota::{
                 AccountQuotaQuery, AccountQuotaSnapshot, GetAccountQuota, GetQuotaQuerySettings,
-                GetQuotaSharing, QuotaQueryMode, QuotaQuerySettings, QuotaSharingQuery,
-                QuotaSharingSettings, RefreshAccountQuota, SetQuotaQuerySettings, SetQuotaSharing,
-                UpdateQuotaQuerySettings, UpdateQuotaSharing,
+                GetQuotaSharing, QuotaQueryMode, QuotaQuerySettings, QuotaRefreshResult,
+                QuotaSharingQuery, QuotaSharingSettings, RefreshAccountQuota,
+                SetQuotaQuerySettings, SetQuotaSharing, UpdateQuotaQuerySettings,
+                UpdateQuotaSharing,
             },
         },
     },
@@ -122,7 +123,9 @@ fn view(
     refresh_error: Option<String>,
 ) -> Result<Value> {
     if settings.credential_revision != snapshot.credential_revision {
-        return Err(ApiError::conflict("账号凭据或查询设置已更新，请重新读取"));
+        return Err(ApiError::conflict(
+            "账号凭据或查询设置已更新，请刷新额度后确认",
+        ));
     }
     let upstream = snapshot.upstream;
     let error = refresh_error.or_else(|| {
@@ -188,10 +191,19 @@ pub async fn save(host: &HostClient, input: Save) -> Result<Value> {
         })
         .await
         .map_err(service_error)?;
+    let query = AccountQuotaQuery {
+        account_id: input.account_id,
+    };
+    if settings.mode != QuotaQueryMode::Disabled {
+        // 等待宿主首次查询的同一把刷新锁，返回已完成快照，不被页面冷却跳过
+        let result = host
+            .service::<RefreshAccountQuota>(query)
+            .await
+            .map_err(service_error)?;
+        return refreshed_view(settings, result);
+    }
     let snapshot = host
-        .service::<GetAccountQuota>(AccountQuotaQuery {
-            account_id: input.account_id,
-        })
+        .service::<GetAccountQuota>(query)
         .await
         .map_err(service_error)?;
     view(settings, snapshot, None)
@@ -209,10 +221,18 @@ pub async fn refresh(host: &HostClient, input: Selection) -> Result<Value> {
         .service::<RefreshAccountQuota>(query)
         .await
         .map_err(service_error)?;
+    refreshed_view(settings, result)
+}
+
+fn refreshed_view(settings: QuotaQuerySettings, result: QuotaRefreshResult) -> Result<Value> {
     view(
         settings,
         result.snapshot,
-        result.error.map(|error| error.message),
+        // 本地刷新冷却复用快照，上游返回的限频仍通过快照错误展示
+        result
+            .error
+            .filter(|error| error.kind != "rate_limited")
+            .map(|error| error.message),
     )
 }
 pub async fn sharing(host: &HostClient, input: SharingSelection) -> Result<Value> {

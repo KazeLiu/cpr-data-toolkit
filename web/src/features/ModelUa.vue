@@ -451,7 +451,7 @@ onMounted(async () => {
       <p class="notice">使用已保存规则 · 验证到插件出口 · 不发送上游推理请求</p>
       <div class="form-grid">
         <label class="field"
-          ><span>Client Key</span
+          ><span>API 秘钥</span
           ><ZSelect
             :model-value="diagnostic.key"
             @update:model-value="diagnostic.key = $event ?? ''"
@@ -459,7 +459,7 @@ onMounted(async () => {
               diagnostic.keys.filter((k) => k.enabled).map((k) => ({ label: k.name, value: k.id }))
             "
             :disabled="diagnostic.busy"
-            placeholder="选择 Key"
+            placeholder="选择 API 秘钥"
             @change="models"
         /></label>
         <label class="field"
