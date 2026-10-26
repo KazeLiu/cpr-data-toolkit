@@ -3,7 +3,7 @@
 use crate::api::{ApiError, Result};
 use gateway_plugin_sdk::{
     ErrorCode, PluginFault,
-    call::data,
+    call::{data, host::ACCOUNT_HTTP},
     client::{HostClient, SessionError},
 };
 use serde::Serialize;
@@ -36,12 +36,10 @@ pub fn callback_error(error: PluginFault) -> ApiError {
     }
 }
 
-async fn probe(host: &HostClient, method: &str) -> Result<bool> {
+async fn probe(host: &HostClient, method: &str, binary: bool) -> Result<bool> {
     // 缺少必填参数会在接口解析时被拒绝，不进入认证、账号读取或网络发送
-    match host
-        .call(method, serde_json::json!({}), b"{}".to_vec())
-        .await
-    {
+    let payload = if binary { b"{}".to_vec() } else { vec![] };
+    match host.call(method, serde_json::json!({}), payload).await {
         Ok(_) => Ok(true),
         Err(error) => {
             let error = SessionError::into_plugin_fault(error);
@@ -57,13 +55,13 @@ async fn probe(host: &HostClient, method: &str) -> Result<bool> {
 }
 
 pub async fn query_available(host: &HostClient) -> Result<bool> {
-    probe(host, "host.accounts.http.do_stream").await
+    probe(host, ACCOUNT_HTTP, false).await
 }
 
 async fn sharing_available(host: &HostClient) -> Result<bool> {
     let mut available = true;
     for method in [data::CLIENT_VERIFY, data::ACCESS_CHECK, data::QUOTA_DETAILS] {
-        available &= probe(host, method).await?;
+        available &= probe(host, method, true).await?;
     }
     Ok(available)
 }

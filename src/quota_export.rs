@@ -13,12 +13,13 @@ use crate::{
 use gateway_plugin_sdk::{
     ErrorCode, PluginFault,
     call::{
-        data::{AccessCheckQuery, AccountAccessQuery, ClientVerifyQuery, QuotaFactsQuery},
+        data::{AccessQuery, QuotaFactsQuery, VerifyClientRequest},
         middleware::MiddlewareHeader,
     },
     client::{HostClient, HttpBody, HttpCall, HttpFrame, HttpResponse},
 };
 use serde_json::json;
+use std::collections::BTreeMap;
 
 pub async fn handle(mut call: HttpCall) -> std::result::Result<HttpResponse, PluginFault> {
     let result = async {
@@ -42,7 +43,7 @@ pub async fn handle(mut call: HttpCall) -> std::result::Result<HttpResponse, Plu
             .ok_or_else(unauthorized)?;
         let identity = call
             .host
-            .verify_client(ClientVerifyQuery {
+            .verify_client(VerifyClientRequest {
                 authorization: authorization.into(),
             })
             .await
@@ -129,12 +130,10 @@ async fn export(host: &HostClient, key: &str) -> Result<QuotaResponse> {
             continue;
         }
         let allowed = host
-            .check_access(AccessCheckQuery {
+            .check_access(AccessQuery {
                 client_key_id: key.into(),
-                accounts: vec![AccountAccessQuery {
-                    account_id: source.account_id.clone(),
-                    models: vec![],
-                }],
+                account_ids: vec![source.account_id.clone()],
+                upstream_model: None,
             })
             .await
             .map_err(support::callback_error)?;
@@ -219,27 +218,31 @@ async fn export(host: &HostClient, key: &str) -> Result<QuotaResponse> {
                 },
             }]
         };
+        // 同一来源的多条快照可能共享模型，复用本次冻结身份下已经检查过的结果
+        let mut model_access = BTreeMap::new();
         for mut entry in entries {
             if sharing.include_models {
                 if let Some(models) = entry.models.take() {
                     let mut visible = Vec::new();
-                    for chunk in models.chunks(1000) {
-                        let checked = host
-                            .check_access(AccessCheckQuery {
-                                client_key_id: key.into(),
-                                accounts: vec![AccountAccessQuery {
-                                    account_id: source.account_id.clone(),
-                                    models: chunk.to_vec(),
-                                }],
-                            })
-                            .await
-                            .map_err(support::callback_error)?;
-                        visible.extend(
-                            checked
-                                .accounts
-                                .into_iter()
-                                .flat_map(|account| account.models),
-                        );
+                    for model in models {
+                        let allowed = if let Some(allowed) = model_access.get(&model) {
+                            *allowed
+                        } else {
+                            let checked = host
+                                .check_access(AccessQuery {
+                                    client_key_id: key.into(),
+                                    account_ids: vec![source.account_id.clone()],
+                                    upstream_model: Some(model.clone()),
+                                })
+                                .await
+                                .map_err(support::callback_error)?;
+                            let allowed = checked.accounts[0].allowed;
+                            model_access.insert(model.clone(), allowed);
+                            allowed
+                        };
+                        if allowed {
+                            visible.push(model);
+                        }
                     }
                     entry.models = Some(visible);
                 }
