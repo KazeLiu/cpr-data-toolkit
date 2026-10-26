@@ -6,7 +6,7 @@ import { computed, reactive, watch } from 'vue'
 import { getKeys, message } from '../api'
 import { getQuotaSharing, saveQuotaSharing } from '../api/upstream'
 
-const props = defineProps<{ active: boolean }>()
+const props = defineProps<{ active: boolean, available: boolean }>()
 const state = reactive({ keys: [] as Key[], keyId: '', value: null as QuotaSharing | null, saved: '', loaded: false, busy: false, error: '', notice: '' })
 const dirty = computed(() => state.value !== null && JSON.stringify(state.value) !== state.saved)
 function apply(value: QuotaSharing) {
@@ -14,6 +14,8 @@ function apply(value: QuotaSharing) {
   state.saved = JSON.stringify(value)
 }
 async function read() {
+  if (!props.available)
+    return
   state.busy = true
   state.error = ''
   state.notice = ''
@@ -26,6 +28,8 @@ async function read() {
   finally { state.busy = false }
 }
 async function load() {
+  if (!props.available)
+    return
   state.busy = true
   state.error = ''
   try {
@@ -42,7 +46,7 @@ async function load() {
   await read()
 }
 async function save() {
-  if (!state.value)
+  if (!state.value || !props.available)
     return
   state.busy = true
   state.error = ''
@@ -54,8 +58,8 @@ async function save() {
   catch (error) { state.error = message(error) }
   finally { state.busy = false }
 }
-watch(() => props.active, (active) => {
-  if (active && !state.loaded)
+watch(() => [props.active, props.available], ([active, available]) => {
+  if (active && available && !state.loaded)
     void load()
 }, { immediate: true })
 </script>
@@ -66,20 +70,20 @@ watch(() => props.active, (active) => {
     <div class="quota-sharing-controls">
       <ZSelect
         v-model="state.keyId" :options="state.keys.map((key) => ({ value: key.id, label: `${key.name}${key.enabled ? '' : '（已停用）'}` }))"
-        :disabled="state.busy" filterable placeholder="选择 API 秘钥" @change="read"
+        :disabled="state.busy || !available" filterable placeholder="选择 API 秘钥" @change="read"
         class="quota-sharing-key" aria-label="选择分享额度的 API 秘钥"
       />
       <template v-if="state.value">
         <div class="quota-sharing-switches">
-          <ZSwitch v-model="state.value.enabled" :disabled="state.busy" label="开启分享" />
-          <ZSwitch v-model="state.value.includeNames" :disabled="state.busy || !state.value.enabled" label="账号名称" aria-label="分享账号名称" />
-          <ZSwitch v-model="state.value.includeModels" :disabled="state.busy || !state.value.enabled" label="模型列表" aria-label="分享模型列表" />
+          <ZSwitch v-model="state.value.enabled" :disabled="state.busy || !available" label="开启分享" />
+          <ZSwitch v-model="state.value.includeNames" :disabled="state.busy || !available || !state.value.enabled" label="账号名称" aria-label="分享账号名称" />
+          <ZSwitch v-model="state.value.includeModels" :disabled="state.busy || !available || !state.value.enabled" label="模型列表" aria-label="分享模型列表" />
         </div>
         <div class="toolbar quota-sharing-actions">
-          <ZButton type="primary" :disabled="!dirty" :loading="state.busy" @click="save">
+          <ZButton type="primary" :disabled="!available || !dirty" :loading="state.busy" @click="save">
             保存设置
           </ZButton>
-          <ZButton variant="text" :disabled="state.busy" @click="load">
+          <ZButton variant="text" :disabled="state.busy || !available" @click="load">
             重新读取
           </ZButton>
         </div>

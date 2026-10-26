@@ -72,6 +72,18 @@ export interface QuotaSource {
   enabled: boolean
 }
 
+export interface QuotaSupport {
+  queryAvailable: boolean
+  sharingAvailable: boolean
+}
+
+export function getQuotaSupport() {
+  return request('GET', 'api/upstream/support', null, (value): QuotaSupport => {
+    const support = object(value)
+    return { queryAvailable: boolean(support.queryAvailable), sharingAvailable: boolean(support.sharingAvailable) }
+  })
+}
+
 function invalid(): never {
   throw new Error('上游额度响应格式不正确，请检查插件版本')
 }

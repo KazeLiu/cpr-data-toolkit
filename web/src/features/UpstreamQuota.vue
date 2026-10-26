@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import type { QueryType, QuotaSource, UpstreamState } from '../api/upstream'
+import type { QueryType, QuotaSource, QuotaSupport, UpstreamState } from '../api/upstream'
 import { ZButton, ZSelect, ZSwitch } from '@codex-proxy/ui'
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { ApiError, message } from '../api'
 import {
   getQuotaSources,
+  getQuotaSupport,
   getUpstream,
   queryOptions,
   refreshUpstream,
@@ -14,6 +15,7 @@ import QuotaSharing from '../components/QuotaSharing.vue'
 import UpstreamQuotaCards from '../components/UpstreamQuotaCards.vue'
 
 const props = defineProps<{ active: boolean }>()
+const support = ref<QuotaSupport | null>(null)
 const state = reactive({
   sources: [] as QuotaSource[],
   accountId: '',
@@ -79,7 +81,7 @@ function cooldownUntil(value: UpstreamState) {
   const interval = ['kimi_coding', 'kimi_coding_global', 'command_code'].includes(value.queryType) ? 15000 : 10000
   return value.lastAttemptAt === null ? 0 : Date.parse(value.lastAttemptAt) + interval
 }
-const canRefresh = computed(() => !dirty.value && !state.busy && viewSources.value.some((source) => {
+const canRefresh = computed(() => support.value?.queryAvailable && !dirty.value && !state.busy && viewSources.value.some((source) => {
   const value = state.snapshots[source.id]
   return source.enabled && (!value || (value.queryType !== 'disabled' && cooldownUntil(value) <= now.value))
 }))
@@ -140,7 +142,7 @@ async function fetchSource(source: QuotaSource, refresh: boolean) {
   try {
     let value = await getUpstream(source.id)
     apply(source.id, value)
-    if (refresh && isActive() && source.enabled && value.queryType !== 'disabled' && cooldownUntil(value) <= Date.now()) {
+    if (refresh && support.value?.queryAvailable && isActive() && source.enabled && value.queryType !== 'disabled' && cooldownUntil(value) <= Date.now()) {
       value = await refreshUpstream(source.id)
       apply(source.id, value)
     }
@@ -177,6 +179,7 @@ async function load() {
   state.error = ''
   state.notice = ''
   try {
+    support.value = await getQuotaSupport()
     state.sources = await getQuotaSources()
     state.loaded = true
     if (!state.sources.some(source => source.id === state.accountId)) {
@@ -206,7 +209,7 @@ async function load() {
 }
 
 async function save() {
-  if (!data.value || !source.value || state.busy)
+  if (!data.value || !source.value || state.busy || !support.value?.queryAvailable)
     return
   const selected = source.value
   state.busy = true
@@ -219,7 +222,7 @@ async function save() {
       ? '设置已保存，本次获取失败'
       : state.queryType === 'disabled'
         ? '已关闭查询'
-        : '设置已保存，额度已获取，宿主将继续定期刷新'
+        : '设置已保存，额度已获取，插件将继续定期刷新'
   }
   catch (error) {
     if (error instanceof ApiError && error.status === 409) {
@@ -252,6 +255,16 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="panel">
+    <section v-if="support && (!support.queryAvailable || !support.sharingAvailable)" class="section" role="status">
+      <h3>宿主额度接口尚未就绪</h3>
+      <p class="notice">
+        {{ !support.queryAvailable && !support.sharingAvailable ? '当前宿主尚不支持额度查询和分享' : !support.queryAvailable ? '当前宿主尚不支持额度查询' : '当前宿主尚不支持额度分享' }}
+        ，请使用包含 <a href="https://github.com/zyycn/codex-proxy-rs/pull/525" target="_blank" rel="noopener noreferrer">PR #525</a> 接口的宿主和匹配 RPC 版本的插件，其他标签页仍可使用
+      </p>
+      <ZButton :loading="state.busy" :disabled="dirty" @click="load">
+        重新检查
+      </ZButton>
+    </section>
     <details class="section quota-settings quota-details">
       <summary>
         <span>查询设置</span>
@@ -271,7 +284,7 @@ onBeforeUnmount(() => {
           <label v-for="field in queryFields" :key="field.level" class="field"><span>{{ field.label }}</span><ZSelect
             :model-value="field.value"
             :options="field.options"
-            :disabled="state.busy || !data"
+            :disabled="state.busy || !data || !support?.queryAvailable"
             filterable
             :placeholder="`选择${field.label.slice(2)}`"
             @update:model-value="selectQueryLevel(field.level, $event)"
@@ -281,13 +294,13 @@ onBeforeUnmount(() => {
           {{ resetHint }}
         </p>
         <p v-if="data && state.queryType !== 'disabled'" class="muted">
-          使用上游账号的当前凭据和出站代理，保存后由宿主在后台自动刷新
+          使用上游账号的当前凭据和出站代理，保存后由插件在后台自动刷新
         </p>
         <div class="toolbar">
           <ZButton
             type="primary"
             :loading="state.busy"
-            :disabled="!dirty || (!source?.enabled && state.queryType !== 'disabled')"
+            :disabled="!support?.queryAvailable || !dirty || (!source?.enabled && state.queryType !== 'disabled')"
             @click="save"
           >
             {{ state.queryType === 'disabled' ? '关闭查询' : '保存并获取' }}
@@ -354,6 +367,6 @@ onBeforeUnmount(() => {
         最近查询尝试：{{ new Date(data.lastAttemptAt).toLocaleString() }}
       </p>
     </section>
-    <QuotaSharing :active="active" />
+    <QuotaSharing :active="active" :available="support?.sharingAvailable ?? false" />
   </div>
 </template>

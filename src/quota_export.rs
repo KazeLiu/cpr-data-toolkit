@@ -3,7 +3,7 @@
 use crate::{
     api::{ApiError, Result},
     upstream::{
-        self,
+        self, support,
         types::{
             MAX_QUOTA_RESPONSE_BYTES, QuotaAccount, QuotaBalance, QuotaObservationStatus,
             QuotaResponse, QuotaWindow, QuotaWindowRole,
@@ -47,7 +47,9 @@ pub async fn handle(mut call: HttpCall) -> std::result::Result<HttpResponse, Plu
             })
             .await
             .map_err(|error| {
-                if matches!(
+                if support::is_missing(&error) {
+                    support::unavailable()
+                } else if matches!(
                     error.code,
                     ErrorCode::PermissionDenied | ErrorCode::Rejected | ErrorCode::InvalidInput
                 ) {
@@ -64,7 +66,7 @@ pub async fn handle(mut call: HttpCall) -> std::result::Result<HttpResponse, Plu
         export(&call.host, &identity.client_key_id)
             .await
             .map_err(|error| {
-                if error.status >= 500 {
+                if error.status >= 500 && error.code != "host_quota_unsupported" {
                     ApiError::new(503, "quota_unavailable", error.message)
                 } else {
                     error
@@ -134,7 +136,8 @@ async fn export(host: &HostClient, key: &str) -> Result<QuotaResponse> {
                     models: vec![],
                 }],
             })
-            .await?;
+            .await
+            .map_err(support::callback_error)?;
         if !allowed.accounts[0].allowed {
             continue;
         }
@@ -145,7 +148,8 @@ async fn export(host: &HostClient, key: &str) -> Result<QuotaResponse> {
                 .quota_details(QuotaFactsQuery {
                     account_id: source.account_id.clone(),
                 })
-                .await?;
+                .await
+                .map_err(support::callback_error)?;
             let observed_at = quota
                 .observed_at_ms
                 .and_then(chrono::DateTime::from_timestamp_millis);
@@ -228,7 +232,8 @@ async fn export(host: &HostClient, key: &str) -> Result<QuotaResponse> {
                                     models: chunk.to_vec(),
                                 }],
                             })
-                            .await?;
+                            .await
+                            .map_err(support::callback_error)?;
                         visible.extend(
                             checked
                                 .accounts

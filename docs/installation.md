@@ -1,8 +1,10 @@
 # 安装 CPR 数据工具箱
 
-当前版本为 **1.2 预发行版**，内部版本 `1.2.0`，使用公开 SDK 0.1.0、RPC v6 和 middleware v6，不兼容 RPC v5。宿主必须包含 [PR #525](https://github.com/zyycn/codex-proxy-rs/pull/525)的通用接口（固定 SDK 提交 [`af6fc21d`](https://github.com/KazeLiu/codex-proxy-rs/commit/af6fc21d70540a92fe4d5695ce1a7e999a65e6a3)），仅有正式版 v3.32.0 尚不能使用这些接口。SDK 与打包 CLI 均固定到该提交
+当前版本为 **1.3 稳定版**，内部版本 `1.3.0`，使用公开 SDK 0.1.0、RPC v6 和 middleware v6，适用于 v3.32.0 等 RPC v6 宿主。SDK 与打包 CLI 固定到[提交 `af6fc21d`](https://github.com/KazeLiu/codex-proxy-rs/commit/af6fc21d70540a92fe4d5695ce1a7e999a65e6a3)，不兼容 RPC v5 或 v7
 
-从 [1.2 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.2.0)下载对应平台的 `.tar.gz` 和 `.sha256`，或下载 ZIP 后解压。通过宿主 GitHub 来源安装时，仓库填写 `KazeLiu/cpr-data-toolkit`，标签明确填写 `v1.2.0` 并允许预发行；标签留空不会选择此版本。1.1 实验包依赖 #505 和 RPC v5，不能通过改清单安装到 RPC v6 宿主
+从 [1.3 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.3.0)下载对应平台的 `.tar.gz` 和 `.sha256`，或下载 ZIP 后解压。通过宿主 GitHub 来源安装时，仓库填写 `KazeLiu/cpr-data-toolkit`，标签可填写 `v1.3.0`，无需允许预发行
+
+额度查询和分享需要对应的宿主通用接口，正式版 v3.32.0 尚不包含这些接口。缺少时，插件显示升级提示并禁用对应操作，不影响其他标签页；点击「重新检查」可再次检测。升级到包含 [PR #525](https://github.com/zyycn/codex-proxy-rs/pull/525) 的 RPC v7 宿主时，需同时改用[插件 1.4](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.4.0)
 
 按 CPR 宿主进程的平台选择 Linux x86_64、Linux ARM64 或 macOS ARM64 构建目标，不按打开管理页的电脑平台选择。Linux 目标为 glibc 2.17 或更高；仅有 musl 的系统或容器不能直接运行，没有 Windows 正式包
 
@@ -56,4 +58,4 @@
 - 导入每批 100 项，可暂停并继续；任务闲置 15 分钟过期，重启后以同一来源标识重新上传完整文件恢复。手动调整结果未确认时保留操作 ID，重新打开页面继续核对，不另建相同修正
 - 账号保存结果未知时先核对宿主，不直接重复创建；停用插件不会自动撤销已经保存的账号、价格、统计贡献或历史费用
 
-服务器安装、真实数据和 RPC v6 链路仍需在目标宿主验收
+服务器安装、接口缺失提示、真实数据和 RPC v6 链路仍需在目标宿主验收

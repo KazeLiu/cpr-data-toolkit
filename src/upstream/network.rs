@@ -179,10 +179,16 @@ impl Query<'_> {
         let mut response = tokio::time::timeout_at(self.deadline, request)
             .await
             .map_err(|_| "timeout")?
-            .map_err(|error| match error.code {
-                ErrorCode::Timeout => "timeout",
-                ErrorCode::Conflict => "conflict",
-                _ => "network_error",
+            .map_err(|error| {
+                if super::support::is_missing(&error) {
+                    "host_unsupported"
+                } else {
+                    match error.code {
+                        ErrorCode::Timeout => "timeout",
+                        ErrorCode::Conflict => "conflict",
+                        _ => "network_error",
+                    }
+                }
             })?;
         let result = async {
             match response.status {

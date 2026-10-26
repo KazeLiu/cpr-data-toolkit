@@ -33,6 +33,7 @@ pub fn registration() -> ManagementRegistration {
         "api/pricing",
         "api/usage/adjustment",
         "api/upstream/accounts",
+        "api/upstream/support",
     ];
     let post = [
         "api/models",
@@ -203,6 +204,9 @@ async fn route(
         .clone()
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     match (call.request.method.as_str(), call.request.path.as_str()) {
+        ("GET", "api/upstream/support") => {
+            Ok(serde_json::to_value(upstream::support::get(host).await?)?)
+        }
         ("GET", "api/upstream/accounts") => upstream::accounts(host).await,
         ("POST", "api/upstream/get") => upstream::get(host, api::decode(&call.payload)?).await,
         ("POST", "api/upstream/save") => upstream::save(host, api::decode(&call.payload)?).await,
