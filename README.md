@@ -2,9 +2,9 @@
 
 Codex Proxy RS 的连接与用量导入、统计维护和请求身份维护插件，项目标识为 `cpr-data-toolkit`，开发目录为 `D:\code\cpr-data-toolkit`。
 
-项目包含 Rust 后端和 Vue 管理页，当前版本为 **1.3 稳定版**（包内 `1.3.0`），使用公开 SDK **0.1.0**、RPC v7 和 middleware v6，不兼容旧 RPC。SDK 与打包 CLI 固定到 [PR #525 的提交 `1fcfc977`](https://github.com/KazeLiu/codex-proxy-rs/commit/1fcfc9771d2f15b6c45a60b55ce332b8b2065871)，需要支持 RPC v7 的宿主。安装入口见 `docs/installation.md`
+项目包含 Rust 后端和 Vue 管理页，当前分支为 **1.4 的 RPC v7 适配版**（包内 `1.4.0`），使用公开 SDK **0.1.0** 和 middleware v6，不兼容旧 RPC。SDK 与打包 CLI 固定到 [PR #525 的提交 `1fcfc977`](https://github.com/KazeLiu/codex-proxy-rs/commit/1fcfc9771d2f15b6c45a60b55ce332b8b2065871)。RPC v6 宿主使用 [1.3 稳定版](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.3.0)，安装入口见 `docs/installation.md`
 
-从 [1.3 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.3.0)选择对应平台附件。RPC v6 的 1.2 与 RPC v5 的 1.0/1.1 安装包均不能用于 RPC v7 宿主，不能只改清单版本号
+从 [1.4 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.4.0)选择对应平台附件，正式或预发行状态以 Release 为准。RPC v6 与 RPC v5 安装包不能用于 RPC v7 宿主，不能只改清单版本号
 
 阅读入口：
 
@@ -176,7 +176,7 @@ cargo +1.99.1 zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.1
 
 ### 交付与版本递增
 
-1.3 稳定版提供 Linux x86_64、Linux ARM64 和 macOS ARM64 的原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/1.3.md`。
+1.4 提供 Linux x86_64、Linux ARM64 和 macOS ARM64 的原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/1.4.md`。
 
 以后每次交付新包增加 `0.1`；打包前同步 `plugin.json`、`Cargo.toml`、`web/package.json` 和 Cargo 锁文件中的本项目版本。失败修复及同一次打包重试不重复递增，约定见 `AGENTS.md`。
 

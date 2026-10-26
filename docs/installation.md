@@ -1,10 +1,10 @@
 # 安装 CPR 数据工具箱
 
-当前版本为 **1.3 稳定版**，内部版本 `1.3.0`，使用公开 SDK 0.1.0、RPC v7 和 middleware v6。宿主必须支持 RPC v7，SDK 与打包 CLI 固定到 [PR #525 的提交 `1fcfc977`](https://github.com/KazeLiu/codex-proxy-rs/commit/1fcfc9771d2f15b6c45a60b55ce332b8b2065871)，不兼容 RPC v6 及更早协议
+当前分支为 **1.4 的 RPC v7 适配版**，内部版本 `1.4.0`，使用公开 SDK 0.1.0 和 middleware v6。SDK 与打包 CLI 固定到 [PR #525 的提交 `1fcfc977`](https://github.com/KazeLiu/codex-proxy-rs/commit/1fcfc9771d2f15b6c45a60b55ce332b8b2065871)，宿主必须支持 RPC v7
 
-从 [1.3 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.3.0)下载对应平台的 `.tar.gz` 和 `.sha256`，或下载 ZIP 后解压。通过宿主 GitHub 来源安装时，仓库填写 `KazeLiu/cpr-data-toolkit`，标签可填写 `v1.3.0`，无需允许预发行
+从 [1.4 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.4.0)下载对应平台的 `.tar.gz` 和 `.sha256`，或下载 ZIP 后解压。通过宿主 GitHub 来源安装时，仓库填写 `KazeLiu/cpr-data-toolkit`，标签填写 `v1.4.0`；Release 标记为预发行时，需要允许预发行
 
-额度功能使用 PR #525 的账号 HTTP、入口认证、授权检查和原生额度接口。宿主可运行本插件但缺少其中接口时，页面会提示升级并禁用对应查询或分享操作，点击「重新检查」可再次检测；其他标签页不受影响。当前正式版宿主 v3.32.0 使用 RPC v6，不能启动本版本，应先升级到 RPC v7 宿主；插件页面的接口提示不能代替进程协议兼容检查
+额度功能使用 PR #525 的账号 HTTP、入口认证、授权检查和原生额度接口。宿主可运行本插件但缺少其中接口时，页面会提示升级并禁用对应查询或分享操作，点击「重新检查」可再次检测；其他标签页不受影响。RPC v6 宿主使用 [1.3 稳定版](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.3.0)；接口提示不能代替进程协议兼容检查
 
 按 CPR 宿主进程的平台选择 Linux x86_64、Linux ARM64 或 macOS ARM64 构建目标，不按打开管理页的电脑平台选择。Linux 目标为 glibc 2.17 或更高；仅有 musl 的系统或容器不能直接运行，没有 Windows 正式包
 

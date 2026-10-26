@@ -112,7 +112,7 @@ dependencies = [
 
 [[package]]
 name = "cpr-data-toolkit"
-version = "1.3.0"
+version = "1.4.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",

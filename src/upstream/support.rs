@@ -9,7 +9,7 @@ use gateway_plugin_sdk::{
 use serde::Serialize;
 
 pub const UPGRADE_HINT: &str =
-    "当前宿主尚未提供额度查询或分享接口，请升级到包含 PR #525 接口的 RPC v7 宿主";
+    "当前宿主尚未提供额度查询或分享接口，请使用包含 PR #525 接口的宿主和匹配 RPC 版本的插件";
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]

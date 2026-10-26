@@ -259,7 +259,7 @@ onBeforeUnmount(() => {
       <h3>宿主额度接口尚未就绪</h3>
       <p class="notice">
         {{ !support.queryAvailable && !support.sharingAvailable ? '当前宿主尚不支持额度查询和分享' : !support.queryAvailable ? '当前宿主尚不支持额度查询' : '当前宿主尚不支持额度分享' }}
-        ，请升级到包含 <a href="https://github.com/zyycn/codex-proxy-rs/pull/525" target="_blank" rel="noopener noreferrer">PR #525</a> 接口的 RPC v7 宿主，其他标签页仍可使用
+        ，请使用包含 <a href="https://github.com/zyycn/codex-proxy-rs/pull/525" target="_blank" rel="noopener noreferrer">PR #525</a> 接口的宿主和匹配 RPC 版本的插件，其他标签页仍可使用
       </p>
       <ZButton :loading="state.busy" :disabled="dirty" @click="load">
         重新检查
