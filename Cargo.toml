@@ -17,5 +17,5 @@ toml = "0.9.8"
 url = "2.5.8"
 uuid = { version = "1.20.0", features = ["v4", "v5"] }
 base64 = "0.22.1"
-chrono = { version = "0.4.44", default-features = false, features = ["std"] }
+chrono = { version = "0.4.44", default-features = false, features = ["std", "serde"] }
 chrono-tz = "0.10.4"
