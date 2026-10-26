@@ -3,10 +3,10 @@
   "publisher": "kazeliu",
   "name": "cpr-data-toolkit",
   "displayName": "CPR 数据工具箱",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "连接与用量导入、统计调整、模型定价、模型UA与上游额度查询",
   "license": "UNLICENSED",
-  "engines": { "codex-proxy-rs": ">=3.30.1, <4.0.0" },
+  "engines": { "codex-proxy-rs": ">=3.32.0, <4.0.0" },
   "main": "bin/plugin",
   "runtime": "trustedProcess",
   "configurationSchema": {
@@ -16,9 +16,10 @@
   },
   "contributes": {
     "management": { "version": 2 },
+    "maintenance": { "version": 1 },
     "middleware": {
-      "version": 5,
-      "stages": ["request"],
+      "version": 6,
+      "stages": ["http", "request"],
       "inputFormats": ["openai"],
       "outputFormats": ["openai"]
     }
@@ -29,6 +30,45 @@
     "web/app.css": "text/css"
   },
   "state": [
+    {
+      "namespace": "upstream_quota",
+      "schemaVersion": 1,
+      "schema": {
+        "type": "object",
+        "required": ["credential_revision", "mode", "blocked", "accounts"],
+        "properties": {
+          "credential_revision": { "type": "integer", "minimum": 1 },
+          "mode": {
+            "enum": ["disabled", "cpr", "kimi", "kimi_global", "kimi_coding", "kimi_coding_global", "deepseek", "sub2api", "command_code"]
+          },
+          "blocked": { "type": "boolean" },
+          "accounts": { "type": "array" }
+        }
+      },
+      "maximumRecords": 5000,
+      "maximumBytes": 16777216,
+      "maximumValueBytes": 262144,
+      "migratesFrom": []
+    },
+    {
+      "namespace": "quota_sharing",
+      "schemaVersion": 1,
+      "schema": {
+        "type": "object",
+        "required": ["enabled", "include_names", "include_models", "salt"],
+        "additionalProperties": false,
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "include_names": { "type": "boolean" },
+          "include_models": { "type": "boolean" },
+          "salt": { "type": "string", "maxLength": 36 }
+        }
+      },
+      "maximumRecords": 5000,
+      "maximumBytes": 1048576,
+      "maximumValueBytes": 4096,
+      "migratesFrom": []
+    },
     {
       "namespace": "model_ua",
       "schemaVersion": 1,

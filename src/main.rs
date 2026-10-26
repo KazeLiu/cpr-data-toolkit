@@ -41,13 +41,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
     let plugin = builder
-        .middleware(move |call: gateway_plugin_sdk::client::RequestCall| {
+        .on(
+            gateway_plugin_sdk::client::methods::RECONCILE,
+            |call| async move {
+                upstream::maintain(&call.host).await.map_err(|_| {
+                    gateway_plugin_sdk::PluginFault::new(
+                        gateway_plugin_sdk::ErrorCode::Fault,
+                        "额度后台刷新未完成",
+                    )
+                })?;
+                Ok(gateway_plugin_sdk::client::TypedReply::new(
+                    gateway_plugin_sdk::client::Empty {},
+                ))
+            },
+        )?
+        .middleware(move |call: gateway_plugin_sdk::client::MiddlewareCall| {
             let logs = Arc::clone(&middleware_logs);
             async move {
-                if call.request.head.endpoint == "/v1/quota" {
-                    quota_export::handle(call).await
-                } else {
-                    model_ua::middleware(&logs, call).await
+                match call {
+                    gateway_plugin_sdk::client::MiddlewareCall::Http(call)
+                        if call.request.uri.split('?').next() == Some("/v1/quota") =>
+                    {
+                        quota_export::handle(*call).await.map(Into::into)
+                    }
+                    gateway_plugin_sdk::client::MiddlewareCall::Request(call) => {
+                        model_ua::middleware(&logs, *call).await.map(Into::into)
+                    }
+                    call => call.forward().await,
                 }
             }
         })?

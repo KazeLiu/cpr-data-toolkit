@@ -2,9 +2,9 @@
 
 Codex Proxy RS 的连接与用量导入、统计维护和请求身份维护插件，项目标识为 `cpr-data-toolkit`，开发目录为 `D:\code\cpr-data-toolkit`。
 
-项目包含 Rust 后端和 Vue 管理页，当前版本为 **1.1**（包内 `1.1.0`），使用 SDK **0.2.0**、RPC v5。需要包含 [宿主 PR #505](https://github.com/zyycn/codex-proxy-rs/pull/505) 的宿主（能力版本 **3.30.1**），不能直接安装到正式版 v3.30.0。安装入口见 `docs/installation.md`。
+项目包含 Rust 后端和 Vue 管理页，当前开发版本为 **1.2**（包内 `1.2.0`），使用公开 SDK **0.1.0**、RPC v6 和 middleware v6，不兼容 RPC v5。需要包含[宿主通用接口提交 `af6fc21d`](https://github.com/KazeLiu/codex-proxy-rs/commit/af6fc21d70540a92fe4d5695ce1a7e999a65e6a3)的宿主；仅有正式版 v3.32.0 还不包含这些接口。安装入口见 `docs/installation.md`
 
-1.1 安装包见 [GitHub 预发行版](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.1.0)，发布说明见 `docs/releases/1.1.md`。正式版宿主 v3.30.0 尚不包含额度 SDK，继续使用 [插件 0.9](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v0.9.0)；不要只修改旧包清单后安装到新版宿主
+1.2 尚未打包或发布。已发布的 [1.1 实验包](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.1.0)依赖已关闭的 #505 和 RPC v5，不能安装到 RPC v6 宿主；不要只修改旧包清单
 
 阅读入口：
 
@@ -34,35 +34,37 @@ Codex Proxy RS 的连接与用量导入、统计维护和请求身份维护插�
 - **Sub2API**：查询账号地址的 `/v1/usage`，显示钱包、Key 总额度、订阅及限额窗口，金额不换算成百分比
 - **Command Code**：选择同名查询平台，沿用 CC Switch 的官方 `/alpha` 身份、credits、订阅与用量查询流程，自动带上组织及订阅周期范围。卡片显示五小时、周、月三项已用百分比，月额度按 CC Switch 的账期池口径计算，重置时间取订阅结束时间，不展示 credits 和本期费用明细。该控制面未公开文档化，接口变化可能需要同步适配
 
-直连 Kimi、DeepSeek、Sub2API、Command Code 时，宿主同时复用账号模型目录缓存和查询入口，取得模型 ID 后随余额快照保存。模型接口不支持或查询失败时保留余额；没有模型时显示禁用的「0 个模型」入口，不另占一行提示。CPR 模式仅显示上游已分享的逐账号模型，不从整站模型目录推测账号归属
+直连 Kimi、DeepSeek、Sub2API、Command Code 时，插件通过受管账号 HTTP 查询模型 ID，与余额共用一次查询期限并保存到私有快照。模型接口不支持或普通网络失败时保留余额；模型查询返回 401/403 时停止下传旧快照。CPR 模式仅显示上游已分享的逐账号模型，不从整站模型目录推测账号归属
 
-「保存并获取」等待宿主首次查询结束，再显示新卡片，不受页面刷新冷却跳过；并发查询共用宿主刷新锁。查询失败时仍保存设置并显示错误，保留同版本可用快照，不需要再点击刷新才能看到本次结果
+「保存并获取」先保存插件设置，再等待首次查询结束。并发查询共用插件内的账号刷新锁，快照写入另用私有状态版本比较，防止覆盖并发设置。查询失败时仍保存设置并显示错误，保留同一凭据和查询类型的可用快照
 
 打开插件时刷新一次，之后每三分钟按当前视图刷新，也可点击「刷新额度」立即查询。切换程序、浏览器标签或工具箱标签不会立即刷新；定时触发时页面不可见或不在「上游额度」标签则跳过，切回后等待下一轮，不补刷。关闭插件后清理定时器，已发送的请求仍可完成。查询设置有未保存的修改时暂停页面自动刷新。
 
-宿主原有后台额度任务不受页面开关影响，CPR 后台间隔一分钟，其他模式五分钟。手动查询至少间隔十秒，Kimi 编程订阅和 Command Code 至少十五秒；冷却期间禁用刷新按钮，沿用当前快照。
+插件通过 `maintenance` 在后台检查到期账号，不依赖页面定时器；CPR 查询间隔一分钟，其他模式五分钟，每轮最多并发四个账号。手动查询至少间隔十秒，Kimi 编程订阅和 Command Code 至少十五秒；冷却期间禁用刷新按钮，沿用当前快照
 
 刷新按钮左侧的「聚合」默认开启，展示全部启用且已配置查询的上游，不自动启用未配置的账号。关闭后在「额度详情」右侧下拉选择上游账号，只展示该上游的账号额度；切换选择只读取已有快照，不额外请求上游。卡片名称和来源标签分居两端，来源只显示账号名称，不显示 Key 内容；部分上游查询失败时，其他卡片和可用旧快照继续展示。
 
 每个上游账号使用独立卡片，常规宽度下一行三列，窄屏缩为两列或一列。同一行卡片按内容最多的一张等高，超出上限后在卡片内部滚动。「额度详情」统一显示已用百分比，与宿主账号管理一致，透传也不转成剩余值。短周期和周额度并排，月额度排在底部并占满一行。模型详情弹窗使用组件默认位置，搜索框下方的模型 Tag 列表单独滚动，点击模型名称复制并显示通知。「最后获取」使用上游观测时间，界面时间按浏览器本地时区显示；未知额度保持未知，重置时间已过也不自动把百分比恢复。
 
-查询失败保留同一凭据的旧快照，并显示错误和「数据过期」。更换账号 Key、切换查询类型或关闭查询后，不再使用旧凭据版本的快照。保存设置按宿主凭据版本条件更新，冲突时载入最新设置供核对，不覆盖其他页面的设置。
+查询失败保留同一凭据的旧快照，并显示错误和「数据过期」。更换账号 Key、切换查询类型或关闭查询后，不再使用旧凭据版本的快照。设置按插件私有状态版本条件更新，冲突时重新读取；查询前后复核宿主凭据版本，迟到结果不会覆盖新连接的快照
 
-查询、解析和保存均由宿主 Provider 完成，使用账号当前凭据与单账号出站代理；插件不读取 Key，不保存独立额度状态。页面定时器仅在查看期间调用公开 SDK 刷新入口，离开后清理。超时、大小上限、刷新互斥和迟到结果隔离由宿主管理，不影响账号调度、凭据健康与本地计费。金额按十进制原值展示，不补零或换算为百分比。
+查询协议、快照、失败状态与分享设置均由插件持有，保存到 `host.state` 私有命名空间，不新增宿主业务表或账号字段。插件后端经二进制 RPC 读取账号凭据、构造请求，宿主只负责当前账号代理、受管网络和资源回收；凭据不进入页面、私有状态、控制元数据或日志，不改账号调度、健康和计费
+
+CPR 查询期限五秒，Kimi 编程订阅与 Command Code 十五秒，其他模式十秒，包含模型获取；失败清理单独限时一秒。单来源展示快照限制为 240 KiB，以满足 `host.state` 单条 256 KiB 配额；超限保留可用旧快照并显示错误。下游响应上限为 1 MiB。金额按十进制原值展示，不补零或换算为百分比
 
 ### 向下游分享
 
-上游 A 与下游 B 均安装并启用插件。A 在「上游额度 → 向下游分享额度」选择 B 使用的 API 秘钥，开启分享；名称和模型默认不分享。B 为接入 A 的上游账号选择 CPR 查询，宿主便会自动获取并保存快照。
+上游 A 与下游 B 均安装并启用插件。A 为插件启用无 Key、账号或模型范围限制的 `http` 绑定，在「上游额度 → 向下游分享额度」选择 B 使用的 API 秘钥并开启分享；名称和模型默认不分享。B 为接入 A 的上游账号选择 CPR 查询，由插件后台获取并保存快照
 
-`/v1/quota` 由插件的请求中间件响应，未安装或停用插件时不提供透传。宿主负责 Client Key 鉴权、账号分组和访问范围、模型过滤、匿名 ID 与分享授权，插件通过 `ExportQuota` 获取过滤后的数据，不接收原始 Key。停用账号不导出，上游拒绝认证或权限后停止下传旧快照，成功恢复查询后再开放。
+`/v1/quota` 由插件 HTTP 中间件响应；未安装、停用或无匹配绑定时沿用宿主未知路由响应。插件调用 `verify_client` 验证入口身份，调用 `check_access` 检查账号与模型范围；宿主保持唯一授权权威。插件按每个 Key 的私有分享设置过滤内容，并使用独立随机命名空间生成匿名 ID。停用账号不导出，上游拒绝认证或权限后停止下传旧快照，成功获取后恢复。原生账号窗口只读取宿主已有 `quota_details` 事实
 
 分享的模型是已取得目录与白名单、访问范围的交集，不会仅因勾选而增加上游未返回的模型。账号管理会保留已保存但未出现在当前目录中的 ID，这些勾选项不代表当前可用模型
 
 ### SDK 来源
 
-1.1 的 SDK 和打包 CLI 固定到 [宿主提交 `b3f00b4e`](https://github.com/KazeLiu/codex-proxy-rs/commit/b3f00b4e654496d4cfee5577b47b2af157045e83)。插件只使用公开 `gateway-plugin-sdk` 0.2.0，不依赖宿主内部模块
+SDK 和打包 CLI 固定到[宿主提交 `af6fc21d`](https://github.com/KazeLiu/codex-proxy-rs/commit/af6fc21d70540a92fe4d5695ce1a7e999a65e6a3)。插件只使用公开 `gateway-plugin-sdk` 0.1.0，不依赖宿主内部模块
 
-新查询模式需安装包含本次 Command Code 实现的配套宿主，不能只升级插件。该能力尚未随宿主正式版发布
+新增第三方查询类型只需修改插件。宿主需具备通用账号 HTTP、入口验证、授权检查与原生额度明细接口；这些接口尚未随宿主正式版发布
 
 ## 配置模型 UA
 
@@ -149,11 +151,11 @@ cargo build --release --locked --target $target
 打包 CLI 与 SDK 使用同一固定提交：
 
 ```powershell
-cargo install --locked --git https://github.com/KazeLiu/codex-proxy-rs.git --rev b3f00b4e654496d4cfee5577b47b2af157045e83 codex-proxy-plugin-cli --root .tools/plugin-cli-quota
-.tools/plugin-cli-quota/bin/cpr-plugin package --manifest plugin.json --binary "target/$target/release/cpr-data-toolkit" --target $target --resource-map web=web/dist --output-dir dist
+cargo install --locked --git https://github.com/KazeLiu/codex-proxy-rs.git --rev af6fc21d70540a92fe4d5695ce1a7e999a65e6a3 codex-proxy-plugin-cli --root .tools/plugin-cli-v6
+.tools/plugin-cli-v6/bin/cpr-plugin package --manifest plugin.json --binary "target/$target/release/cpr-data-toolkit" --target $target --resource-map web=web/dist --output-dir dist
 ```
 
-该版本 CLI 支持 `x86_64-unknown-linux-gnu`、`aarch64-unknown-linux-gnu` 和 `aarch64-apple-darwin`，没有 Windows 原生包目标。资源映射将 `web/dist` 中的三个页面文件放入包内 `web/`；输出包位于 `dist/`。详见[固定版本打包合同](https://github.com/KazeLiu/codex-proxy-rs/blob/b3f00b4e654496d4cfee5577b47b2af157045e83/backend/apps/plugin-cli/README.md)。
+该版本 CLI 支持 `x86_64-unknown-linux-gnu`、`aarch64-unknown-linux-gnu` 和 `aarch64-apple-darwin`，没有 Windows 原生包目标。资源映射将 `web/dist` 中的三个页面文件放入包内 `web/`；输出包位于 `dist/`。详见[固定版本打包合同](https://github.com/KazeLiu/codex-proxy-rs/blob/af6fc21d70540a92fe4d5695ce1a7e999a65e6a3/backend/apps/plugin-cli/README.md)。
 
 ### 本机 Windows 交叉构建
 
@@ -165,7 +167,7 @@ $env:Path = "$PWD/.tools/node-v24.21.0-win-x64;$PWD/.tools/cargo-zigbuild-0.23.4
 $env:CARGO_ZIGBUILD_ZIG_PATH = "$PWD/.tools/zig-pypi/ziglang/zig.exe"
 $env:CARGO_ZIGBUILD_CACHE_DIR = "$PWD/.tools/zig-cache"
 cargo +1.99.1 zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.17
-.tools/plugin-cli-quota/bin/cpr-plugin.exe package --manifest plugin.json --binary target/aarch64-unknown-linux-gnu/release/cpr-data-toolkit --target aarch64-unknown-linux-gnu --resource-map web=web/dist --output-dir dist
+.tools/plugin-cli-v6/bin/cpr-plugin.exe package --manifest plugin.json --binary target/aarch64-unknown-linux-gnu/release/cpr-data-toolkit --target aarch64-unknown-linux-gnu --resource-map web=web/dist --output-dir dist
 ```
 
 构建 x86_64 时将命令中的 target 替换为 `x86_64-unknown-linux-gnu`。锁文件保留发布年龄策略；`allowBuilds` 只允许固定提交的 UI Git 依赖执行准备脚本。
@@ -178,4 +180,4 @@ cargo +1.99.1 zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.1
 
 多平台构建使用 `.github/workflows/package.yml`，在 GitHub Actions 手动运行「Build release packages」，选择待发布提交所在分支。工作流只构建产物，不自动发布；前端资源构建一次后供三个平台使用，Rust、SDK、CLI 和构建工具版本固定，Linux 使用 glibc 2.17 目标。下载对应构建产物后，通过 GitHub CLI 将安装包附到 Release。
 
-实际发行物和已验证平台以对应 Release 附件与说明为准。Windows 隔离 A/B 环境已用模拟账号验证额度透传；Linux/macOS 安装和真实上游接入仍需验收。
+实际发行物和已验证平台以对应 Release 附件与说明为准。当前开发版本尚未完成运行验收，原实验包的模拟环境证据不能替代 RPC v6 和插件自有状态链路的验收

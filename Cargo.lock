@@ -111,7 +111,7 @@ dependencies = [
 
 [[package]]
 name = "cpr-data-toolkit"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -204,8 +204,8 @@ dependencies = [
 
 [[package]]
 name = "gateway-plugin-sdk"
-version = "0.2.0"
-source = "git+https://github.com/KazeLiu/codex-proxy-rs.git?rev=b3f00b4e654496d4cfee5577b47b2af157045e83#b3f00b4e654496d4cfee5577b47b2af157045e83"
+version = "0.1.0"
+source = "git+https://github.com/KazeLiu/codex-proxy-rs.git?rev=af6fc21d70540a92fe4d5695ce1a7e999a65e6a3#af6fc21d70540a92fe4d5695ce1a7e999a65e6a3"
 dependencies = [
  "base64 0.23.1",
  "semver",
