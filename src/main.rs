@@ -3,6 +3,7 @@ mod api;
 mod history_pricing;
 mod host;
 mod management;
+mod model_priority;
 mod model_ua;
 mod pricing;
 mod quota_export;
@@ -41,6 +42,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
     let plugin = builder
+        .on(
+            gateway_plugin_sdk::client::methods::SCHEDULE_ACCOUNT,
+            model_priority::schedule,
+        )?
         .on(
             gateway_plugin_sdk::client::methods::RECONCILE,
             |call| async move {

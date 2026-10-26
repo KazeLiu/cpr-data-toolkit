@@ -3,7 +3,7 @@
 use crate::{
     accounts,
     api::{self, ApiError, Result},
-    history_pricing, host,
+    history_pricing, host, model_priority,
     model_ua::{self, Configuration, RequestLogs},
     pricing,
     sources::SourceStore,
@@ -34,9 +34,13 @@ pub fn registration() -> ManagementRegistration {
         "api/usage/adjustment",
         "api/upstream/accounts",
         "api/upstream/support",
+        "api/model-priority",
     ];
     let post = [
         "api/models",
+        "api/model-priority/lookup",
+        "api/model-priority/save",
+        "api/model-priority/delete",
         "api/upstream/get",
         "api/upstream/save",
         "api/upstream/refresh",
@@ -93,7 +97,9 @@ pub fn registration() -> ManagementRegistration {
         pages: vec![ManagementPage {
             id: "toolkit".into(),
             title: "CPR 数据工具箱".into(),
-            description: Some("连接与用量导入、统计调整、定价、模型UA与上游额度".into()),
+            description: Some(
+                "连接与用量导入、统计调整、定价、模型UA、上游额度与模型优先级".into(),
+            ),
             entry: "web/index.html".into(),
             icon: None,
         }],
@@ -204,6 +210,16 @@ async fn route(
         .clone()
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     match (call.request.method.as_str(), call.request.path.as_str()) {
+        ("GET", "api/model-priority") => model_priority::get(host).await,
+        ("POST", "api/model-priority/lookup") => {
+            model_priority::lookup(host, api::decode(&call.payload)?).await
+        }
+        ("POST", "api/model-priority/save") => {
+            model_priority::save(host, api::decode(&call.payload)?).await
+        }
+        ("POST", "api/model-priority/delete") => {
+            model_priority::delete(host, api::decode(&call.payload)?).await
+        }
         ("GET", "api/upstream/support") => {
             Ok(serde_json::to_value(upstream::support::get(host).await?)?)
         }

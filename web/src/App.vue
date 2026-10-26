@@ -5,12 +5,13 @@ import { host, message } from './api'
 import SourceUpload from './components/SourceUpload.vue'
 import ApiImport from './features/ApiImport.vue'
 import ManualAdjust from './features/ManualAdjust.vue'
+import ModelPriority from './features/ModelPriority.vue'
 import ModelUa from './features/ModelUa.vue'
 import Pricing from './features/Pricing.vue'
 import UpstreamQuota from './features/UpstreamQuota.vue'
 import UsageImport from './features/UsageImport.vue'
 
-const tabs = ['上游额度', 'API 导入', '用量导入', '手动调整', '模型定价', '模型UA定制']
+const tabs = ['上游额度', 'API 导入', '用量导入', '手动调整', '模型定价', '模型UA定制', '模型上游优先级']
 const page = reactive({
   tab: 0,
   ready: false,
@@ -111,6 +112,9 @@ onBeforeUnmount(() => window.removeEventListener('codex-proxy-themechange', them
       </div>
       <div v-show="page.tab === 5" id="panel-5" role="tabpanel" aria-labelledby="tab-5">
         <ModelUa />
+      </div>
+      <div v-show="page.tab === 6" id="panel-6" role="tabpanel" aria-labelledby="tab-6">
+        <ModelPriority :active="page.tab === 6" />
       </div>
     </template>
   </main>
