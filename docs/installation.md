@@ -1,10 +1,10 @@
 # 安装 CPR 数据工具箱
 
-当前分支为 **1.4 的 RPC v7 适配版**，内部版本 `1.4.0`，使用公开 SDK 0.1.0 和 middleware v6。SDK 与打包 CLI 固定到 [PR #525 的提交 `1fcfc977`](https://github.com/KazeLiu/codex-proxy-rs/commit/1fcfc9771d2f15b6c45a60b55ce332b8b2065871)，宿主必须支持 RPC v7
+当前版本为 **1.5**，内部版本 `1.5.0`，要求 CPR **3.33.0 或更新的兼容版本**，使用 RPC v7、公开 SDK 0.1.0 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.33.0 的提交 `8c8618aa`](https://github.com/zyycn/codex-proxy-rs/commit/8c8618aa0f841638262262e3338c115bc075f125)
 
-从 [1.4 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.4.0)下载对应平台的 `.tar.gz` 和 `.sha256`，或下载 ZIP 后解压。通过宿主 GitHub 来源安装时，仓库填写 `KazeLiu/cpr-data-toolkit`，标签填写 `v1.4.0`；Release 标记为预发行时，需要允许预发行
+从 [1.5 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.5.0)下载对应平台的 `.tar.gz` 和 `.sha256`，或下载 ZIP 后解压。通过宿主 GitHub 来源安装时，仓库填写 `KazeLiu/cpr-data-toolkit`，标签填写 `v1.5.0`
 
-额度功能使用 PR #525 的账号 HTTP、入口认证、授权检查和原生额度接口。宿主可运行本插件但缺少其中接口时，页面会提示升级并禁用对应查询或分享操作，点击「重新检查」可再次检测；其他标签页不受影响。RPC v6 宿主使用 [1.3 稳定版](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.3.0)；接口提示不能代替进程协议兼容检查
+额度功能所需的账号 HTTP、入口认证、授权检查和原生额度接口已包含在 CPR 3.33.0 中。接口缺失时页面会提示升级，分别禁用受影响的查询或分享操作，点击「重新检查」可再次检测；其他标签页不受影响。旧版本安装附件不再提供，源码与 Git 标签保留；RPC v6 及更早宿主应先升级
 
 按 CPR 宿主进程的平台选择 Linux x86_64、Linux ARM64 或 macOS ARM64 构建目标，不按打开管理页的电脑平台选择。Linux 目标为 glibc 2.17 或更高；仅有 musl 的系统或容器不能直接运行，没有 Windows 正式包
 
@@ -32,7 +32,7 @@
 
 ## 让模型上游优先级生效
 
-此功能位于 RPC v7 开发线后续源码，已发布的 1.4 包不包含，需要使用包含本次改动的新包
+1.5 提供模型上游优先级、顺序备用与最近请求查看
 
 1. 打开「模型上游优先级」，新增规则，选择 Provider 和完整上游模型名称，获取同名模型账号
 2. 拖拽或使用上移／下移调整顺序，第一位首选，其余按顺序备用，保存规则

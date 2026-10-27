@@ -2,9 +2,9 @@
 
 Codex Proxy RS 的连接与用量导入、统计维护和请求身份维护插件，项目标识为 `cpr-data-toolkit`，开发目录为 `D:\code\cpr-data-toolkit`。
 
-项目包含 Rust 后端和 Vue 管理页，当前分支为 **1.4 的 RPC v7 适配版**（包内 `1.4.0`），使用公开 SDK **0.1.0** 和 middleware v6，不兼容旧 RPC。SDK 与打包 CLI 固定到 [PR #525 的提交 `1fcfc977`](https://github.com/KazeLiu/codex-proxy-rs/commit/1fcfc9771d2f15b6c45a60b55ce332b8b2065871)。RPC v6 宿主使用 [1.3 稳定版](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.3.0)，安装入口见 `docs/installation.md`
+项目包含 Rust 后端和 Vue 管理页，当前版本为 **1.5**（包内 `1.5.0`），要求 CPR **3.33.0 或更新的兼容版本**，使用 RPC v7、公开 SDK **0.1.0** 和 middleware v6，不兼容旧 RPC。SDK 与打包 CLI 固定到 [CPR v3.33.0 的提交 `8c8618aa`](https://github.com/zyycn/codex-proxy-rs/commit/8c8618aa0f841638262262e3338c115bc075f125)，安装入口见 `docs/installation.md`
 
-从 [1.4 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.4.0)选择对应平台附件，正式或预发行状态以 Release 为准。RPC v6 与 RPC v5 安装包不能用于 RPC v7 宿主，不能只改清单版本号
+从 [1.5 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.5.0)选择对应平台附件。旧版本安装附件不再提供，源码与 Git 标签保留；旧 RPC 宿主应先升级，不能只改清单版本号
 
 阅读入口：
 
@@ -23,7 +23,7 @@ Codex Proxy RS 的连接与用量导入、统计维护和请求身份维护插�
 - **手动调整**：填写 Token 总量和请求次数的正负增减量，读取今天／近 7 天／近 30 天的真实原值并预览，确认后写入首次提交时刻。结果未确认时保留原操作 ID，重新打开页面可继续核对
 - **模型定价**：读取、同步和批量维护 CPR 全局价目；社区价目支持关键词与模型 ID 过滤，缓存价格缺失或留空按零处理，输入与输出价格必填。「价格同步」按选定时间和 Provider 补全缺失费用或覆盖该范围原生请求的 Token 估算费用
 - **模型UA定制**：忽略大小写，按顺序使用第一条命中的启用规则覆盖 `User-Agent`；可选配套 `originator`、`version`，未填写的头不变更，未命中不改写。预览和安全验证用绿／红色块显示结果；请求改写日志展示时间、模型、命中规则及替换前后 UA
-- **模型上游优先级**：按完整模型名称查询同一 Provider 下的上游，拖拽或使用上移／下移设置首选与备用顺序，使用 RPC v7 的账号调度能力
+- **模型上游优先级**：按完整模型名称查询同一 Provider 下的上游，拖拽或使用上移／下移设置首选与备用顺序；最近请求对照插件选择与最终上游，查看首选／备用是否匹配
 
 ## 设置模型上游优先级
 
@@ -43,7 +43,7 @@ Codex Proxy RS 的连接与用量导入、统计维护和请求身份维护插�
 
 日志在插件进程内存保留最近 200 条请求，每页 25 条，每条最多保留最近 32 次选择，可主动清空，重启后清空。同一次尝试的容量重选只保留最后决定。完成事件为有界实时投递，丢失时可能持续显示等待，不能作为完整历史账本；需要继续核对时使用请求 ID 对照宿主请求记录。日志不保存凭据、请求正文或上游错误正文
 
-此功能只加入 RPC v7 开发线，不回移 RPC v6。已发布的 1.4 安装包不包含本次源码新增功能，需要后续重新构建和打包
+模型上游优先级与最近请求从 1.5 起提供，仅支持 RPC v7
 
 ## 查看上游额度
 
@@ -83,9 +83,9 @@ CPR 查询期限五秒，Kimi 编程订阅与 Command Code 十五秒，其他模
 
 ### SDK 来源
 
-SDK 和打包 CLI 固定到[宿主提交 `1fcfc977`](https://github.com/KazeLiu/codex-proxy-rs/commit/1fcfc9771d2f15b6c45a60b55ce332b8b2065871)。插件只使用公开 `gateway-plugin-sdk` 0.1.0，不依赖宿主内部模块
+SDK 和打包 CLI 固定到 [CPR v3.33.0 的提交 `8c8618aa`](https://github.com/zyycn/codex-proxy-rs/commit/8c8618aa0f841638262262e3338c115bc075f125)。插件只使用公开 `gateway-plugin-sdk` 0.1.0，不依赖宿主内部模块
 
-新增第三方查询类型只需修改插件。宿主需具备通用账号 HTTP、入口验证、授权检查与原生额度明细接口；这些接口尚未随宿主正式版发布
+新增第三方查询类型只需修改插件。通用账号 HTTP、入口验证、授权检查与原生额度明细接口已随 CPR 3.33.0 发布
 
 页面会检查所需接口，缺失时显示宿主升级提示和「重新检查」，分别禁用额度查询或分享操作；后台不会反复调用缺失的查询接口，其他标签页仍可使用。该提示适用于插件可启动的 RPC v7 宿主，RPC v6 及更早宿主不能启动本版本，应先升级宿主
 
@@ -174,11 +174,11 @@ cargo build --release --locked --target $target
 打包 CLI 与 SDK 使用同一固定提交：
 
 ```powershell
-cargo install --locked --git https://github.com/KazeLiu/codex-proxy-rs.git --rev 1fcfc9771d2f15b6c45a60b55ce332b8b2065871 codex-proxy-plugin-cli --root .tools/plugin-cli-v7
+cargo install --locked --git https://github.com/zyycn/codex-proxy-rs.git --rev 8c8618aa0f841638262262e3338c115bc075f125 codex-proxy-plugin-cli --root .tools/plugin-cli-v7
 .tools/plugin-cli-v7/bin/cpr-plugin package --manifest plugin.json --binary "target/$target/release/cpr-data-toolkit" --target $target --resource-map web=web/dist --output-dir dist
 ```
 
-该版本 CLI 支持 `x86_64-unknown-linux-gnu`、`aarch64-unknown-linux-gnu` 和 `aarch64-apple-darwin`，没有 Windows 原生包目标。资源映射将 `web/dist` 中的三个页面文件放入包内 `web/`；输出包位于 `dist/`。详见[固定版本打包合同](https://github.com/KazeLiu/codex-proxy-rs/blob/1fcfc9771d2f15b6c45a60b55ce332b8b2065871/backend/apps/plugin-cli/README.md)。
+该版本 CLI 支持 `x86_64-unknown-linux-gnu`、`aarch64-unknown-linux-gnu` 和 `aarch64-apple-darwin`，没有 Windows 原生包目标。资源映射将 `web/dist` 中的三个页面文件放入包内 `web/`；输出包位于 `dist/`。详见[固定版本打包合同](https://github.com/zyycn/codex-proxy-rs/blob/8c8618aa0f841638262262e3338c115bc075f125/backend/apps/plugin-cli/README.md)。
 
 ### 本机 Windows 交叉构建
 
@@ -197,7 +197,7 @@ cargo +1.99.1 zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.1
 
 ### 交付与版本递增
 
-1.4 提供 Linux x86_64、Linux ARM64 和 macOS ARM64 的原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/1.4.md`。
+1.5 提供 Linux x86_64、Linux ARM64 和 macOS ARM64 的原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/1.5.md`。
 
 以后每次交付新包增加 `0.1`；打包前同步 `plugin.json`、`Cargo.toml`、`web/package.json` 和 Cargo 锁文件中的本项目版本。失败修复及同一次打包重试不重复递增，约定见 `AGENTS.md`。
 
