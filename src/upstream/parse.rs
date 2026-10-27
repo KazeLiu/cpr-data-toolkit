@@ -19,6 +19,7 @@ pub(crate) fn parse(
         id: "balance".to_owned(),
         label: "上游额度".to_owned(),
         models: None,
+        models_error: None,
         status: QuotaObservationStatus::Observed,
         observed_at: Some(observed_at),
         windows: Vec::new(),

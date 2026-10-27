@@ -1,12 +1,13 @@
 //! 插件 HTTP 额度分享；认证与授权事实来自宿主，披露和匿名化由插件处理
 
 use crate::{
+    account_models,
     api::{ApiError, Result},
     upstream::{
         self, support,
         types::{
             MAX_QUOTA_RESPONSE_BYTES, QuotaAccount, QuotaBalance, QuotaObservationStatus,
-            QuotaResponse, QuotaWindow, QuotaWindowRole,
+            QuotaResponse, QuotaWindow, QuotaWindowRole, valid_models,
         },
     },
 };
@@ -19,7 +20,7 @@ use gateway_plugin_sdk::{
     client::{HostClient, HttpBody, HttpCall, HttpFrame, HttpResponse},
 };
 use serde_json::json;
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, time::Duration};
 
 pub async fn handle(mut call: HttpCall) -> std::result::Result<HttpResponse, PluginFault> {
     let result = async {
@@ -119,6 +120,8 @@ async fn export(host: &HostClient, key: &str) -> Result<QuotaResponse> {
     let namespace = uuid::Uuid::parse_str(&sharing.salt)
         .map_err(|_| ApiError::new(503, "quota_unavailable", "分享标识不可用"))?;
     let mut accounts = Vec::new();
+    // 下游 CPR 查询期限为五秒，目录查询共用四秒预算，留出返回已有额度的时间
+    let models_deadline = tokio::time::Instant::now() + Duration::from_secs(4);
     for listed in upstream::directory(host).await? {
         let source = upstream::runtime(host, &listed.account_id).await?;
         if !source.enabled
@@ -177,25 +180,33 @@ async fn export(host: &HostClient, key: &str) -> Result<QuotaResponse> {
                 .collect();
             let balances = quota
                 .credits
+                .filter(|credits| credits.balance.is_some() || credits.unlimited)
                 .map(|credits| QuotaBalance {
-                    label: "点数余额".into(),
+                    label: "额外点数余额".into(),
                     remaining: credits.balance,
                     used: None,
                     total: None,
                     unit: None,
                     unlimited: credits.unlimited,
                     is_valid: credits.has_credits || credits.unlimited,
-                    invalid_message: None,
+                    invalid_message: (!credits.has_credits && !credits.unlimited)
+                        .then(|| "额外点数不可用".into()),
                     window_seconds: None,
                     reset_at: None,
                     details: vec![],
                 })
                 .into_iter()
                 .collect::<Vec<_>>();
+            let (models, models_error) = if sharing.include_models {
+                native_models(host, &source.account_id, models_deadline).await
+            } else {
+                (None, None)
+            };
             vec![QuotaAccount {
                 id: "native".into(),
                 label: source.name.clone(),
-                models: None,
+                models,
+                models_error,
                 status: if let Some(at) = observed_at {
                     if (upstream::now() - at).num_seconds() >= 600 {
                         QuotaObservationStatus::Stale
@@ -248,6 +259,7 @@ async fn export(host: &HostClient, key: &str) -> Result<QuotaResponse> {
                 }
             } else {
                 entry.models = None;
+                entry.models_error = None;
             }
             let input = serde_json::to_vec(&(key, &source.account_id, &entry.id))?;
             entry.id = uuid::Uuid::new_v5(&namespace, &input).to_string();
@@ -275,4 +287,23 @@ async fn export(host: &HostClient, key: &str) -> Result<QuotaResponse> {
         ));
     }
     Ok(response)
+}
+
+async fn native_models(
+    host: &HostClient,
+    account_id: &str,
+    deadline: tokio::time::Instant,
+) -> (Option<Vec<String>>, Option<String>) {
+    let timeout_message = "模型目录查询超时，请在上游账号管理获取目录后重试";
+    if tokio::time::Instant::now() >= deadline {
+        return (None, Some(timeout_message.into()));
+    }
+    let message =
+        match tokio::time::timeout_at(deadline, account_models::list(host, account_id)).await {
+            Ok(Ok(models)) if valid_models(&models) => return (Some(models), None),
+            Ok(Ok(_)) => "模型目录格式不兼容，请在上游账号管理检查目录".into(),
+            Ok(Err(error)) => format!("{}，请在上游账号管理检查目录", error.message),
+            Err(_) => timeout_message.into(),
+        };
+    (None, Some(message))
 }

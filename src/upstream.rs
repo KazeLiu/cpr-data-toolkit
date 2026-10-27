@@ -145,7 +145,7 @@ fn view(version: Option<u64>, record: &Record, current_revision: u64) -> Value {
         }
     }
     json!({"version":version.unwrap_or(0),"queryType":record.mode,
-        "snapshot": if valid { record.fetched_at.map(|at| json!({"fetchedAt":at,"accounts":accounts.iter().map(|account| json!({"id":account.id,"label":account.label,"models":account.models,"status":account.status,"observedAt":account.observed_at,"windows":account.windows,"amounts":account.balances,"message":null})).collect::<Vec<_>>()})) } else {None},
+        "snapshot": if valid { record.fetched_at.map(|at| json!({"fetchedAt":at,"accounts":accounts.iter().map(|account| json!({"id":account.id,"label":account.label,"models":account.models,"status":account.status,"observedAt":account.observed_at,"windows":account.windows,"amounts":account.balances,"message":account.models_error})).collect::<Vec<_>>()})) } else {None},
         "lastAttemptAt":record.last_attempt_at,"stale":stale,"forwardingBlocked":record.mode != QuotaQueryMode::Disabled && (!valid || record.blocked),
         "error": if !valid && record.mode != QuotaQueryMode::Disabled { Some("账号连接已变更，请重新获取额度") } else { record.error.as_deref().map(query_error) }})
 }

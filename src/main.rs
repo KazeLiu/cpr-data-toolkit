@@ -1,3 +1,4 @@
+mod account_models;
 mod accounts;
 mod api;
 mod history_pricing;

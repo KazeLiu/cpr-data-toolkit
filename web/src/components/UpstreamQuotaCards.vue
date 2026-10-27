@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { QuotaSource, QuotaWindow, UpstreamAccount } from '../api/upstream'
+import type { QuotaAmount, QuotaSource, QuotaWindow, UpstreamAccount } from '../api/upstream'
 import { ZButton, ZDialog, ZScrollbar, ZTag } from '@codex-proxy/ui'
 import { computed, reactive, watch } from 'vue'
 import QuotaModels from './QuotaModels.vue'
@@ -10,6 +10,16 @@ const props = defineProps<{
   active: boolean
 }>()
 const models = reactive({ open: false, sourceId: '', accountId: '' })
+const displayCards = computed(() => props.cards.map(card => ({
+  ...card,
+  amounts: card.account.amounts.filter(entry => !isCredits(entry)
+    || entry.unlimited
+    || entry.remaining !== null
+    || entry.used !== null
+    || entry.total !== null
+    || entry.details.some(detail => detail.amount !== null)
+    || entry.invalidMessage !== null),
+})))
 const selectedCard = computed(() => props.cards.find(card => card.source.id === models.sourceId && card.account.id === models.accountId))
 watch([() => props.active, () => selectedCard.value?.account.models], ([active, items]) => {
   if (!active || !items?.length)
@@ -24,6 +34,9 @@ function showModels(sourceId: string, accountId: string) {
 
 function isMonthly(window: QuotaWindow) {
   return window.role === 'monthly' || (window.windowSeconds !== null && window.windowSeconds >= 28 * 86400)
+}
+function isCredits(entry: QuotaAmount) {
+  return entry.label === '点数余额' || entry.label === '额外点数余额'
 }
 function sortedWindows(windows: QuotaWindow[]) {
   return [...windows].sort((left, right) => Number(isMonthly(left)) - Number(isMonthly(right)))
@@ -44,7 +57,7 @@ function tone(used: number | null) {
 
 <template>
   <div class="quota-cards">
-    <section v-for="{ source, account, stale } in cards" :key="`${source.id}:${account.id}`" class="quota-card">
+    <section v-for="{ source, account, stale, amounts } in displayCards" :key="`${source.id}:${account.id}`" class="quota-card">
       <ZScrollbar max-height="22rem" class="quota-card-scroll">
         <header class="quota-card-heading">
           <div class="quota-account-title">
@@ -56,8 +69,9 @@ function tone(used: number | null) {
           </div>
           <div class="quota-card-meta">
             <span class="muted">最后获取：{{ date(account.observedAt) }}</span>
-            <ZButton type="primary" variant="text" size="small" class="quota-model-button" :disabled="!account.models?.length" aria-haspopup="dialog" @click="showModels(source.id, account.id)">
-              {{ account.models?.length ?? 0 }} 个模型
+            <span v-if="account.models === null" class="muted">模型未提供</span>
+            <ZButton v-else type="primary" variant="text" size="small" class="quota-model-button" :disabled="!account.models.length" aria-haspopup="dialog" @click="showModels(source.id, account.id)">
+              {{ account.models.length }} 个模型
             </ZButton>
           </div>
         </header>
@@ -95,12 +109,12 @@ function tone(used: number | null) {
               </div>
             </div>
           </div>
-          <div v-if="account.amounts.length" class="quota-amounts">
-            <div v-for="(entry, index) in account.amounts" :key="index" class="quota-amount">
-              <span v-if="!entry.isValid" class="quota-warning">{{ entry.invalidMessage ?? '额度不可用' }}</span>
+          <div v-if="amounts.length" class="quota-amounts">
+            <div v-for="(entry, index) in amounts" :key="index" class="quota-amount">
+              <span v-if="!entry.isValid" class="quota-warning">{{ entry.invalidMessage ?? (isCredits(entry) ? '额外点数不可用' : '额度不可用') }}</span>
               <div class="quota-amount-fields" :class="{ 'quota-balance-row': entry.details.length === 2 }">
                 <div class="quota-balance">
-                  <span class="muted">{{ entry.label }}</span>
+                  <span class="muted">{{ isCredits(entry) ? '额外点数余额' : entry.label }}</span>
                   <strong v-if="entry.unlimited">不限额</strong>
                   <strong v-else-if="entry.remaining !== null" class="mono">{{ entry.remaining }} {{ entry.unit }}</strong>
                   <span v-if="entry.used !== null || entry.total !== null" class="mono">已用 {{ entry.used ?? '未知' }} / {{ entry.total ?? '未知' }} {{ entry.unit }}</span>
@@ -112,14 +126,14 @@ function tone(used: number | null) {
                         && entry.total === null
                     "
                     class="muted"
-                  >额度未知</span>
+                  >{{ isCredits(entry) ? '余额未提供' : '额度未知' }}</span>
                 </div>
                 <div v-for="detail in entry.details" :key="detail.label" class="quota-balance-detail muted">{{ detail.label }} <span class="mono">{{ detail.amount ?? '未知' }} {{ entry.unit }}</span></div>
               </div>
               <span v-if="entry.resetAt" class="muted">重置 {{ date(entry.resetAt) }}</span>
             </div>
           </div>
-          <span v-if="!account.windows.length && !account.amounts.length" class="muted">额度待观测</span>
+          <span v-if="!account.windows.length && !amounts.length" class="muted">额度待观测</span>
         </div>
       </ZScrollbar>
     </section>

@@ -3,6 +3,7 @@
 pub mod logs;
 
 use crate::{
+    account_models,
     api::{ApiError, Result},
     state,
 };
@@ -10,10 +11,9 @@ use gateway_plugin_sdk::{
     PluginFault,
     call::{
         data::{AccountFacts, AccountFactsQuery},
-        middleware::http::Version,
         policy::{AccountScheduleDecision, AccountScheduleRequest},
     },
-    client::{HostClient, HttpBody, HttpFrame, HttpRequest, TypedCall, TypedReply},
+    client::{HostClient, TypedCall, TypedReply},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -180,53 +180,11 @@ pub async fn delete(host: &HostClient, input: Delete) -> Result<Value> {
     Ok(json!({"version": version, "rules": value.rules}))
 }
 
-#[derive(Deserialize)]
-struct ModelEnvelope {
-    data: Models,
-}
-
-#[derive(Deserialize)]
-struct Models {
-    models: Vec<Model>,
-}
-
-#[derive(Deserialize)]
-struct Model {
-    id: String,
-}
-
 async fn has_model(host: &HostClient, account_id: &str, model: &str) -> Result<bool> {
-    let query = url::form_urlencoded::Serializer::new(String::new())
-        .append_pair("accountId", account_id)
-        .finish();
-    let mut response = host
-        .dispatch_http(HttpRequest {
-            settings: Value::Null,
-            method: "GET".into(),
-            uri: format!("/api/admin/accounts/models?{query}"),
-            version: Version::Http11,
-            headers: vec![],
-            timeout_ms: Some(5000),
-            body: HttpBody::empty(),
-        })
-        .await?;
-    if response.status != 200 {
-        response.body.close().await?;
-        return Err(ApiError::new(502, "model_catalog", "模型目录读取失败"));
-    }
-    let mut bytes = Vec::new();
-    while let Some(frame) = response.body.read().await? {
-        if let HttpFrame::Data(data) = frame {
-            if bytes.len() + data.len() > 1024 * 1024 {
-                response.body.close().await?;
-                return Err(ApiError::new(502, "model_catalog", "模型目录超过 1 MiB"));
-            }
-            bytes.extend(data);
-        }
-    }
-    let result: ModelEnvelope = serde_json::from_slice(&bytes)
-        .map_err(|_| ApiError::new(502, "model_catalog", "模型目录格式不兼容"))?;
-    Ok(result.data.models.iter().any(|entry| entry.id == model))
+    Ok(account_models::list(host, account_id)
+        .await?
+        .iter()
+        .any(|id| id == model))
 }
 
 pub async fn lookup(host: &HostClient, input: Lookup) -> Result<Value> {

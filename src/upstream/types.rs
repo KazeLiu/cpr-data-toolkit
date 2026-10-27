@@ -21,6 +21,8 @@ pub struct QuotaAccount {
     pub label: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub models: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub models_error: Option<String>,
     pub status: QuotaObservationStatus,
     #[serde(deserialize_with = "required_nullable")]
     pub observed_at: Option<DateTime<Utc>>,
@@ -113,14 +115,16 @@ impl QuotaResponse {
             {
                 return Err(InvalidQuotaResponse);
             }
-            if let Some(models) = &account.models {
-                let mut seen = BTreeSet::new();
-                if models
-                    .iter()
-                    .any(|model| !valid_text(model) || !seen.insert(model))
-                {
-                    return Err(InvalidQuotaResponse);
-                }
+            if account
+                .models
+                .as_deref()
+                .is_some_and(|models| !valid_models(models))
+                || account
+                    .models_error
+                    .as_deref()
+                    .is_some_and(|message| !valid_text(message))
+            {
+                return Err(InvalidQuotaResponse);
             }
             let mut keys = BTreeSet::new();
             for balance in &account.balances {
@@ -177,6 +181,13 @@ impl QuotaResponse {
 
 #[derive(Debug, Clone, Copy)]
 pub struct InvalidQuotaResponse;
+
+pub(crate) fn valid_models(models: &[String]) -> bool {
+    let mut seen = BTreeSet::new();
+    models
+        .iter()
+        .all(|model| valid_text(model) && seen.insert(model))
+}
 
 fn valid_text(value: &str) -> bool {
     !value.is_empty() && value.len() <= 512 && !value.chars().any(char::is_control)
