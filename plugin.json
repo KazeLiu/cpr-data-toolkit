@@ -18,6 +18,7 @@
     "management": { "version": 2 },
     "maintenance": { "version": 1 },
     "scheduler": { "version": 3 },
+    "observer": { "version": 2 },
     "middleware": {
       "version": 6,
       "stages": ["http", "request"],

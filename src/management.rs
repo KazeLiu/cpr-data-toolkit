@@ -41,6 +41,8 @@ pub fn registration() -> ManagementRegistration {
         "api/model-priority/lookup",
         "api/model-priority/save",
         "api/model-priority/delete",
+        "api/model-priority/logs",
+        "api/model-priority/logs/clear",
         "api/upstream/get",
         "api/upstream/save",
         "api/upstream/refresh",
@@ -110,9 +112,10 @@ pub async fn handle(
     sources: &SourceStore,
     logs: &RequestLogs,
     imports: &usage::Imports,
+    priority_logs: &model_priority::logs::Logs,
     call: TypedCall<ManagementRequest>,
 ) -> std::result::Result<TypedReply<ManagementResponse>, PluginFault> {
-    match route(sources, logs, imports, call).await {
+    match route(sources, logs, imports, priority_logs, call).await {
         Ok(value) => api::reply(200, &value),
         Err(error) => error.reply(),
     }
@@ -195,6 +198,7 @@ async fn route(
     sources: &SourceStore,
     logs: &RequestLogs,
     imports: &usage::Imports,
+    priority_logs: &model_priority::logs::Logs,
     call: TypedCall<ManagementRequest>,
 ) -> Result<Value> {
     if !call.request.query.is_empty()
@@ -210,6 +214,17 @@ async fn route(
         .clone()
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     match (call.request.method.as_str(), call.request.path.as_str()) {
+        ("POST", "api/model-priority/logs") => {
+            let request: LogQuery = api::decode(&call.payload)?;
+            Ok(serde_json::to_value(
+                priority_logs.page(request.offset).await?,
+            )?)
+        }
+        ("POST", "api/model-priority/logs/clear") => {
+            require_empty_object(&call.payload)?;
+            priority_logs.clear().await;
+            Ok(json!({"cleared":true}))
+        }
         ("GET", "api/model-priority") => model_priority::get(host).await,
         ("POST", "api/model-priority/lookup") => {
             model_priority::lookup(host, api::decode(&call.payload)?).await

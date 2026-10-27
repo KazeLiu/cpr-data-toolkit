@@ -30,6 +30,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sources = Arc::new(sources::SourceStore::default());
     let logs = Arc::new(model_ua::RequestLogs::default());
     let usage = Arc::new(usage::Imports::default());
+    let priority_logs = Arc::new(model_priority::logs::Logs::default());
+    let scheduling_logs = Arc::clone(&priority_logs);
+    let observation_logs = Arc::clone(&priority_logs);
     let middleware_logs = Arc::clone(&logs);
     let cleanup = Arc::clone(&sources);
     let import_cleanup = Arc::clone(&usage);
@@ -44,8 +47,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let plugin = builder
         .on(
             gateway_plugin_sdk::client::methods::SCHEDULE_ACCOUNT,
-            model_priority::schedule,
+            move |call| {
+                let logs = Arc::clone(&scheduling_logs);
+                async move { model_priority::schedule(&logs, call).await }
+            },
         )?
+        .on(gateway_plugin_sdk::client::methods::OBSERVE, move |call| {
+            let logs = Arc::clone(&observation_logs);
+            async move {
+                if let gateway_plugin_sdk::call::observation::Event::RequestCompleted(event) =
+                    call.request
+                {
+                    logs.completed(&event).await;
+                }
+                Ok(gateway_plugin_sdk::client::TypedReply::new(
+                    gateway_plugin_sdk::client::Empty {},
+                ))
+            }
+        })?
         .on(
             gateway_plugin_sdk::client::methods::RECONCILE,
             |call| async move {
@@ -80,7 +99,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let sources = Arc::clone(&sources);
             let logs = Arc::clone(&logs);
             let usage = Arc::clone(&usage);
-            async move { management::handle(&sources, &logs, &usage, call).await }
+            let priority_logs = Arc::clone(&priority_logs);
+            async move { management::handle(&sources, &logs, &usage, &priority_logs, call).await }
         })?
         .build()?;
     session.run(plugin).await?;

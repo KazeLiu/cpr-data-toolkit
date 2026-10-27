@@ -1,4 +1,4 @@
-import { array, boolean, object, request, text, version } from './index'
+import { array, boolean, integer, nullable, object, request, text, version } from './index'
 
 export interface PriorityAccount {
   id: string
@@ -39,14 +39,15 @@ function configuration(value: unknown) {
   return { version: version(data.version), rules: array(data.rules, rule) }
 }
 
-export const getPriorities = () =>
-  request('GET', 'api/model-priority', undefined, (value) => ({
+export function getPriorities() {
+  return request('GET', 'api/model-priority', undefined, value => ({
     ...configuration(value),
     accounts: array(object(value).accounts, account),
   }))
+}
 
-export const lookupPriorityAccounts = (provider: string, model: string) =>
-  request('POST', 'api/model-priority/lookup', { provider, model }, (value) => {
+export function lookupPriorityAccounts(provider: string, model: string) {
+  return request('POST', 'api/model-priority/lookup', { provider, model }, (value) => {
     const data = object(value)
     return {
       accounts: array(data.accounts, account),
@@ -56,9 +57,65 @@ export const lookupPriorityAccounts = (provider: string, model: string) =>
       }),
     }
   })
+}
 
-export const savePriority = (expectedVersion: number | null, rule: PriorityRule) =>
-  request('POST', 'api/model-priority/save', { expectedVersion, rule }, configuration)
+export function savePriority(expectedVersion: number | null, rule: PriorityRule) {
+  return request('POST', 'api/model-priority/save', { expectedVersion, rule }, configuration)
+}
 
-export const deletePriority = (expectedVersion: number | null, provider: string, model: string) =>
-  request('POST', 'api/model-priority/delete', { expectedVersion, provider, model }, configuration)
+export function deletePriority(expectedVersion: number | null, provider: string, model: string) {
+  return request('POST', 'api/model-priority/delete', { expectedVersion, provider, model }, configuration)
+}
+
+export interface PriorityDecision {
+  attemptIndex: number
+  kind: string
+  primaryAccountId: string | null
+  selectedAccountId: string | null
+}
+
+export interface PriorityLog {
+  requestId: string
+  timeMs: number
+  provider: string
+  model: string | null
+  decisions: PriorityDecision[]
+  decisionsTruncated: boolean
+  completed: boolean
+  actualAccountId: string | null
+  outcome: string | null
+  sendState: string | null
+  attemptCount: number | null
+}
+
+export function getPriorityLogs(offset: number) {
+  return request('POST', 'api/model-priority/logs', { offset }, (value) => {
+    const data = object(value)
+    return {
+      entries: array(data.entries, (value) => {
+        const row = object(value)
+        return {
+          requestId: text(row.requestId),
+          timeMs: integer(row.timeMs),
+          provider: text(row.provider),
+          model: nullable(row.model),
+          decisions: array(row.decisions, (value) => {
+            const decision = object(value)
+            return { attemptIndex: integer(decision.attemptIndex), kind: text(decision.kind), primaryAccountId: nullable(decision.primaryAccountId), selectedAccountId: nullable(decision.selectedAccountId) }
+          }),
+          decisionsTruncated: boolean(row.decisionsTruncated),
+          completed: boolean(row.completed),
+          actualAccountId: nullable(row.actualAccountId),
+          outcome: nullable(row.outcome),
+          sendState: nullable(row.sendState),
+          attemptCount: row.attemptCount === null ? null : integer(row.attemptCount),
+        }
+      }),
+      total: integer(data.total),
+      capacity: integer(data.capacity),
+      pageSize: integer(data.pageSize),
+    }
+  })
+}
+
+export const clearPriorityLogs = () => request('POST', 'api/model-priority/logs/clear', {}, value => boolean(object(value).cleared))

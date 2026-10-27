@@ -1,5 +1,7 @@
 //! 模型账号优先顺序由插件持有，宿主负责候选资格、账号租约和失败重试
 
+pub mod logs;
+
 use crate::{
     api::{ApiError, Result},
     state,
@@ -8,7 +10,7 @@ use gateway_plugin_sdk::{
     PluginFault,
     call::{
         data::{AccountFacts, AccountFactsQuery},
-        middleware::Version,
+        middleware::http::Version,
         policy::{AccountScheduleDecision, AccountScheduleRequest},
     },
     client::{HostClient, HttpBody, HttpFrame, HttpRequest, TypedCall, TypedReply},
@@ -274,10 +276,26 @@ pub async fn lookup(host: &HostClient, input: Lookup) -> Result<Value> {
 }
 
 pub async fn schedule(
+    logs: &logs::Logs,
     call: TypedCall<AccountScheduleRequest>,
 ) -> std::result::Result<TypedReply<AccountScheduleDecision>, PluginFault> {
-    let (_, value) = load(&call.host).await?;
     let request = &call.request;
+    let (_, value) = match load(&call.host).await {
+        Ok(value) => value,
+        Err(error) => {
+            logs.record(
+                request,
+                logs::Decision {
+                    attempt_index: request.attempt_index,
+                    kind: logs::DecisionKind::RulesError,
+                    primary_account_id: None,
+                    selected_account_id: None,
+                },
+            )
+            .await;
+            return Err(error);
+        }
+    };
     let rule = value.rules.iter().find(|rule| {
         rule.enabled
             && rule.provider == request.provider
@@ -290,13 +308,41 @@ pub async fn schedule(
             .filter(|candidate| candidate.available)
             .map(|candidate| candidate.account_id.as_str())
             .collect();
-        for id in &rule.account_ids {
+        for (index, id) in rule.account_ids.iter().enumerate() {
             if available.contains(id.as_str()) {
+                logs.record(
+                    request,
+                    logs::Decision {
+                        attempt_index: request.attempt_index,
+                        kind: if index == 0 {
+                            logs::DecisionKind::Primary
+                        } else {
+                            logs::DecisionKind::Backup
+                        },
+                        primary_account_id: rule.account_ids.first().cloned(),
+                        selected_account_id: Some(id.clone()),
+                    },
+                )
+                .await;
                 return Ok(TypedReply::new(AccountScheduleDecision::Pick {
                     account_id: id.clone(),
                 }));
             }
         }
     }
+    logs.record(
+        request,
+        logs::Decision {
+            attempt_index: request.attempt_index,
+            kind: if rule.is_some() {
+                logs::DecisionKind::NativeFallback
+            } else {
+                logs::DecisionKind::Unmatched
+            },
+            primary_account_id: rule.and_then(|rule| rule.account_ids.first().cloned()),
+            selected_account_id: None,
+        },
+    )
+    .await;
     Ok(TypedReply::new(AccountScheduleDecision::Delegate))
 }
