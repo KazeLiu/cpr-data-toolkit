@@ -1,8 +1,8 @@
 # 安装 CPR 数据工具箱
 
-当前版本为 **1.6**，内部版本 `1.6.0`，要求 CPR **3.33.0 或更新的兼容版本**，使用 RPC v7、公开 SDK 0.1.0 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.33.0 的提交 `8c8618aa`](https://github.com/zyycn/codex-proxy-rs/commit/8c8618aa0f841638262262e3338c115bc075f125)
+当前版本为 **1.6.1**，内部版本 `1.6.1`，要求 CPR **3.33.0 或更新的兼容版本**，使用 RPC v7、公开 SDK 0.1.0 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.33.0 的提交 `8c8618aa`](https://github.com/zyycn/codex-proxy-rs/commit/8c8618aa0f841638262262e3338c115bc075f125)
 
-从 [1.6 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.6.0)下载对应平台的 `.tar.gz` 和 `.sha256`，或下载 ZIP 后解压。通过宿主 GitHub 来源安装时，仓库填写 `KazeLiu/cpr-data-toolkit`，标签填写 `v1.6.0`
+从 [1.6.1 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.6.1)下载对应平台的 `.tar.gz` 和 `.sha256`，或下载 ZIP 后解压。通过宿主 GitHub 来源安装时，仓库填写 `KazeLiu/cpr-data-toolkit`，标签填写 `v1.6.1`
 
 额度功能所需的账号 HTTP、入口认证、授权检查和原生额度接口已包含在 CPR 3.33.0 中。接口缺失时页面会提示升级，分别禁用受影响的查询或分享操作，点击「重新检查」可再次检测；其他标签页不受影响。旧版本安装附件不再提供，源码与 Git 标签保留；RPC v6 及更早宿主应先升级
 
@@ -33,6 +33,8 @@
 分享原生 OAuth 账号的模型时，上游分享方需更新到 1.6。插件读取逐账号目录后再按 Key 权限过滤；只更新下游不会补回上游缺失的模型。建议上下游同时升级。目录读取失败时保留额度并显示原因；「模型未提供」与确实为空的「0 个模型」分别显示
 
 「额外点数余额」与 5 小时、周套餐窗口相互独立。没有有效余额数据的空点数行不显示，不将无额外点数解释为整个账号额度不可用
+
+自 1.6.1 起，开启「账号名称」后统一分享当前 CPR 账号管理中的名称，不使用邮箱。CPR 转发账号的多条子快照沿用当前接入账号名称，ID 和额度仍分别保留。改名后下游下次成功查询生效；默认名称「OpenAI 账号」需在账号管理中自行修改。关闭名称分享仍使用匿名编号
 
 当前源码的 Cline Pass 模式使用账号中的 Cline API Key 查询官方 `usage-limits`，显示上游已用比例和重置时间，每分钟后台检查刷新，不提供金额估计或账号模型目录。经 CPA 调用模型不意味着 CPA 的客户端 Key 能查询 Cline 官方额度；需要单独配置保存 Cline API Key 的账号。原有凭据版本检查、失败快照和分享权限继续生效
 

@@ -274,7 +274,9 @@ async fn export(host: &HostClient, key: &str) -> Result<QuotaResponse> {
             }
             let input = serde_json::to_vec(&(key, &source.account_id, &entry.id))?;
             entry.id = uuid::Uuid::new_v5(&namespace, &input).to_string();
-            if !sharing.include_names {
+            if sharing.include_names {
+                entry.label.clone_from(&source.name);
+            } else {
                 entry.label = format!("上游账号 {}", accounts.len() + 1);
             }
             accounts.push(entry);
