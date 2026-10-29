@@ -2,9 +2,9 @@
 
 Codex Proxy RS 的连接与用量导入、统计维护和请求身份维护插件，项目标识为 `cpr-data-toolkit`，开发目录为 `D:\code\cpr-data-toolkit`。
 
-项目包含 Rust 后端和 Vue 管理页，当前版本为 **1.6**（包内 `1.6.0`），要求 CPR **3.33.0 或更新的兼容版本**，使用 RPC v7、公开 SDK **0.1.0** 和 middleware v6，不兼容旧 RPC。SDK 与打包 CLI 固定到 [CPR v3.33.0 的提交 `8c8618aa`](https://github.com/zyycn/codex-proxy-rs/commit/8c8618aa0f841638262262e3338c115bc075f125)，安装入口见 `docs/installation.md`
+项目包含 Rust 后端和 Vue 管理页，当前版本为 **1.6.1**（包内 `1.6.1`），要求 CPR **3.33.0 或更新的兼容版本**，使用 RPC v7、公开 SDK **0.1.0** 和 middleware v6，不兼容旧 RPC。SDK 与打包 CLI 固定到 [CPR v3.33.0 的提交 `8c8618aa`](https://github.com/zyycn/codex-proxy-rs/commit/8c8618aa0f841638262262e3338c115bc075f125)，安装入口见 `docs/installation.md`
 
-从 [1.6 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.6.0)选择对应平台附件，发行状态以 Release 为准。源码与 Git 标签保留；旧 RPC 宿主应先升级，不能只改清单版本号
+从 [1.6.1 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.6.1)选择对应平台附件，发行状态以 Release 为准。源码与 Git 标签保留；旧 RPC 宿主应先升级，不能只改清单版本号
 
 阅读入口：
 
@@ -78,6 +78,8 @@ CPR 查询期限五秒，Kimi 编程订阅与 Command Code 十五秒，其他模
 ### 向下游分享
 
 上游 A 与下游 B 均安装并启用插件。A 为插件启用无 Key、账号或模型范围限制的 `http` 绑定，在「上游额度 → 向下游分享额度」选择 B 使用的 API 秘钥并开启分享；名称和模型默认不分享。B 为接入 A 的上游账号选择 CPR 查询，由插件后台获取并保存快照
+
+开启「账号名称」后，分享名称统一取当前 CPR 账号管理中的名称，不读取邮箱或个人资料昵称。CPR 转发账号的多条子快照使用当前接入账号名称，各自的 ID 和额度仍独立保留。重命名后下游下次成功查询即生效；若仍叫「OpenAI 账号」，请在账号管理中修改名称。关闭名称分享时仍使用匿名编号
 
 `/v1/quota` 由插件 HTTP 中间件响应；未安装、停用或无匹配绑定时沿用宿主未知路由响应。插件调用 `verify_client` 验证入口身份，调用 `check_access` 检查账号与模型范围；宿主保持唯一授权权威。插件按每个 Key 的私有分享设置过滤内容，并使用独立随机命名空间生成匿名 ID。停用账号不导出，上游拒绝认证或权限后停止下传旧快照，成功获取后恢复。原生账号窗口只读取宿主已有 `quota_details` 事实
 
@@ -203,7 +205,7 @@ cargo +1.99.1 zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.1
 
 ### 交付与版本递增
 
-1.6 的发行目标为 Linux x86_64、Linux ARM64 和 macOS ARM64，提供原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/1.6.md`。
+1.6.1 的发行目标为 Linux x86_64、Linux ARM64 和 macOS ARM64，提供原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/1.6.1.md`。
 
 以后每次交付新包增加 `0.1`；打包前同步 `plugin.json`、`Cargo.toml`、`web/package.json` 和 Cargo 锁文件中的本项目版本。失败修复及同一次打包重试不重复递增，约定见 `AGENTS.md`。
 
