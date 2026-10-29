@@ -10,6 +10,7 @@ export type QueryType
     | 'deepseek'
     | 'sub2api'
     | 'command_code'
+    | 'cline_pass'
 
 export const queryOptions: { path: string[], value: QueryType }[] = [
   { path: ['不查询'], value: 'disabled' },
@@ -21,6 +22,7 @@ export const queryOptions: { path: string[], value: QueryType }[] = [
   { path: ['DeepSeek'], value: 'deepseek' },
   { path: ['Sub2API'], value: 'sub2api' },
   { path: ['Command Code'], value: 'command_code' },
+  { path: ['Cline Pass'], value: 'cline_pass' },
 ]
 
 export interface QuotaWindow {

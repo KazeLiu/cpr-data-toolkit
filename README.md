@@ -6,6 +6,8 @@ Codex Proxy RS 的连接与用量导入、统计维护和请求身份维护插�
 
 从 [1.6 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.6.0)选择对应平台附件，发行状态以 Release 为准。源码与 Git 标签保留；旧 RPC 宿主应先升级，不能只改清单版本号
 
+当前源码新增 Responses「钉上游」与 Cline Pass 额度查询，尚未打包，1.6 安装附件不包含这些新增内容
+
 阅读入口：
 
 - `AGENTS.md`：已核对的接入合同、数据边界和验证约定
@@ -15,7 +17,7 @@ Codex Proxy RS 的连接与用量导入、统计维护和请求身份维护插�
 - `docs/initial-research.md`：固定源码基线与初次调研；其中候选功能以最新需求讨论为准
 - `docs/write-capability-audit.md`：关键写入能力、源码证据、用量口径与恢复边界
 
-## 七个标签页
+## 功能标签页
 
 - **上游额度**：默认进入此页并聚合全部已配置上游，卡片显示额度与原币种余额，模型详情弹窗支持搜索和点击复制
 - **API 导入**：解析 CCS 完整手动 SQL 导出，提取 Claude、Codex 和 Gemini 的名称、地址与 Key，选择后通过宿主账号合同接入 OpenAI Responses 兼容上游，不按来源协议拦截。表格支持多选、跨页全选、复制 API，以及主动查看或复制隐藏的 Key。相同地址与 Key 只接入一次，名称不同在弹窗中选择；更新已有账号使用精确凭据版本
@@ -24,6 +26,23 @@ Codex Proxy RS 的连接与用量导入、统计维护和请求身份维护插�
 - **模型定价**：读取、同步和批量维护 CPR 全局价目；社区价目支持关键词与模型 ID 过滤，缓存价格缺失或留空按零处理，输入与输出价格必填。「价格同步」按选定时间和 Provider 补全缺失费用或覆盖该范围原生请求的 Token 估算费用
 - **模型UA定制**：忽略大小写，按顺序使用第一条命中的启用规则覆盖 `User-Agent`；可选配套 `originator`、`version`，未填写的头不变更，未命中不改写。预览和安全验证用绿／红色块显示结果；请求改写日志展示时间、模型、命中规则及替换前后 UA
 - **模型上游优先级**：按完整模型名称查询同一 Provider 下的上游，拖拽或使用上移／下移设置首选与备用顺序；最近请求对照插件选择与最终上游，查看首选／备用是否匹配
+- **钉上游**：按账号与最终上游模型 ID 配置 Cline 提供方允许列表及能力过滤，提供 DeepSeek 1017 组合预设；日志分别显示已应用参数和上游明确回报的最终提供方
+
+## 钉住 Cline 的 DeepSeek 提供方
+
+本次按上游支持 `/responses` 的约定实现，在原 Responses 正文注入路由字段，保持请求 URL、协议和模型映射不变，不做 Chat Completions 转换。上游需接受这些扩展字段，真实 Responses 调用及路由结果仍需在目标宿主确认
+
+在「钉上游」新增规则，选择实际连接 Cline 或其反代的 OpenAI API Key 账号，点击「应用 DeepSeek 1017 预设」并保存。新规则填入模型 `cline-pass/deepseek-v4.1-flash-1017`、提供方 `deepseek`、能力 `vision, implicit-caching`。编辑已有规则时，预设只更新提供方和能力，不改模型 ID
+
+在宿主为插件启用 `middleware` 的 `outbound` 绑定，覆盖目标 Key 或账号；建议失败策略选择拒绝，避免插件失败时绕过路由限制。规则按发送前 JSON 的完整 `model` 精确匹配，仅处理 POST `/responses`。使用的是最终上游 ID，不是客户端公开别名；未匹配账号或模型的请求保持原样
+
+插件以保存的规则覆盖顶层 `provider` 和 `providerOptions.gateway` 路由条件：向两处写 `only/order`，`has` 只写入 gateway；其他 providerOptions 命名空间、消息和工具保留。提供方可按顺序填写多家，能力留空表示不注入能力过滤。未命中、停用或删除规则后，不改写该请求。最多 100 条规则，每条最多 8 个提供方及 8 项能力，配置上限 240 KiB，保存和删除使用私有状态版本比较
+
+DeepSeek 1017 的组合依据 [ClinePassBridge v0.4.0 的 Chat Completions 对照实验](https://github.com/xiao-qiu-qiu/ClinePassBridge/blob/f8266a91540cfa8f56fe9884403adef9a35aa771/docs/upstream-capability-filter.md)，这里只借鉴路由字段，Responses 的实际生效情况尚未实测
+
+查看结果时同时启用 `attempt` 绑定，范围覆盖同一批请求，发送请求后点击「刷新日志」。日志读取响应根对象或 Responses 事件内 `response` 对象中的 `provider_metadata.gateway.routing.finalProvider`（也识别 `providerMetadata`）；缺失时显示未知。参数应用与上游实际来源分别显示，来源不符会标出，但不自动重放或事后拒绝响应。响应后检查不能保证请求从未发送到其他提供方
+
+日志按请求 ID 和 attempt 关联，在内存最多保留 200 条尝试，每页 25 条，清空或重启后释放，不保存凭据或请求/响应正文。本功能使用锁定 SDK 已有的 outbound、attempt 和只读 frame 观察合同，无需修改宿主或 SDK；原有 request 阶段的模型 UA 规则保持独立
 
 ## 设置模型上游优先级
 
@@ -54,14 +73,17 @@ Codex Proxy RS 的连接与用量导入、统计维护和请求身份维护插�
 - **DeepSeek**：查询账号地址的 `/user/balance`，分别显示 CNY、USD 余额；可用、赠送和充值余额同一行展示，可用余额加粗
 - **Sub2API**：查询账号地址的 `/v1/usage`，显示钱包、Key 总额度、订阅及限额窗口，金额不换算成百分比
 - **Command Code**：选择同名查询平台，沿用 CC Switch 的官方 `/alpha` 身份、credits、订阅与用量查询流程，自动带上组织及订阅周期范围。卡片显示五小时、周、月三项已用百分比，月额度按 CC Switch 的账期池口径计算，重置时间取订阅结束时间，不展示 credits 和本期费用明细。该控制面未公开文档化，接口变化可能需要同步适配
+- **Cline Pass**：使用所选账号中保存的 **Cline API Key**，经账号受管 HTTP 查询 `https://api.cline.bot/api/v1/users/me/plan/usage-limits`，不能使用 CPA 或 CPR 的客户端 Key 代替。解析 `success/data/limits` 中的 `type`、`percentUsed` 和 `resetsAt`，显示 5 小时、周、月额度，未知窗口保留原名称，缺少比例或重置时间保持未知。超过 100% 的进度显示为 100%，仍标记已达限额；日历月不换算成固定秒数。不估算美元额度，不把模型名中的 DeepSeek 当作提供方证明
 
 直连 Kimi、DeepSeek、Sub2API、Command Code 时，插件通过受管账号 HTTP 查询模型 ID，与余额共用一次查询期限并保存到私有快照。模型接口不支持或普通网络失败时保留余额；模型查询返回 401/403 时停止下传旧快照。CPR 模式仅显示上游已分享的逐账号模型，不从整站模型目录推测账号归属
+
+Cline Pass 额度查询直接使用官方域名和账号当前代理，不访问模型推理接口。普通 `/models` 是 BYOK 目录，公开推荐目录也不能证明逐账号可用模型，因此该模式不填充模型目录。接口形态参考 [ClinePassBridge 的 usage 实现](https://github.com/xiao-qiu-qiu/ClinePassBridge/blob/f8266a91540cfa8f56fe9884403adef9a35aa771/internal/bridge/usage.go)，尚无公开稳定性保证，真实账号额度与网络链路需在目标宿主验收
 
 「保存并获取」先保存插件设置，再等待首次查询结束。并发查询共用插件内的账号刷新锁，快照写入另用私有状态版本比较，防止覆盖并发设置。查询失败时仍保存设置并显示错误，保留同一凭据和查询类型的可用快照
 
 打开插件时刷新一次，之后每三分钟按当前视图刷新，也可点击「刷新额度」立即查询。切换程序、浏览器标签或工具箱标签不会立即刷新；定时触发时页面不可见或不在「上游额度」标签则跳过，切回后等待下一轮，不补刷。关闭插件后清理定时器，已发送的请求仍可完成。查询设置有未保存的修改时暂停页面自动刷新。
 
-插件通过 `maintenance` 在后台检查到期账号，不依赖页面定时器；CPR 查询间隔一分钟，其他模式五分钟，每轮最多并发四个账号。手动查询至少间隔十秒，Kimi 编程订阅和 Command Code 至少十五秒；冷却期间禁用刷新按钮，沿用当前快照
+插件通过 `maintenance` 在后台检查到期账号，不依赖页面定时器；CPR 和 Cline Pass 查询间隔一分钟，其他模式五分钟，每轮最多并发四个账号。手动查询至少间隔十秒，Kimi 编程订阅和 Command Code 至少十五秒；冷却期间禁用刷新按钮，沿用当前快照
 
 刷新按钮左侧的「聚合」默认开启，展示全部启用且已配置查询的上游，不自动启用未配置的账号。关闭后在「额度详情」右侧下拉选择上游账号，只展示该上游的账号额度；切换选择只读取已有快照，不额外请求上游。卡片名称和来源标签分居两端，来源只显示账号名称，不显示 Key 内容；部分上游查询失败时，其他卡片和可用旧快照继续展示。
 

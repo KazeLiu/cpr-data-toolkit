@@ -90,9 +90,11 @@ const resetHint = computed(() =>
     ? '上游 CPR 需为此 API 秘钥开启额度分享，名称和模型按上游分享设置显示'
     : state.queryType.startsWith('kimi')
       ? 'Kimi 查询使用所选地区的官方额度接口'
-      : state.queryType === 'command_code'
-        ? 'Command Code 查询使用官方控制面接口，沿用账号当前凭据和出站代理'
-        : '使用上游账号的 API 地址和当前凭据查询，不自动探测上游类型',
+      : state.queryType === 'cline_pass'
+        ? '使用账号中的 Cline API Key 查询官方套餐额度，不可使用 CPA 或 CPR 的客户端 Key'
+        : state.queryType === 'command_code'
+          ? 'Command Code 查询使用官方控制面接口，沿用账号当前凭据和出站代理'
+          : '使用上游账号的 API 地址和当前凭据查询，不自动探测上游类型',
 )
 
 function isActive() {

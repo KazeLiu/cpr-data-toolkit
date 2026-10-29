@@ -117,23 +117,28 @@ pub(super) async fn fetch(
     };
     response.validate().map_err(|_| "invalid_response")?;
     if mode != QuotaQueryMode::Cpr {
-        let models = async {
-            let value = query.get(endpoint(base, "models")?, 256 * 1024).await?;
-            let list = value["data"].as_array().ok_or("invalid_response")?;
-            list.iter()
-                .map(|model| {
-                    model["id"]
-                        .as_str()
-                        .map(str::to_owned)
-                        .ok_or("invalid_response")
-                })
-                .collect::<Result<Vec<_>, _>>()
-        }
-        .await;
-        let models = match models {
-            Ok(models) => Some(models),
-            Err(code @ ("unauthorized" | "forbidden")) => return Err(code),
-            _ => None,
+        let models = if mode == QuotaQueryMode::ClinePass {
+            // 普通 /models 是 BYOK 目录，公开 clinePass 推荐目录也不能证明账号可用模型
+            None
+        } else {
+            let result = async {
+                let value = query.get(endpoint(base, "models")?, 256 * 1024).await?;
+                let list = value["data"].as_array().ok_or("invalid_response")?;
+                list.iter()
+                    .map(|model| {
+                        model["id"]
+                            .as_str()
+                            .map(str::to_owned)
+                            .ok_or("invalid_response")
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+            }
+            .await;
+            match result {
+                Ok(models) => Some(models),
+                Err(code @ ("unauthorized" | "forbidden")) => return Err(code),
+                _ => None,
+            }
         };
         for account in &mut response.accounts {
             account.label = credential.facts.name.clone();

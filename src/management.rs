@@ -7,7 +7,7 @@ use crate::{
     model_ua::{self, Configuration, RequestLogs},
     pricing,
     sources::SourceStore,
-    state, upstream, usage,
+    state, upstream, upstream_pin, usage,
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
 use gateway_plugin_sdk::{
@@ -35,10 +35,15 @@ pub fn registration() -> ManagementRegistration {
         "api/upstream/accounts",
         "api/upstream/support",
         "api/model-priority",
+        "api/upstream-pin",
     ];
     let post = [
         "api/key-models/get",
         "api/key-models/save",
+        "api/upstream-pin/save",
+        "api/upstream-pin/delete",
+        "api/upstream-pin/logs",
+        "api/upstream-pin/logs/clear",
         "api/models",
         "api/model-priority/lookup",
         "api/model-priority/save",
@@ -102,7 +107,7 @@ pub fn registration() -> ManagementRegistration {
             id: "toolkit".into(),
             title: "CPR 数据工具箱".into(),
             description: Some(
-                "连接与用量导入、统计调整、定价、模型UA、上游额度、模型优先级与 Key 模型权限".into(),
+                "连接与用量导入、统计调整、定价、模型UA、上游额度、模型优先级、钉上游与 Key 模型权限".into(),
             ),
             entry: "web/index.html".into(),
             icon: None,
@@ -115,9 +120,10 @@ pub async fn handle(
     logs: &RequestLogs,
     imports: &usage::Imports,
     priority_logs: &model_priority::logs::Logs,
+    pin_logs: &upstream_pin::Logs,
     call: TypedCall<ManagementRequest>,
 ) -> std::result::Result<TypedReply<ManagementResponse>, PluginFault> {
-    match route(sources, logs, imports, priority_logs, call).await {
+    match route(sources, logs, imports, priority_logs, pin_logs, call).await {
         Ok(value) => api::reply(200, &value),
         Err(error) => error.reply(),
     }
@@ -201,6 +207,7 @@ async fn route(
     logs: &RequestLogs,
     imports: &usage::Imports,
     priority_logs: &model_priority::logs::Logs,
+    pin_logs: &upstream_pin::Logs,
     call: TypedCall<ManagementRequest>,
 ) -> Result<Value> {
     if !call.request.query.is_empty()
@@ -218,6 +225,22 @@ async fn route(
     match (call.request.method.as_str(), call.request.path.as_str()) {
         ("POST", "api/key-models/get") => key_models::get(host, api::decode(&call.payload)?).await,
         ("POST", "api/key-models/save") => key_models::save(host, api::decode(&call.payload)?).await,
+        ("GET", "api/upstream-pin") => upstream_pin::get(host).await,
+        ("POST", "api/upstream-pin/save") => {
+            upstream_pin::save(host, api::decode(&call.payload)?).await
+        }
+        ("POST", "api/upstream-pin/delete") => {
+            upstream_pin::delete(host, api::decode(&call.payload)?).await
+        }
+        ("POST", "api/upstream-pin/logs") => {
+            let request: LogQuery = api::decode(&call.payload)?;
+            pin_logs.page(request.offset)
+        }
+        ("POST", "api/upstream-pin/logs/clear") => {
+            require_empty_object(&call.payload)?;
+            pin_logs.clear();
+            Ok(json!({"cleared":true}))
+        }
         ("POST", "api/model-priority/logs") => {
             let request: LogQuery = api::decode(&call.payload)?;
             Ok(serde_json::to_value(

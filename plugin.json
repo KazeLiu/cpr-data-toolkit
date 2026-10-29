@@ -4,7 +4,7 @@
   "name": "cpr-data-toolkit",
   "displayName": "CPR 数据工具箱",
   "version": "1.6.0",
-  "description": "连接与用量导入、统计调整、模型定价、模型UA、上游额度、模型优先级与 Key 模型权限",
+  "description": "连接与用量导入、统计调整、模型定价、模型UA、上游额度、模型优先级、钉上游与 Key 模型权限",
   "license": "UNLICENSED",
   "engines": { "codex-proxy-rs": ">=3.33.0, <4.0.0" },
   "main": "bin/plugin",
@@ -21,7 +21,7 @@
     "observer": { "version": 2 },
     "middleware": {
       "version": 6,
-      "stages": ["http", "request"],
+      "stages": ["http", "request", "attempt", "outbound"],
       "inputFormats": ["openai"],
       "outputFormats": ["openai"]
     }
@@ -51,6 +51,37 @@
       },
       "maximumRecords": 5000,
       "maximumBytes": 16777216,
+      "maximumValueBytes": 262144,
+      "migratesFrom": []
+    },
+    {
+      "namespace": "upstream_pin",
+      "schemaVersion": 1,
+      "schema": {
+        "type": "object",
+        "required": ["rules"],
+        "additionalProperties": false,
+        "properties": {
+          "rules": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "required": ["accountId", "model", "enabled", "providers", "has"],
+              "additionalProperties": false,
+              "properties": {
+                "accountId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                "model": { "type": "string", "minLength": 1, "maxLength": 512 },
+                "enabled": { "type": "boolean" },
+                "providers": { "type": "array", "minItems": 1, "maxItems": 8, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 128 } },
+                "has": { "type": "array", "maxItems": 8, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 128 } }
+              }
+            }
+          }
+        }
+      },
+      "maximumRecords": 1,
+      "maximumBytes": 262144,
       "maximumValueBytes": 262144,
       "migratesFrom": []
     },
@@ -99,7 +130,7 @@
         "properties": {
           "credential_revision": { "type": "integer", "minimum": 1 },
           "mode": {
-            "enum": ["disabled", "cpr", "kimi", "kimi_global", "kimi_coding", "kimi_coding_global", "deepseek", "sub2api", "command_code"]
+            "enum": ["disabled", "cpr", "kimi", "kimi_global", "kimi_coding", "kimi_coding_global", "deepseek", "sub2api", "command_code", "cline_pass"]
           },
           "blocked": { "type": "boolean" },
           "accounts": { "type": "array" }

@@ -218,10 +218,15 @@ pub enum QuotaQueryMode {
     Deepseek,
     Sub2api,
     CommandCode,
+    ClinePass,
 }
 
 impl QuotaQueryMode {
     pub const fn refresh_interval(self) -> std::time::Duration {
-        std::time::Duration::from_secs(if matches!(self, Self::Cpr) { 60 } else { 300 })
+        std::time::Duration::from_secs(if matches!(self, Self::Cpr | Self::ClinePass) {
+            60
+        } else {
+            300
+        })
     }
 }

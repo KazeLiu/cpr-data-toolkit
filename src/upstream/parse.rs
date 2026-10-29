@@ -1,5 +1,6 @@
 //! 上游余额与额度窗口的非秘密投影，不负责网络或持久化
 
+mod cline_pass;
 mod command_code;
 
 use super::types::QuotaQueryMode;
@@ -33,6 +34,10 @@ pub(crate) fn parse(
         QuotaQueryMode::Sub2api => parse_sub2api(value)?,
         QuotaQueryMode::CommandCode => {
             account.windows = command_code::parse(value)?;
+            Vec::new()
+        }
+        QuotaQueryMode::ClinePass => {
+            account.windows = cline_pass::parse(value)?;
             Vec::new()
         }
         QuotaQueryMode::Disabled | QuotaQueryMode::Cpr => return Err(invalid_response()),
@@ -76,6 +81,10 @@ pub(crate) fn query_url(base_url: &str, mode: QuotaQueryMode) -> Result<url::Url
         QuotaQueryMode::KimiCodingGlobal => ("https://api.kimi.ai", "/coding/v1/usages"),
         QuotaQueryMode::Deepseek => (base_url, "/user/balance"),
         QuotaQueryMode::Sub2api => (base_url, "/v1/usage"),
+        QuotaQueryMode::ClinePass => (
+            "https://api.cline.bot/api",
+            "/v1/users/me/plan/usage-limits",
+        ),
         QuotaQueryMode::Disabled | QuotaQueryMode::Cpr | QuotaQueryMode::CommandCode => {
             return Err(invalid_response());
         }

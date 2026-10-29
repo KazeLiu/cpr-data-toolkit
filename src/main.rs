@@ -12,6 +12,7 @@ mod quota_export;
 mod sources;
 mod state;
 mod upstream;
+mod upstream_pin;
 mod usage;
 
 use gateway_plugin_sdk::client::{PluginBuilder, PluginSession, SessionConfig, SessionError};
@@ -36,6 +37,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let scheduling_logs = Arc::clone(&priority_logs);
     let observation_logs = Arc::clone(&priority_logs);
     let middleware_logs = Arc::clone(&logs);
+    let pin_logs = Arc::new(upstream_pin::Logs::default());
+    let pin_middleware_logs = Arc::clone(&pin_logs);
     let cleanup = Arc::clone(&sources);
     let import_cleanup = Arc::clone(&usage);
     tokio::spawn(async move {
@@ -83,12 +86,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?
         .middleware(move |call: gateway_plugin_sdk::client::MiddlewareCall| {
             let logs = Arc::clone(&middleware_logs);
+            let pin_logs = Arc::clone(&pin_middleware_logs);
             async move {
                 match call {
                     gateway_plugin_sdk::client::MiddlewareCall::Http(call)
                         if call.request.uri.split('?').next() == Some("/v1/quota") =>
                     {
                         quota_export::handle(*call).await.map(Into::into)
+                    }
+                    gateway_plugin_sdk::client::MiddlewareCall::Outbound(call) => {
+                        upstream_pin::outbound(&pin_logs, *call)
+                            .await
+                            .map(Into::into)
+                    }
+                    gateway_plugin_sdk::client::MiddlewareCall::Request(call)
+                        if call.context.stage == gateway_plugin_sdk::Stage::Attempt =>
+                    {
+                        upstream_pin::observe(pin_logs, *call).await.map(Into::into)
                     }
                     gateway_plugin_sdk::client::MiddlewareCall::Request(call) => {
                         key_models::middleware(&logs, *call).await.map(Into::into)
@@ -102,7 +116,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let logs = Arc::clone(&logs);
             let usage = Arc::clone(&usage);
             let priority_logs = Arc::clone(&priority_logs);
-            async move { management::handle(&sources, &logs, &usage, &priority_logs, call).await }
+            let pin_logs = Arc::clone(&pin_logs);
+            async move {
+                management::handle(&sources, &logs, &usage, &priority_logs, &pin_logs, call).await
+            }
         })?
         .build()?;
     session.run(plugin).await?;
