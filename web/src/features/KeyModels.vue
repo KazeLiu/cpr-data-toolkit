@@ -34,7 +34,7 @@ const selected = computed(() => new Set(state.models))
 const catalog = computed(() => new Set(state.catalog))
 const keyOptions = computed(() => state.keys.map(key => ({
   value: key.id,
-  label: `${key.name} · ${key.id}${key.enabled ? '' : '（已停用）'}`,
+  label: `${key.name}${key.enabled ? '' : '（已停用）'}`,
 })))
 const rows = computed(() => {
   const query = state.search.trim().toLowerCase()
@@ -197,7 +197,7 @@ watch(() => props.active, (active) => {
         <p v-if="state.catalogError" class="error" role="alert">{{ state.catalogError }}</p>
         <div class="toolbar">
           <ZInput v-model="state.search" aria-label="搜索模型 ID" placeholder="搜索模型 ID" style="max-width: 360px" />
-          <ZCheckbox v-model="state.selectedOnly" label="仅看已选" />
+          <ZCheckbox v-model="state.selectedOnly" class="key-models-selected-only" label="仅看已选" />
           <ZButton :disabled="state.busy || !pageRows.length" @click="selectPage">选择本页</ZButton>
           <ZButton :disabled="state.busy || !state.models.length" @click="state.models = []">清空选择</ZButton>
         </div>
@@ -230,3 +230,11 @@ watch(() => props.active, (active) => {
     </ZDialog>
   </section>
 </template>
+
+<style scoped>
+.key-models-selected-only {
+  flex: none;
+  min-width: 7rem;
+  white-space: nowrap;
+}
+</style>

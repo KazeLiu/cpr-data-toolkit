@@ -371,7 +371,7 @@ body {
   font-size: 1.25rem;
   font-variant-numeric: tabular-nums;
 }
-.group {
+.import-group {
   display: grid;
   gap: 12px;
   min-width: 0;
@@ -474,7 +474,7 @@ input[type='datetime-local'] {
   border-radius: var(--cp-border-radius);
   padding: 6px 12px;
 }
-.group legend {
+.import-group legend {
   font-weight: 600;
   padding: 0 4px;
 }

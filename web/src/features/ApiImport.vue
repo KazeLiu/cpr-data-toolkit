@@ -386,7 +386,7 @@ onBeforeUnmount(() => {
       <div class="panel">
         <p>将接入 {{ pendingGroups.length }} 个上游，相同 API 与API密钥合并为一项</p>
         <p class="muted">新建项进入 CPR 账号管理，已有项按选择更新名称和连接配置</p>
-        <fieldset v-for="group in promptGroups" :key="group.id" class="group">
+        <fieldset v-for="group in promptGroups" :key="group.id" class="import-group">
           <legend class="mono">{{ group.address }}</legend>
           <div v-if="nameChoices(group).length > 1" class="field">
             <strong>请选择接入名称</strong>

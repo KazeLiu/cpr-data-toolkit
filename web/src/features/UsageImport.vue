@@ -494,7 +494,7 @@ watch(
         <details
           v-for="(item, index) in state.evidence"
           :key="`${item.sourceId}:${index}`"
-          class="group"
+          class="import-group"
         >
           <summary>
             {{ item.excluded ? '排除' : '保留' }} · {{ item.model }} · {{ item.sourceId }}
