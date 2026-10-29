@@ -51,6 +51,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
     let plugin = builder
         .on(
+            gateway_plugin_sdk::client::methods::STATE_MIGRATE,
+            |call| async move {
+                state::migrate(call.request).map(gateway_plugin_sdk::client::TypedReply::new)
+            },
+        )?
+        .on(
             gateway_plugin_sdk::client::methods::SCHEDULE_ACCOUNT,
             move |call| {
                 let logs = Arc::clone(&scheduling_logs);

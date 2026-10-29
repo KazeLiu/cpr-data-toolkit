@@ -3,7 +3,7 @@
   "publisher": "kazeliu",
   "name": "cpr-data-toolkit",
   "displayName": "CPR 数据工具箱",
-  "version": "1.7.1",
+  "version": "1.7.2",
   "description": "API密钥导入、CC-Switch用量导入、用量调整、模型批量定价、模型UA、上游额度、模型优先级、钉上游与下游模型权限",
   "license": "UNLICENSED",
   "engines": { "codex-proxy-rs": ">=3.33.0, <4.0.0" },
@@ -123,7 +123,7 @@
     },
     {
       "namespace": "upstream_quota",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "schema": {
         "type": "object",
         "required": ["credential_revision", "mode", "blocked", "accounts"],
@@ -139,7 +139,7 @@
       "maximumRecords": 5000,
       "maximumBytes": 16777216,
       "maximumValueBytes": 262144,
-      "migratesFrom": []
+      "migratesFrom": [1]
     },
     {
       "namespace": "quota_sharing",

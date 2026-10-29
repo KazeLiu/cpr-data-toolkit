@@ -2,11 +2,11 @@
 
 Codex Proxy RS 的API密钥与 CC-Switch 用量导入、统计维护和下游模型权限管理插件，项目标识为 `cpr-data-toolkit`，开发目录为 `D:\code\cpr-data-toolkit`。
 
-项目包含 Rust 后端和 Vue 管理页，当前版本为 **1.7.1**（包内 `1.7.1`），要求 CPR **3.33.0 或更新的兼容版本**，使用 RPC v7、公开 SDK **0.1.0** 和 middleware v6，不兼容旧 RPC。SDK 与打包 CLI 固定到 [CPR v3.33.0 的提交 `8c8618aa`](https://github.com/zyycn/codex-proxy-rs/commit/8c8618aa0f841638262262e3338c115bc075f125)，安装入口见 `docs/installation.md`
+项目包含 Rust 后端和 Vue 管理页，当前版本为 **1.7.2**（包内 `1.7.2`），要求 CPR **3.33.0 或更新的兼容版本**，使用 RPC v7、公开 SDK **0.1.0** 和 middleware v6，不兼容旧 RPC。SDK 与打包 CLI 固定到 [CPR v3.33.0 的提交 `8c8618aa`](https://github.com/zyycn/codex-proxy-rs/commit/8c8618aa0f841638262262e3338c115bc075f125)，安装入口见 `docs/installation.md`
 
-从 [1.7.1 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.7.1)选择对应平台附件，发行状态以 Release 为准。源码与 Git 标签保留；旧 RPC 宿主应先升级，不能只改清单版本号
+从 [1.7.2 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.7.2)选择对应平台附件，发行状态以 Release 为准。源码与 Git 标签保留；旧 RPC 宿主应先升级，不能只改清单版本号
 
-1.7.1 包含下游模型权限、Responses「钉上游」与 Cline Pass 额度查询，统一页面功能名称和 API密钥文案，并修正复选框外框、筛选项换行和密钥选择器的显示
+1.7.2 修复从 1.6.1 升级时的状态不兼容，保留原查询配置和额度快照。1.7.1 的下游模型权限、Responses「钉上游」、Cline Pass 额度查询与界面修正全部保留；1.6.1 用户应直接升级 1.7.2，不要卸载或清空插件状态
 
 阅读入口：
 
@@ -232,7 +232,7 @@ cargo +1.99.1 zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.1
 
 ### 交付与版本递增
 
-1.7.1 的发行目标为 Linux x86_64、Linux ARM64 和 macOS ARM64，提供原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/1.7.1.md`。
+1.7.2 的发行目标为 Linux x86_64、Linux ARM64 和 macOS ARM64，提供原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/1.7.2.md`。
 
 以后每次交付新包增加 `0.1`；打包前同步 `plugin.json`、`Cargo.toml`、`web/package.json` 和 Cargo 锁文件中的本项目版本。失败修复及同一次打包重试不重复递增，约定见 `AGENTS.md`。
 
