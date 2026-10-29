@@ -1,8 +1,8 @@
 # 安装 CPR 数据工具箱
 
-当前版本为 **1.7**，内部版本 `1.7.0`，要求 CPR **3.33.0 或更新的兼容版本**，使用 RPC v7、公开 SDK 0.1.0 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.33.0 的提交 `8c8618aa`](https://github.com/zyycn/codex-proxy-rs/commit/8c8618aa0f841638262262e3338c115bc075f125)
+当前版本为 **1.7.1**，内部版本 `1.7.1`，要求 CPR **3.33.0 或更新的兼容版本**，使用 RPC v7、公开 SDK 0.1.0 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.33.0 的提交 `8c8618aa`](https://github.com/zyycn/codex-proxy-rs/commit/8c8618aa0f841638262262e3338c115bc075f125)
 
-从 [1.7 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.7.0)下载对应平台的 `.tar.gz` 和 `.sha256`，或下载 ZIP 后解压。通过宿主 GitHub 来源安装时，仓库填写 `KazeLiu/cpr-data-toolkit`，标签填写 `v1.7.0`
+从 [1.7.1 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.7.1)下载对应平台的 `.tar.gz` 和 `.sha256`，或下载 ZIP 后解压。通过宿主 GitHub 来源安装时，仓库填写 `KazeLiu/cpr-data-toolkit`，标签填写 `v1.7.1`
 
 额度功能所需的账号 HTTP、入口认证、授权检查和原生额度接口已包含在 CPR 3.33.0 中。接口缺失时页面会提示升级，分别禁用受影响的查询或分享操作，点击「重新检查」可再次检测；其他标签页不受影响。旧版本安装附件不再提供，源码与 Git 标签保留；RPC v6 及更早宿主应先升级
 
@@ -50,7 +50,7 @@
 
 ## 让 Cline 钉上游规则生效
 
-1.7 包含此功能与 Cline Pass 查询。按上游支持 Responses 的约定注入路由字段，不做 Chat Completions 转换。锁定 SDK 已有正文改写和响应观察入口，无需调整 SDK 或宿主
+1.7.1 包含此功能与 Cline Pass 查询。按上游支持 Responses 的约定注入路由字段，不做 Chat Completions 转换。锁定 SDK 已有正文改写和响应观察入口，无需调整 SDK 或宿主
 
 1. 在「钉上游」新增规则，选择 Cline 或其反代的 OpenAI API密钥账号，填写最终请求中的模型 ID；DeepSeek 1017 预设为 `cline-pass/deepseek-v4.1-flash-1017`、提供方 `deepseek`、能力 `vision, implicit-caching`
 2. 启用插件 `middleware` 的 `outbound` 绑定，覆盖目标API密钥或账号范围，建议失败策略选择拒绝；只有 POST `/responses` 请求参与注入，原 URL、协议和模型映射保持不变
