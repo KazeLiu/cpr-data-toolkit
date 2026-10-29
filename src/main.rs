@@ -3,6 +3,7 @@ mod accounts;
 mod api;
 mod history_pricing;
 mod host;
+mod key_models;
 mod management;
 mod model_priority;
 mod model_ua;
@@ -90,7 +91,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         quota_export::handle(*call).await.map(Into::into)
                     }
                     gateway_plugin_sdk::client::MiddlewareCall::Request(call) => {
-                        model_ua::middleware(&logs, *call).await.map(Into::into)
+                        key_models::middleware(&logs, *call).await.map(Into::into)
                     }
                     call => call.forward().await,
                 }

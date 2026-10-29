@@ -1,7 +1,7 @@
 //! 插件 HTTP 额度分享；认证与授权事实来自宿主，披露和匿名化由插件处理
 
 use crate::{
-    account_models,
+    account_models, key_models,
     api::{ApiError, Result},
     upstream::{
         self, support,
@@ -119,6 +119,11 @@ async fn export(host: &HostClient, key: &str) -> Result<QuotaResponse> {
     }
     let namespace = uuid::Uuid::parse_str(&sharing.salt)
         .map_err(|_| ApiError::new(503, "quota_unavailable", "分享标识不可用"))?;
+    let model_policy = if sharing.include_models {
+        key_models::allowed_models(host, key).await?
+    } else {
+        None
+    };
     let mut accounts = Vec::new();
     // 下游 CPR 查询期限为五秒，目录查询共用四秒预算，留出返回已有额度的时间
     let models_deadline = tokio::time::Instant::now() + Duration::from_secs(4);
@@ -236,6 +241,12 @@ async fn export(host: &HostClient, key: &str) -> Result<QuotaResponse> {
                 if let Some(models) = entry.models.take() {
                     let mut visible = Vec::new();
                     for model in models {
+                        if model_policy
+                            .as_ref()
+                            .is_some_and(|allowed| !allowed.contains(&model))
+                        {
+                            continue;
+                        }
                         let allowed = if let Some(allowed) = model_access.get(&model) {
                             *allowed
                         } else {

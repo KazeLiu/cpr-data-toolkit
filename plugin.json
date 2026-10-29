@@ -4,7 +4,7 @@
   "name": "cpr-data-toolkit",
   "displayName": "CPR 数据工具箱",
   "version": "1.6.0",
-  "description": "连接与用量导入、统计调整、模型定价、模型UA、上游额度与模型优先级",
+  "description": "连接与用量导入、统计调整、模型定价、模型UA、上游额度、模型优先级与 Key 模型权限",
   "license": "UNLICENSED",
   "engines": { "codex-proxy-rs": ">=3.33.0, <4.0.0" },
   "main": "bin/plugin",
@@ -32,6 +32,28 @@
     "web/app.css": "text/css"
   },
   "state": [
+    {
+      "namespace": "key_models",
+      "schemaVersion": 1,
+      "schema": {
+        "type": "object",
+        "required": ["enabled", "models"],
+        "additionalProperties": false,
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "models": {
+            "type": "array",
+            "maxItems": 1000,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+          }
+        }
+      },
+      "maximumRecords": 5000,
+      "maximumBytes": 16777216,
+      "maximumValueBytes": 262144,
+      "migratesFrom": []
+    },
     {
       "namespace": "model_priority",
       "schemaVersion": 1,

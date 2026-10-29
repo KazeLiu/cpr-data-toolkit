@@ -3,7 +3,7 @@
 use crate::{
     accounts,
     api::{self, ApiError, Result},
-    history_pricing, host, model_priority,
+    history_pricing, host, key_models, model_priority,
     model_ua::{self, Configuration, RequestLogs},
     pricing,
     sources::SourceStore,
@@ -37,6 +37,8 @@ pub fn registration() -> ManagementRegistration {
         "api/model-priority",
     ];
     let post = [
+        "api/key-models/get",
+        "api/key-models/save",
         "api/models",
         "api/model-priority/lookup",
         "api/model-priority/save",
@@ -100,7 +102,7 @@ pub fn registration() -> ManagementRegistration {
             id: "toolkit".into(),
             title: "CPR 数据工具箱".into(),
             description: Some(
-                "连接与用量导入、统计调整、定价、模型UA、上游额度与模型优先级".into(),
+                "连接与用量导入、统计调整、定价、模型UA、上游额度、模型优先级与 Key 模型权限".into(),
             ),
             entry: "web/index.html".into(),
             icon: None,
@@ -214,6 +216,8 @@ async fn route(
         .clone()
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     match (call.request.method.as_str(), call.request.path.as_str()) {
+        ("POST", "api/key-models/get") => key_models::get(host, api::decode(&call.payload)?).await,
+        ("POST", "api/key-models/save") => key_models::save(host, api::decode(&call.payload)?).await,
         ("POST", "api/model-priority/logs") => {
             let request: LogQuery = api::decode(&call.payload)?;
             Ok(serde_json::to_value(
