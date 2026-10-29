@@ -190,7 +190,7 @@ watch(() => props.active, (active) => {
         <ZButton type="primary" :disabled="!state.loaded || state.busy || !state.accounts.length" @click="edit()">新增规则</ZButton>
         <ZButton :loading="state.busy" @click="load">重新读取</ZButton>
       </div>
-      <p class="notice">在宿主启用本插件的 outbound 绑定，并选择需要生效的 Key 或账号范围</p>
+      <p class="notice">在宿主启用本插件的 outbound 绑定，并选择需要生效的API密钥或账号范围</p>
       <p v-if="state.error" class="error" role="alert">{{ state.error }}</p>
       <p v-if="state.notice" class="muted" role="status">{{ state.notice }}</p>
       <ZTable :columns="columns" :data="state.rules" :loading="state.busy" empty-text="暂无规则，新增后可限制 Cline 网关的模型提供方">

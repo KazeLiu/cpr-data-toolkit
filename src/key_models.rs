@@ -1,4 +1,4 @@
-//! Client Key 的下游模型白名单；只收紧宿主已经授予的权限
+//! API密钥的下游模型白名单；只收紧宿主已经授予的权限
 
 use crate::{
     api::{ApiError, Result},
@@ -43,7 +43,7 @@ pub struct Save {
 
 async fn ensure_key(host: &HostClient, key: &str) -> Result<()> {
     if key.is_empty() || key.len() > 256 {
-        return Err(ApiError::invalid("请选择 Client Key"));
+        return Err(ApiError::invalid("请选择API密钥"));
     }
     let mut cursor = None;
     let mut count = 0;
@@ -54,11 +54,11 @@ async fn ensure_key(host: &HostClient, key: &str) -> Result<()> {
         }
         count += page.keys.len();
         if count > 5000 {
-            return Err(ApiError::invalid("Key 目录超过当前选择器容量"));
+            return Err(ApiError::invalid("API密钥目录超过当前选择器容量"));
         }
         match page.next_cursor {
             Some(next) => cursor = Some(next),
-            None => return Err(ApiError::new(404, "key_not_found", "Key 已删除，请重新选择")),
+            None => return Err(ApiError::new(404, "key_not_found", "API密钥已删除，请重新选择")),
         }
     }
 }
@@ -88,7 +88,7 @@ pub async fn get(host: &HostClient, selection: Selection) -> Result<Value> {
 pub async fn save(host: &HostClient, request: Save) -> Result<Value> {
     ensure_key(host, &request.client_key_id).await?;
     if request.value.models.len() > MAX_MODELS {
-        return Err(ApiError::invalid("每个 Key 最多允许 1000 个模型"));
+        return Err(ApiError::invalid("每个API密钥最多允许 1000 个模型"));
     }
     let mut seen = HashSet::new();
     for model in &request.value.models {
@@ -134,7 +134,7 @@ pub async fn middleware(
                 &call.request.head.protocol,
                 503,
                 "model_policy_unavailable",
-                "Key 模型权限读取失败，请稍后重试",
+                "下游模型权限读取失败，请稍后重试",
             );
         }
     };
@@ -155,9 +155,9 @@ pub async fn middleware(
             403,
             "model_not_allowed",
             if model.is_some() {
-                "此 Key 未获准请求该模型，请联系管理员调整模型白名单"
+                "此API密钥未获准请求该模型，请联系管理员调整模型白名单"
             } else {
-                "此 Key 已限制模型，无法确认请求模型，请使用明确提供 model 的 JSON 请求"
+                "此API密钥已限制模型，无法确认请求模型，请使用明确提供 model 的 JSON 请求"
             },
         );
     }
@@ -247,6 +247,6 @@ fn error_response(
 fn invalid_catalog() -> PluginFault {
     PluginFault::new(
         ErrorCode::Fault,
-        "模型目录格式不兼容，无法安全应用 Key 模型权限",
+        "模型目录格式不兼容，无法安全应用 下游模型权限",
     )
 }

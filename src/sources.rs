@@ -482,7 +482,7 @@ fn connection(
                     .and_then(Value::as_str)
                     .map(str::to_owned),
             ),
-            _ => return Err(ApiError::invalid("暂不能识别该应用的 API 地址与 Key 配置")),
+            _ => return Err(ApiError::invalid("暂不能识别该应用的 API 地址与API密钥配置")),
         };
         let address_result = address
             .as_deref()
@@ -492,10 +492,10 @@ fn connection(
             item.base_url = Some(address.clone());
         }
         let key =
-            key.ok_or_else(|| ApiError::invalid("缺少 API Key，OAuth 配置不能作为 Key 导入"))?;
+            key.ok_or_else(|| ApiError::invalid("缺少API密钥，OAuth 配置不能作为API密钥导入"))?;
         let key = key.trim();
         if key.is_empty() || key.len() > 16384 || !key.bytes().all(|b| b.is_ascii_graphic()) {
-            return Err(ApiError::invalid("API Key 格式无效"));
+            return Err(ApiError::invalid("API密钥格式无效"));
         }
         item.api_key = Some(key.into());
         address_result?;

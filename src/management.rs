@@ -107,7 +107,7 @@ pub fn registration() -> ManagementRegistration {
             id: "toolkit".into(),
             title: "CPR 数据工具箱".into(),
             description: Some(
-                "连接与用量导入、统计调整、定价、模型UA、上游额度、模型优先级、钉上游与 Key 模型权限".into(),
+                "API密钥导入、CC-Switch用量导入、用量调整、模型批量定价、模型UA、上游额度、模型优先级、钉上游与下游模型权限".into(),
             ),
             entry: "web/index.html".into(),
             icon: None,
@@ -286,7 +286,7 @@ async fn route(
                     .await?;
                 keys.extend(page.keys);
                 if keys.len() > 5000 {
-                    return Err(ApiError::invalid("Key 目录超过当前选择器容量"));
+                    return Err(ApiError::invalid("API密钥目录超过当前选择器容量"));
                 }
                 match page.next_cursor {
                     Some(next) => cursor = Some(next),
@@ -358,7 +358,7 @@ async fn route(
             )
             .await?;
             if !models.models.contains(&request.model) {
-                return Err(ApiError::invalid("模型不在该 Key 当前可见目录中"));
+                return Err(ApiError::invalid("模型不在该API密钥当前可见目录中"));
             }
             let (_, config) = model_ua::load(host).await?;
             let mut headers = Vec::new();
@@ -381,7 +381,7 @@ async fn route(
             }
             let rule = config.rewrite(Some(&request.model), &mut headers);
             Ok(
-                json!({"endpoint":"/v1/responses","clientKeyId":request.client_key_id,"model":request.model,"ruleId":rule.map(|r|&r.id),"headers":headers_view(&headers),"baselineKnown":request.baseline_ua.is_some(),"outboundSent":false,"coverage":"shared_request_header_rewrite","stages":["模拟 Responses 请求","查询 Key 可见模型","应用已保存的正式规则","检查插件请求出口"],"notCovered":["真实入口鉴权","宿主绑定筛选","账号选择","默认画像组装","最终网络传输"],"message":"验证缩短至插件请求头改写，未调用真实 /v1/responses，也未发起上游推理请求"}),
+                json!({"endpoint":"/v1/responses","clientKeyId":request.client_key_id,"model":request.model,"ruleId":rule.map(|r|&r.id),"headers":headers_view(&headers),"baselineKnown":request.baseline_ua.is_some(),"outboundSent":false,"coverage":"shared_request_header_rewrite","stages":["模拟 Responses 请求","查询API密钥可见模型","应用已保存的正式规则","检查插件请求出口"],"notCovered":["真实入口鉴权","宿主绑定筛选","账号选择","默认画像组装","最终网络传输"],"message":"验证缩短至插件请求头改写，未调用真实 /v1/responses，也未发起上游推理请求"}),
             )
         }
         ("GET", "api/pricing") => pricing::catalog(host).await,

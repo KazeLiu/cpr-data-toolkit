@@ -727,7 +727,7 @@ onMounted(load)
           <p class="muted">按当前价目重新计算并替换已有费用</p>
         </div>
         <p class="notice">
-          仅计算 Token 费用，不包含工具等附加费用 · 覆盖会替换原费用并清除原计价快照，不改变 Key
+          仅计算 Token 费用，不包含工具等附加费用 · 覆盖会替换原费用并清除原计价快照，不改变API密钥
           预算
         </p>
         <p class="muted">

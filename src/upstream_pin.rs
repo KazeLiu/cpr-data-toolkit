@@ -103,7 +103,7 @@ pub async fn save(host: &HostClient, mut input: Save) -> Result<Value> {
     }
     let account = upstream::runtime(host, &input.rule.account_id).await?;
     if account.provider_id != "openai" || account.authentication_kind != "api_key" {
-        return Err(ApiError::invalid("钉上游仅支持 OpenAI API Key 账号"));
+        return Err(ApiError::invalid("钉上游仅支持 OpenAI API密钥账号"));
     }
     let (version, mut config) = load(host).await?;
     require_version(version, input.expected_version)?;

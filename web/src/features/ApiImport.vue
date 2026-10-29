@@ -64,7 +64,7 @@ const columns: TableColumn<ImportSource>[] = [
   { key: 'name', label: '来源名称', size: 'lg' },
   { key: 'appType', label: '应用', size: 'sm' },
   { key: 'address', label: 'API', size: '2xl' },
-  { key: 'key', label: 'Key', size: 'xl' },
+  { key: 'key', label: 'API密钥', size: 'xl' },
   { key: 'actions', label: '接入', size: 'lg' },
 ]
 function appName(app: string) {
@@ -227,7 +227,7 @@ async function copyKey(row: ImportSource) {
   state.error = ''
   try {
     const key = state.revealed[row.id] ?? (await getImportKey(sourceId, row.id))
-    if (epoch === keyEpoch && props.active) await copy(key, 'Key')
+    if (epoch === keyEpoch && props.active) await copy(key, 'API密钥')
   } catch (error) {
     if (epoch === keyEpoch) state.error = message(error)
   } finally {
@@ -325,7 +325,7 @@ onBeforeUnmount(() => {
               <ZIconButton
                 size="small"
                 :disabled="state.busy || locked || state.keyBusy[row.id]"
-                :aria-label="`${state.revealed[row.id] === undefined ? '查看' : '隐藏'} ${row.name} 的 Key`"
+                :aria-label="`${state.revealed[row.id] === undefined ? '查看' : '隐藏'} ${row.name} 的API密钥`"
                 :pressed="state.revealed[row.id] !== undefined"
                 @click="toggleKey(row)"
                 ><ImportActionIcon :name="state.revealed[row.id] === undefined ? 'eye' : 'eye-off'"
@@ -334,7 +334,7 @@ onBeforeUnmount(() => {
                 size="small"
                 :loading="state.keyBusy[row.id]"
                 :disabled="state.busy || locked"
-                :aria-label="`复制 ${row.name} 的 Key`"
+                :aria-label="`复制 ${row.name} 的API密钥`"
                 @click="copyKey(row)"
                 ><ImportActionIcon name="copy"
               /></ZIconButton>
@@ -384,7 +384,7 @@ onBeforeUnmount(() => {
       :width="720"
     >
       <div class="panel">
-        <p>将接入 {{ pendingGroups.length }} 个上游，相同 API 与 Key 合并为一项</p>
+        <p>将接入 {{ pendingGroups.length }} 个上游，相同 API 与API密钥合并为一项</p>
         <p class="muted">新建项进入 CPR 账号管理，已有项按选择更新名称和连接配置</p>
         <fieldset v-for="group in promptGroups" :key="group.id" class="group">
           <legend class="mono">{{ group.address }}</legend>

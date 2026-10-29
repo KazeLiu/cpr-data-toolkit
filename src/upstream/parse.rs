@@ -292,7 +292,7 @@ fn parse_sub2api(value: &Value) -> Result<Vec<AccountBalanceEntry>, &'static str
         .or_else(|| value["quota"]["unit"].as_str());
     let mut result = entry(value["planName"].as_str().unwrap_or("上游额度"), unit);
     result.is_valid = valid;
-    result.invalid_message = (!valid).then(|| "上游 Key 不可用".to_owned());
+    result.invalid_message = (!valid).then(|| "上游API密钥不可用".to_owned());
     let remaining = optional_amount(&value["remaining"])?;
     result.unlimited = value["subscription"].is_object() && remaining.as_deref() == Some("-1");
     result.remaining = remaining.filter(|_| !result.unlimited);
@@ -300,7 +300,7 @@ fn parse_sub2api(value: &Value) -> Result<Vec<AccountBalanceEntry>, &'static str
         .as_f64()
         .is_some_and(|limit| limit > 0.0)
     {
-        result.label = "Key 总额度".to_owned();
+        result.label = "API密钥总额度".to_owned();
         result.used = optional_amount(&value["quota"]["used"])?;
         result.total = Some(amount(&value["quota"]["limit"])?);
     }
@@ -324,9 +324,9 @@ fn parse_sub2api(value: &Value) -> Result<Vec<AccountBalanceEntry>, &'static str
     if let Some(windows) = value["rate_limits"].as_array() {
         for window in windows {
             let label = match window["window"].as_str() {
-                Some("5h") => "Key 5 小时额度",
-                Some("1d") => "Key 日额度",
-                Some("7d") => "Key 周额度",
+                Some("5h") => "API密钥 5 小时额度",
+                Some("1d") => "API密钥日额度",
+                Some("7d") => "API密钥周额度",
                 _ => return Err(invalid_response()),
             };
             let mut item = entry(label, unit);

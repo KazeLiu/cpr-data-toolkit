@@ -101,7 +101,7 @@ onMounted(initialize)
 <template>
   <section class="panel">
     <p class="muted">
-      修正归属首次提交时刻，只改变 Token 与请求总量，不生成明细，不改变费用或 Key 预算
+      修正归属首次提交时刻，只改变 Token 与请求总量，不生成明细，不改变费用或API密钥预算
     </p>
     <div class="toolbar">
       <ZSelect

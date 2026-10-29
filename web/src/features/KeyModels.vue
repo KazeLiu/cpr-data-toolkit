@@ -128,7 +128,7 @@ function toggle(id: string, checked: boolean) {
 function selectPage() {
   const models = [...new Set([...state.models, ...pageRows.value.map(row => row.id)])]
   if (models.length > 1000) {
-    state.error = '每个 Key 最多允许 1000 个模型'
+    state.error = '每个API密钥最多允许 1000 个模型'
     return
   }
   state.models = models
@@ -160,27 +160,27 @@ watch(() => props.active, (active) => {
 
 <template>
   <section class="panel">
-    <p class="notice">在宿主启用本插件的 request 绑定，Key 范围留空或包含目标 Key，账号范围留空，失败策略选择拒绝请求</p>
+    <p class="notice">在宿主启用本插件的 request 绑定，API密钥范围留空或包含目标API密钥，账号范围留空，失败策略选择拒绝请求</p>
     <div class="form-grid">
       <label class="field">
-        <span>Client Key</span>
-        <ZSelect :model-value="state.key" :options="keyOptions" filterable :disabled="state.busy" placeholder="选择要配置的 Key" @update:model-value="chooseKey($event ?? '')" />
+        <span>API密钥</span>
+        <ZSelect :model-value="state.key" :options="keyOptions" filterable :disabled="state.busy" placeholder="选择要配置的API密钥" @update:model-value="chooseKey($event ?? '')" />
       </label>
     </div>
     <div class="toolbar">
-      <ZButton :loading="state.busy" :disabled="state.busy" @click="loadKeys">刷新 Key 列表</ZButton>
+      <ZButton :loading="state.busy" :disabled="state.busy" @click="loadKeys">刷新API密钥列表</ZButton>
       <ZButton :disabled="!state.key || state.busy" @click="reload">重新读取权限</ZButton>
     </div>
     <p v-if="state.error" class="error" role="alert">{{ state.error }}</p>
-    <p v-if="!state.keys.length && state.keysLoaded" class="muted">暂无 Client Key，请先在宿主创建</p>
-    <p v-else-if="!state.key" class="muted">选择 Key 后配置其下游模型权限</p>
+    <p v-if="!state.keys.length && state.keysLoaded" class="muted">暂无API密钥，请先在宿主创建</p>
+    <p v-else-if="!state.key" class="muted">选择API密钥后配置其下游模型权限</p>
     <template v-if="state.loaded">
       <div class="toolbar">
         <ZSwitch v-model="state.enabled" :disabled="state.busy" aria-label="限制模型" />
         <span>限制模型</span>
         <span class="muted">{{ state.enabled ? `仅允许已选的 ${state.models.length} 个模型` : '不限制，沿用宿主原有模型权限' }}</span>
       </div>
-      <p class="muted">按下游模型 ID 精确匹配，区分大小写 · 白名单不会扩大 Key 的分组权限</p>
+      <p class="muted">按下游模型 ID 精确匹配，区分大小写 · 白名单不会扩大API密钥的分组权限</p>
       <div class="toolbar">
         <ZButton type="primary" :loading="state.busy" :disabled="state.busy || !dirty" @click="confirmSave">保存权限</ZButton>
         <span v-if="dirty" class="muted">有未保存修改</span>
@@ -193,7 +193,7 @@ watch(() => props.active, (active) => {
           <span class="muted">已选 {{ state.models.length }} / 1000</span>
         </div>
         <p v-if="!state.enabled" class="muted">限制关闭时可编辑白名单，保存后仍不限制模型</p>
-        <p v-if="state.enabled && !state.models.length" class="error" role="status">白名单为空，保存后将禁止此 Key 请求任何模型</p>
+        <p v-if="state.enabled && !state.models.length" class="error" role="status">白名单为空，保存后将禁止此API密钥请求任何模型</p>
         <p v-if="state.catalogError" class="error" role="alert">{{ state.catalogError }}</p>
         <div class="toolbar">
           <ZInput v-model="state.search" aria-label="搜索模型 ID" placeholder="搜索模型 ID" style="max-width: 360px" />
@@ -215,14 +215,14 @@ watch(() => props.active, (active) => {
       </section>
     </template>
     <ZDialog v-model="confirmation.open" title="放弃未保存修改" type="warning">
-      <p>当前 Key 的未保存修改将被放弃</p>
+      <p>当前API密钥的未保存修改将被放弃</p>
       <template #footer>
         <ZButton @click="confirmation.open = false">继续编辑</ZButton>
         <ZButton type="primary" @click="discard">放弃并读取</ZButton>
       </template>
     </ZDialog>
     <ZDialog v-model="blockAll.open" title="禁止所有模型" type="warning">
-      <p>此 Key 将无法请求任何模型，模型列表也将为空</p>
+      <p>此API密钥将无法请求任何模型，模型列表也将为空</p>
       <template #footer>
         <ZButton @click="blockAll.open = false">取消</ZButton>
         <ZButton type="danger" @click="save">确认保存</ZButton>

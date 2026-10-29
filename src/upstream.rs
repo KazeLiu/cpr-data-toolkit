@@ -162,7 +162,7 @@ pub async fn save(host: &HostClient, input: Save) -> Result<Value> {
     }
     let account = runtime(host, &input.account_id).await?;
     if account.authentication_kind != "api_key" {
-        return Err(ApiError::invalid("该账号不是 API Key 账号"));
+        return Err(ApiError::invalid("该账号不是API密钥账号"));
     }
     let (current_version, current) = load(host, &input.account_id).await?;
     if current_version.unwrap_or(0) != input.expected_version {
@@ -217,7 +217,7 @@ async fn refresh_account(host: &HostClient, id: &str, manual: bool) -> Result<Va
         return Ok(view(version, &record, account.credential_revision));
     }
     if account.authentication_kind != "api_key" {
-        return Err(ApiError::invalid("该账号不是 API Key 账号"));
+        return Err(ApiError::invalid("该账号不是API密钥账号"));
     }
     let interval = if manual {
         if matches!(

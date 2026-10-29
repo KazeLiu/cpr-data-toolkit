@@ -263,7 +263,7 @@ watch(
 
 <template>
   <section class="panel">
-    <p class="muted">写入原生总量与趋势，不生成请求明细，不改变 Key 预算</p>
+    <p class="muted">写入原生总量与趋势，不生成请求明细，不改变API密钥预算</p>
     <div class="form-grid">
       <label class="field"
         ><span>CCS 来源标识</span

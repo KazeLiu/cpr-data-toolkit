@@ -90,7 +90,7 @@ fn grouped(source: &ParsedSource, accounts: &[AuthCredential], mappings: &Mappin
             groups
                 .entry((
                     candidate.base_url.clone().expect("兼容项有地址"),
-                    candidate.api_key.clone().expect("兼容项有 Key"),
+                    candidate.api_key.clone().expect("兼容项有API密钥"),
                 ))
                 .or_default()
                 .push(candidate.clone());
@@ -179,7 +179,7 @@ pub async fn preview(host: &HostClient, source: &ParsedSource) -> Result<Value> 
         .map(|m| json!({"appType":m.app,"providerId":m.provider,"name":m.name,"reason":m.reason}))
         .collect();
     Ok(
-        json!({"rows":rows,"groups":groups,"unsupported":unsupported,"note":"相同 API 与 Key 只接入一次，名称不同可在接入时选择"}),
+        json!({"rows":rows,"groups":groups,"unsupported":unsupported,"note":"相同 API 与API密钥只接入一次，名称不同可在接入时选择"}),
     )
 }
 
@@ -192,7 +192,7 @@ pub fn key(source: &ParsedSource, candidate_id: &str) -> Result<Value> {
     let key = candidate
         .api_key
         .as_deref()
-        .ok_or_else(|| ApiError::invalid("该来源未解析到有效 API Key"))?;
+        .ok_or_else(|| ApiError::invalid("该来源未解析到有效API密钥"))?;
     Ok(json!({"key":key}))
 }
 

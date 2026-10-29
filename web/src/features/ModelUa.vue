@@ -258,7 +258,7 @@ onMounted(async () => {
 <template>
   <section class="panel">
     <p class="muted">
-      忽略大小写，按顺序使用首条命中规则 · 未命中时保留 Key 身份 · 作用范围沿用宿主 request
+      忽略大小写，按顺序使用首条命中规则 · 未命中时保留API密钥身份 · 作用范围沿用宿主 request
       绑定，空绑定范围表示全局
     </p>
     <div class="toolbar">
@@ -328,7 +328,7 @@ onMounted(async () => {
         <span class="muted">最近 {{ logs.capacity }} 条 · 最新在前 · 重启插件后清空</span>
       </div>
       <p class="muted">
-        替换前为插件入口 UA，不是 Key 默认 UA · 替换后为插件交给宿主的 UA · 预览与安全验证不计入日志
+        替换前为插件入口 UA，不是API密钥默认 UA · 替换后为插件交给宿主的 UA · 预览与安全验证不计入日志
       </p>
       <p v-if="logs.error" class="error" role="alert">{{ logs.error }}</p>
       <ZTable
@@ -451,7 +451,7 @@ onMounted(async () => {
       <p class="notice">使用已保存规则 · 验证到插件出口 · 不发送上游推理请求</p>
       <div class="form-grid">
         <label class="field"
-          ><span>API 秘钥</span
+          ><span>API密钥</span
           ><ZSelect
             :model-value="diagnostic.key"
             @update:model-value="diagnostic.key = $event ?? ''"
@@ -459,7 +459,7 @@ onMounted(async () => {
               diagnostic.keys.filter((k) => k.enabled).map((k) => ({ label: k.name, value: k.id }))
             "
             :disabled="diagnostic.busy"
-            placeholder="选择 API 秘钥"
+            placeholder="选择API密钥"
             @change="models"
         /></label>
         <label class="field"
@@ -470,14 +470,14 @@ onMounted(async () => {
             :options="diagnostic.models.map((m) => ({ label: m, value: m }))"
             :disabled="diagnostic.busy || !diagnostic.key"
             filterable
-            placeholder="从该 Key 可见模型中选择"
+            placeholder="从该API密钥可见模型中选择"
         /></label>
         <label class="field"
           ><span>模拟入口 UA，可选</span
           ><ZInput
             v-model="diagnostic.baselineUa"
             :disabled="diagnostic.busy"
-            placeholder="留空时不推测 Key 默认 UA"
+            placeholder="留空时不推测API密钥默认 UA"
         /></label>
       </div>
       <div class="toolbar">
@@ -513,7 +513,7 @@ onMounted(async () => {
           </ol>
           <p>
             未覆盖：{{ diagnostic.result.notCovered.join('、')
-            }}{{ !diagnostic.result.baselineKnown ? ' · 未读取真实 Key 默认 UA' : '' }}
+            }}{{ !diagnostic.result.baselineKnown ? ' · 未读取真实API密钥默认 UA' : '' }}
           </p>
         </details>
       </div>

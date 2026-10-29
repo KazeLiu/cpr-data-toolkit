@@ -242,7 +242,7 @@ watch(
         </ZButton>
       </div>
       <p class="notice">
-        保存规则后，在宿主为本插件启用 scheduler（账号调度）绑定，并选择需要生效的 Key 范围
+        保存规则后，在宿主为本插件启用 scheduler（账号调度）绑定，并选择需要生效的API密钥范围
       </p>
       <p v-if="state.error" class="error" role="alert">
         {{ state.error }}

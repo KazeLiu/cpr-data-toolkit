@@ -105,7 +105,7 @@ pub async fn handle(mut call: HttpCall) -> std::result::Result<HttpResponse, Plu
 }
 
 fn unauthorized() -> ApiError {
-    ApiError::new(401, "invalid_api_key", "API Key 不可用")
+    ApiError::new(401, "invalid_api_key", "API密钥不可用")
 }
 
 async fn export(host: &HostClient, key: &str) -> Result<QuotaResponse> {

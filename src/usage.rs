@@ -312,7 +312,7 @@ impl Imports {
                 && job.touched.elapsed() < Duration::from_secs(15 * 60)
         }) {
             return Err(ApiError::conflict(
-                "已有未完成的用量导入，请先继续该任务，或等待闲置 15 分钟后重新预览",
+                "已有未完成的CC-Switch用量导入，请先继续该任务，或等待闲置 15 分钟后重新预览",
             ));
         }
         let selection = selection::Selection::new(&options)?;
