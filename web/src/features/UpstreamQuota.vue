@@ -13,6 +13,7 @@ import {
 } from '../api/upstream'
 import QuotaSharing from '../components/QuotaSharing.vue'
 import UpstreamQuotaCards from '../components/UpstreamQuotaCards.vue'
+import { formatDateTime } from '../dates'
 
 const props = defineProps<{ active: boolean }>()
 const support = ref<QuotaSupport | null>(null)
@@ -87,7 +88,7 @@ const canRefresh = computed(() => support.value?.queryAvailable && !dirty.value 
 }))
 const resetHint = computed(() =>
   state.queryType === 'cpr'
-    ? '上游 CPR 需为此 API 秘钥开启额度分享，名称和模型按上游分享设置显示'
+    ? '上游 CPR 需为此 Client Key 开启额度分享，名称和模型按上游分享设置显示'
     : state.queryType.startsWith('kimi')
       ? 'Kimi 查询使用所选地区的官方额度接口'
       : state.queryType === 'cline_pass'
@@ -258,7 +259,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="panel">
     <section v-if="support && (!support.queryAvailable || !support.sharingAvailable)" class="section" role="status">
-      <h3>宿主额度接口尚未就绪</h3>
+      <h2>宿主额度接口尚未就绪</h2>
       <p class="notice">
         {{ !support.queryAvailable && !support.sharingAvailable ? '当前宿主尚不支持额度查询和分享' : !support.queryAvailable ? '当前宿主尚不支持额度查询' : '当前宿主尚不支持额度分享' }}
         ，请使用包含 <a href="https://github.com/zyycn/codex-proxy-rs/pull/525" target="_blank" rel="noopener noreferrer">PR #525</a> 接口的宿主和匹配 RPC 版本的插件，其他标签页仍可使用
@@ -267,11 +268,8 @@ onBeforeUnmount(() => {
         重新检查
       </ZButton>
     </section>
-    <details class="section quota-settings quota-details">
-      <summary>
-        <span>查询设置</span>
-        <svg class="quota-collapse" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
-      </summary>
+    <section class="section">
+      <h2>查询设置</h2>
       <div class="quota-settings-body">
         <div class="quota-query-fields">
           <label class="field"><span>上游账号</span><ZSelect
@@ -309,7 +307,7 @@ onBeforeUnmount(() => {
           </ZButton>
         </div>
       </div>
-    </details>
+    </section>
     <section class="section quota-results">
       <div class="toolbar quota-results-heading">
         <h2>额度详情</h2>
@@ -342,7 +340,7 @@ onBeforeUnmount(() => {
         {{ state.notice }}
       </p>
       <p v-if="state.loaded && !state.sources.length" class="muted">
-        暂无上游账号，请先在宿主添加 API 秘钥账号或通过「API 导入」接入
+        暂无上游账号，请先在宿主添加 API Key 账号或通过「API 导入」接入
       </p>
       <p v-if="!state.aggregate && source && !source.enabled" class="muted">
         账号已停用，可查看已保存快照，恢复启用后再查询
@@ -360,13 +358,13 @@ onBeforeUnmount(() => {
         正在读取额度
       </p>
       <p v-else-if="!state.aggregate && data?.queryType === 'disabled'" class="muted">
-        尚未开启额度查询，展开「查询设置」选择查询平台并保存
+        尚未开启额度查询，请在「查询设置」选择查询平台并保存
       </p>
       <p v-else-if="state.sources.length && !state.error" class="muted">
         {{ state.aggregate ? '暂无可展示的已配置上游额度' : data?.snapshot ? '上游未返回可展示的账号' : '尚无快照，可点击刷新额度获取' }}
       </p>
       <p v-if="!state.aggregate && data?.lastAttemptAt" class="muted quota-observed">
-        最近查询尝试：{{ new Date(data.lastAttemptAt).toLocaleString() }}
+        最近查询尝试：{{ formatDateTime(data.lastAttemptAt) }}
       </p>
     </section>
     <QuotaSharing :active="active" :available="support?.sharingAvailable ?? false" />

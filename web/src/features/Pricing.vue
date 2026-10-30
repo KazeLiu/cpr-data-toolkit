@@ -16,6 +16,7 @@ import {
   text,
 } from '../api'
 import OperationResults from '../components/OperationResults.vue'
+import TablePagination from '../components/TablePagination.vue'
 import { localDateTime } from '../dates'
 
 interface Row {
@@ -102,7 +103,7 @@ const sync = reactive({
 })
 const columns: TableColumn<Row>[] = [
   { key: 'select', label: '选择', kind: 'selection', width: 80 },
-  { key: 'model', label: '上游模型 ID', kind: 'mono', size: 'xl' },
+  { key: 'model', label: '计价模型名称', kind: 'mono', size: 'xl' },
   { key: 'source', label: '价目来源', size: 'sm' },
   { key: 'input', label: '输入', kind: 'numeric', emptyText: '未提供' },
   { key: 'output', label: '输出', kind: 'numeric', emptyText: '未提供' },
@@ -414,7 +415,7 @@ async function saveDrafts() {
         !priceInputValid([row.input, row.output, row.cacheRead, row.cacheWrite]),
     )
   ) {
-    drafts.error = '请填写不重复的实际上游模型 ID 和有效价格，输入与输出价格必填'
+    drafts.error = '请填写不重复的计价模型名称和有效价格，输入与输出价格必填'
     return
   }
   drafts.open = false
@@ -480,14 +481,14 @@ async function saveSync() {
 }
 const communityColumns: TableColumn<CommunityPrice>[] = [
   { key: 'select', label: '选择', kind: 'selection', width: 80 },
-  { key: 'model', label: '社区模型 ID', size: 'xl', kind: 'mono' },
+  { key: 'model', label: '社区模型名称', size: 'xl', kind: 'mono' },
   { key: 'input', label: '输入', kind: 'numeric' },
   { key: 'output', label: '输出', kind: 'numeric' },
   { key: 'cacheRead', label: '缓存读', kind: 'numeric', emptyText: '未提供' },
   { key: 'cacheWrite', label: '缓存写', kind: 'numeric', emptyText: '未提供' },
 ]
 const draftColumns: TableColumn<Draft>[] = [
-  { key: 'model', label: '实际上游模型 ID', size: 'xl', kind: 'custom' },
+  { key: 'model', label: '计价模型名称', size: 'xl', kind: 'custom' },
   { key: 'input', label: '输入', size: 'md', kind: 'custom' },
   { key: 'output', label: '输出', size: 'md', kind: 'custom' },
   { key: 'cacheRead', label: '缓存读', size: 'md', kind: 'custom' },
@@ -498,7 +499,7 @@ onMounted(load)
 </script>
 
 <template>
-  <section class="panel">
+  <section class="section">
     <p class="muted">CPR 全局价目 · USD / 每百万 Token · 改价影响后续估算，不重算历史费用</p>
     <div class="toolbar">
       <ZSelect
@@ -517,7 +518,7 @@ onMounted(load)
         style="max-width: 280px"
       /><ZButton :loading="state.busy" @click="load"> 重新读取 </ZButton
       ><ZButton :disabled="state.busy || !state.catalog || selected.length > 500" @click="edit()">
-        新增或批量编辑 </ZButton
+        添加或批量编辑价目 </ZButton
       ><ZButton :disabled="state.busy || !state.catalog" @click="previewSync">
         宿主同步预览 </ZButton
       ><ZButton :disabled="state.busy" @click="openCommunity"> models.dev 社区价目 </ZButton
@@ -546,10 +547,10 @@ onMounted(load)
     <p v-if="state.error" class="error" role="alert">
       {{ state.error }}
     </p>
-    <p v-if="state.notice" class="success" role="status">
+    <p v-if="state.notice" class="muted" role="status">
       {{ state.notice }}
     </p>
-    <p v-if="history.notice" class="notice" role="status">
+    <p v-if="history.notice" class="muted" role="status">
       {{ history.notice }}
     </p>
     <p v-if="history.error" class="error" role="alert">
@@ -566,14 +567,14 @@ onMounted(load)
         </ZButton>
         <ZButton v-else-if="!history.done" @click="openHistory"> 继续核对同步 </ZButton>
       </div>
-      <details v-if="history.results.length">
-        <summary>最近一页处理结果</summary>
+      <div v-if="history.results.length" class="panel">
+        <h3>最近一页处理结果</h3>
         <ul>
           <li v-for="row in history.results" :key="row.id">
-            <span class="mono">{{ row.id }}</span> · {{ row.message }}
+            {{ row.message }}
           </li>
         </ul>
-      </details>
+      </div>
     </div>
     <p v-if="selected.length > 500" class="notice">
       单次最多写入 500 个模型，请缩小筛选范围后重新全选
@@ -584,7 +585,7 @@ onMounted(load)
       row-key="id"
       :loading="state.busy"
       size="small"
-      empty-text="暂无价目，可按实际上游模型 ID 新增"
+      empty-text="暂无价目，可按计价模型名称添加"
       ><template #header-select>
         <label class="table-select-all"
           ><input
@@ -611,7 +612,7 @@ onMounted(load)
       ></ZTable
     >
     <OperationResults :results="state.results" />
-    <ZDialog v-model="editor.open" title="新增或批量编辑标准价"
+    <ZDialog v-model="editor.open" title="添加或批量编辑价目"
       ><div class="panel">
         <label class="field"
           ><span>Provider</span
@@ -623,8 +624,8 @@ onMounted(load)
             ]"
             @update:model-value="editor.provider = $event ?? ''" /></label
         ><label class="field"
-          ><span>实际上游模型 ID，每行一个</span
-          ><textarea v-model="editor.models" rows="4" class="mono" aria-label="实际上游模型 ID" />
+          ><span>计价模型名称，每行一个</span
+          ><textarea v-model="editor.models" rows="4" class="mono" aria-label="计价模型名称" />
         </label>
         <p class="muted">这组模型使用相同标准价，其他人工档位保留 · 缓存价格留空按 0 写入</p>
         <div class="form-grid">
@@ -769,14 +770,14 @@ onMounted(load)
             style="width: 240px"
             @update:model-value="community.target = $event ?? ''"
           /><ZButton :loading="community.busy" @click="loadCommunity(community.offset, false)">
-            重新获取
+            刷新价目
           </ZButton>
         </div>
         <div class="toolbar">
           <ZInput
             v-model="community.search"
             aria-label="社区价目表格筛选"
-            placeholder="筛选名称、模型 ID 或价格"
+            placeholder="筛选模型名称或价格"
             maxlength="256"
             :disabled="community.busy"
             style="max-width: 280px"
@@ -818,11 +819,11 @@ onMounted(load)
           empty-text="当前筛选没有可用价目"
           ><template #header-model>
             <label class="field">
-              <span>社区模型 ID</span>
+              <span>社区模型名称</span>
               <ZInput
                 v-model="community.modelFilter"
-                aria-label="筛选社区模型 ID"
-                placeholder="模型 ID 包含"
+                aria-label="筛选社区模型名称"
+                placeholder="模型名称包含"
                 maxlength="256"
                 size="small"
                 :disabled="community.busy"
@@ -849,22 +850,8 @@ onMounted(load)
               :disabled="community.busy"
               :aria-label="`选择 ${row.model}`" /></template
         ></ZTable>
-        <div class="toolbar">
-          <ZButton
-            :disabled="community.busy || community.offset === 0"
-            @click="loadCommunity(community.offset - 100, false)"
-            >上一页</ZButton
-          ><span
-            >{{ community.total ? community.offset + 1 : 0 }}–{{
-              Math.min(community.offset + 100, community.total)
-            }}
-            / {{ community.total }}</span
-          ><ZButton
-            :disabled="community.busy || community.offset + 100 >= community.total"
-            @click="loadCommunity(community.offset + 100, false)"
-            >下一页</ZButton
-          ><span class="muted">筛选结果中跳过不支持的价目 {{ community.skipped }} 项</span>
-        </div>
+        <TablePagination :offset="community.offset" :total="community.total" :page-size="100" :busy="community.busy" @change="loadCommunity($event, false)" />
+        <p class="muted">筛选结果中跳过不支持的价目 {{ community.skipped }} 项</p>
       </div>
       <template #footer
         ><ZButton @click="community.open = false">关闭</ZButton
@@ -875,7 +862,7 @@ onMounted(load)
     >
     <ZDialog v-model="drafts.open" title="核对社区价目" width="min(1200px, 94vw)"
       ><div class="panel">
-        <p class="muted">目标模型 ID 必须与实际请求一致 · 缓存价格缺失或留空时按 0 写入</p>
+        <p class="muted">计价模型名称须与请求的 model 一致 · 缓存价格缺失或留空时按 0 写入</p>
         <ZTable :columns="draftColumns" :data="drafts.rows" row-key="id" size="small"
           ><template #model="{ row }"
             ><ZInput v-model="row.model" :aria-label="`目标模型 ${row.id}`" /></template
@@ -939,21 +926,13 @@ onMounted(load)
             ><span class="mono">{{ row.provider }}/{{ row.model }}</span></template
           ></ZTable
         >
-        <div class="toolbar">
-          <ZButton :disabled="sync.offset === 0" @click="sync.offset -= 100">上一页</ZButton
-          ><span
-            >{{ sync.offset + 1 }}–{{ Math.min(sync.offset + 100, sync.rows.length) }} /
-            {{ sync.rows.length }}</span
-          ><ZButton :disabled="sync.offset + 100 >= sync.rows.length" @click="sync.offset += 100"
-            >下一页</ZButton
-          >
-        </div>
-        <details v-if="sync.skipped.length">
-          <summary>来源跳过 {{ sync.skipped.length }} 项</summary>
+        <TablePagination :offset="sync.offset" :total="sync.rows.length" :page-size="100" @change="sync.offset = $event" />
+        <div v-if="sync.skipped.length" class="panel">
+          <h3>来源跳过 {{ sync.skipped.length }} 项</h3>
           <ul>
             <li v-for="model in sync.skipped" :key="model">{{ model }}</li>
           </ul>
-        </details>
+        </div>
       </div>
       <template #footer
         ><ZButton @click="sync.open = false">取消</ZButton

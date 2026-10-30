@@ -48,7 +48,7 @@ const providers = computed(() =>
 const directory = computed(() => new Map(state.accounts.map(account => [account.id, account])))
 const columns: TableColumn<PriorityRule>[] = [
   { key: 'provider', label: 'Provider', size: 'sm' },
-  { key: 'model', label: '模型名称', kind: 'mono', size: 'xl' },
+  { key: 'model', label: '请求模型名称', kind: 'mono', size: 'xl' },
   { key: 'order', label: '上游顺序', kind: 'custom', size: '3xl' },
   { key: 'enabled', label: '状态', kind: 'custom', size: 'sm' },
   { key: 'actions', label: '操作', kind: 'actions', size: 'lg' },
@@ -235,7 +235,7 @@ watch(
           :disabled="!state.loaded || state.busy || !state.accounts.length"
           @click="edit()"
         >
-          新增规则
+          添加规则
         </ZButton>
         <ZButton :loading="state.busy" @click="load">
           重新读取
@@ -256,8 +256,9 @@ watch(
       <ZTable
         :columns="columns"
         :data="state.rules"
+        size="small"
         :loading="state.busy"
-        empty-text="暂无规则，新增后可按模型设置首选和备用上游"
+        empty-text="暂无规则，添加后可按模型设置首选和备用上游"
       >
         <template #order="{ row }">
           <ol class="priority-summary">
@@ -293,7 +294,7 @@ watch(
 
     <ZDialog
       v-model="editor.open"
-      :title="editor.existing ? '编辑模型上游优先级' : '新增模型上游优先级'"
+      :title="editor.existing ? '编辑规则' : '添加规则'"
       width="48rem"
       :close-on-click-modal="!editor.busy"
       :close-on-press-escape="!editor.busy"
@@ -308,10 +309,10 @@ watch(
             placeholder="选择 Provider"
             @update:model-value="editor.provider = $event ?? ''"
           /></label>
-          <label class="field"><span>模型名称</span><ZInput
+          <label class="field"><span>请求模型名称</span><ZInput
             v-model="editor.model"
             :disabled="editor.existing || editor.busy"
-            placeholder="填写完整上游模型 ID，精确匹配"
+            placeholder="填写 CPR 映射后发给上游的 model"
             @keydown.enter="!editor.busy && lookup()"
           /></label>
         </div>
@@ -328,8 +329,8 @@ watch(
         <p v-if="editor.error" class="error" role="alert">
           {{ editor.error }}
         </p>
-        <details v-if="editor.failures.length" class="priority-failures">
-          <summary>{{ editor.failures.length }} 个上游的模型目录未能读取，当前结果不完整</summary>
+        <div v-if="editor.failures.length" class="panel">
+          <p class="notice">{{ editor.failures.length }} 个上游的模型目录未能读取，当前结果不完整</p>
           <ZScrollbar max-height="8rem">
             <ul>
               <li v-for="failure in editor.failures" :key="failure.id">
@@ -337,7 +338,7 @@ watch(
               </li>
             </ul>
           </ZScrollbar>
-        </details>
+        </div>
         <ZScrollbar v-if="editor.accountIds.length" max-height="22rem">
           <ol class="priority-order" aria-label="上游优先顺序">
             <li
@@ -409,7 +410,7 @@ watch(
         <p v-else class="muted">
           {{
             editor.matched === null
-              ? '填写模型名称后获取上游'
+              ? '填写请求模型名称后获取上游'
               : '没有找到包含该模型的上游，请先在账号管理核对模型目录'
           }}
         </p>
@@ -431,7 +432,7 @@ watch(
 
     <ZDialog
       v-model="removal.open"
-      title="删除优先级规则"
+      title="删除规则"
       :close-on-click-modal="!state.busy"
       :close-on-press-escape="!state.busy"
       :show-close="!state.busy"
@@ -507,12 +508,6 @@ watch(
 .priority-drop {
   border-color: var(--cp-color-primary);
   background: var(--cp-color-primary-container);
-}
-.priority-failures {
-  color: var(--cp-color-warning-text);
-}
-.priority-failures summary {
-  cursor: pointer;
 }
 @media (max-width: 560px) {
   .priority-row {

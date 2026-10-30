@@ -1,6 +1,7 @@
 mod account_models;
 mod accounts;
 mod api;
+mod cline;
 mod history_pricing;
 mod host;
 mod key_models;
@@ -20,12 +21,10 @@ use std::sync::Arc;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let session = PluginSession::accept(
-        tokio::io::stdin(),
-        tokio::io::stdout(),
-        SessionConfig::default(),
-    )
-    .await?;
+    let session_config = SessionConfig::default();
+    let maximum_stream_chunk_bytes = session_config.maximum_stream_chunk_bytes;
+    let session =
+        PluginSession::accept(tokio::io::stdin(), tokio::io::stdout(), session_config).await?;
     let builder = PluginBuilder::from_json(include_bytes!("../plugin.json"))?;
     if session.handshake().plugin_id != "kazeliu.cpr-data-toolkit" {
         return Err(SessionError::Handshake.into());
@@ -37,8 +36,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let scheduling_logs = Arc::clone(&priority_logs);
     let observation_logs = Arc::clone(&priority_logs);
     let middleware_logs = Arc::clone(&logs);
-    let pin_logs = Arc::new(upstream_pin::Logs::default());
+    let pin_logs = Arc::new(upstream_pin::Runtime::default());
     let pin_middleware_logs = Arc::clone(&pin_logs);
+    let configuration: cline::InstanceConfiguration =
+        serde_json::from_value(session.handshake().configuration.clone())?;
+    let cline_adapter = Arc::new(cline::Adapter::new(
+        maximum_stream_chunk_bytes,
+        configuration.cline_account_ids,
+    ));
+    let cline_registration = Arc::clone(&cline_adapter);
+    let cline_execution = Arc::clone(&cline_adapter);
+    let cline_logs = Arc::clone(&pin_logs);
     let cleanup = Arc::clone(&sources);
     let import_cleanup = Arc::clone(&usage);
     tokio::spawn(async move {
@@ -50,6 +58,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
     let plugin = builder
+        .on(
+            gateway_plugin_sdk::client::methods::UPSTREAM_ADAPTER_REGISTER,
+            move |call| {
+                let adapter = Arc::clone(&cline_registration);
+                async move { adapter.register(call).await }
+            },
+        )?
+        .on(
+            gateway_plugin_sdk::client::methods::UPSTREAM_ADAPTER_EXECUTE,
+            move |call| {
+                let adapter = Arc::clone(&cline_execution);
+                let logs = Arc::clone(&cline_logs);
+                async move { adapter.execute(logs, call).await }
+            },
+        )?
         .on(
             gateway_plugin_sdk::client::methods::SCHEDULE_ACCOUNT,
             move |call| {
@@ -117,8 +140,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let usage = Arc::clone(&usage);
             let priority_logs = Arc::clone(&priority_logs);
             let pin_logs = Arc::clone(&pin_logs);
+            let cline_adapter = Arc::clone(&cline_adapter);
             async move {
-                management::handle(&sources, &logs, &usage, &priority_logs, &pin_logs, call).await
+                management::handle(
+                    &sources,
+                    &logs,
+                    &usage,
+                    &priority_logs,
+                    &pin_logs,
+                    &cline_adapter,
+                    call,
+                )
+                .await
             }
         })?
         .build()?;

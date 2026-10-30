@@ -76,13 +76,13 @@ async function confirm() {
   state.error = ''
   try {
     await saveAdjustment(state.pending)
-    state.notice = `调整已保存 · 操作 ${state.pending.id}`
+    state.notice = '调整已保存'
     state.pending = null
     state.tokens = '0'
     state.requests = '0'
     await load()
   } catch (error) {
-    state.error = `${message(error)}；保留原操作 ID，点击继续核对调整，不要重复创建`
+    state.error = `${message(error)}；已保留本次调整，点击继续核对调整，不要重复创建`
     if (error instanceof ApiError && error.status < 500) {
       try {
         state.pending = await getPendingAdjustment()
@@ -99,7 +99,7 @@ onMounted(initialize)
 </script>
 
 <template>
-  <section class="panel">
+  <section class="section">
     <p class="muted">
       修正归属首次提交时刻，只改变 Token 与请求总量，不生成明细，不改变费用或 Key 预算
     </p>
@@ -158,7 +158,7 @@ onMounted(initialize)
       </div>
     </div>
     <p v-if="preview.error" class="error" role="alert">{{ preview.error }}</p>
-    <p v-if="state.notice" class="notice" role="status">{{ state.notice }}</p>
+    <p v-if="state.notice" :class="state.pending ? 'notice' : 'muted'" role="status">{{ state.notice }}</p>
     <div class="toolbar">
       <ZButton v-if="state.pending" type="primary" :loading="state.busy" @click="confirm">
         继续核对调整

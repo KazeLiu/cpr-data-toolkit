@@ -3,6 +3,7 @@ import type { QuotaAmount, QuotaSource, QuotaWindow, UpstreamAccount } from '../
 import { ZButton, ZDialog, ZScrollbar, ZTag } from '@codex-proxy/ui'
 import { computed, reactive, watch } from 'vue'
 import QuotaModels from './QuotaModels.vue'
+import { formatDateTime } from '../dates'
 
 const props = defineProps<{
   cards: { source: QuotaSource, account: UpstreamAccount, stale: boolean }[]
@@ -43,7 +44,7 @@ function sortedWindows(windows: QuotaWindow[]) {
 }
 
 function date(value: string | null) {
-  return value === null ? '未提供' : new Date(value).toLocaleString()
+  return value === null ? '未提供' : formatDateTime(value)
 }
 function percentText(used: number | null) {
   return used === null

@@ -66,12 +66,12 @@ watch(() => [props.active, props.available], ([active, available]) => {
 
 <template>
   <section class="section">
-    <h3>向下游分享额度</h3>
+    <h2>额度分享</h2>
     <div class="quota-sharing-controls">
       <ZSelect
         v-model="state.keyId" :options="state.keys.map((key) => ({ value: key.id, label: `${key.name}${key.enabled ? '' : '（已停用）'}` }))"
-        :disabled="state.busy || !available" filterable placeholder="选择 API 秘钥" @change="read"
-        class="quota-sharing-key" aria-label="选择分享额度的 API 秘钥"
+        :disabled="state.busy || !available" filterable placeholder="选择 Client Key" @change="read"
+        class="quota-sharing-key" aria-label="选择分享额度的 Client Key"
       />
       <template v-if="state.value">
         <div class="quota-sharing-switches">
@@ -83,17 +83,17 @@ watch(() => [props.active, props.available], ([active, available]) => {
           <ZButton type="primary" :disabled="!available || !dirty" :loading="state.busy" @click="save">
             保存设置
           </ZButton>
-          <ZButton variant="text" :disabled="state.busy || !available" @click="load">
+          <ZButton :disabled="state.busy || !available" @click="load">
             重新读取
           </ZButton>
         </div>
       </template>
     </div>
     <p class="muted">
-      下游使用此 API 秘钥查询 /v1/quota，仅返回其有权访问的启用账号，停用插件后不再提供透传
+      下游使用此 Client Key 查询 /v1/quota，仅返回其有权访问的启用账号，停用插件后不再提供透传
     </p>
     <p v-if="state.loaded && !state.keys.length" class="muted">
-      暂无 API 秘钥，请先在宿主创建
+      暂无 Client Key，请先在宿主创建
     </p>
     <p v-if="state.error" class="error" role="alert">
       {{ state.error }}

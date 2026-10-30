@@ -3,7 +3,7 @@
 use crate::{
     accounts,
     api::{self, ApiError, Result},
-    history_pricing, host, key_models, model_priority,
+    cline, history_pricing, host, key_models, model_priority,
     model_ua::{self, Configuration, RequestLogs},
     pricing,
     sources::SourceStore,
@@ -36,8 +36,10 @@ pub fn registration() -> ManagementRegistration {
         "api/upstream/support",
         "api/model-priority",
         "api/upstream-pin",
+        "api/cline",
     ];
     let post = [
+        "api/cline/save",
         "api/key-models/get",
         "api/key-models/save",
         "api/upstream-pin/save",
@@ -107,7 +109,7 @@ pub fn registration() -> ManagementRegistration {
             id: "toolkit".into(),
             title: "CPR 数据工具箱".into(),
             description: Some(
-                "连接与用量导入、统计调整、定价、模型UA、上游额度、模型优先级、钉上游与 Key 模型权限".into(),
+                "连接与用量导入、统计调整、定价、模型UA、上游额度、模型优先级、Cline 接入与 Key 模型权限".into(),
             ),
             entry: "web/index.html".into(),
             icon: None,
@@ -120,10 +122,21 @@ pub async fn handle(
     logs: &RequestLogs,
     imports: &usage::Imports,
     priority_logs: &model_priority::logs::Logs,
-    pin_logs: &upstream_pin::Logs,
+    pin_logs: &upstream_pin::Runtime,
+    cline_adapter: &cline::Adapter,
     call: TypedCall<ManagementRequest>,
 ) -> std::result::Result<TypedReply<ManagementResponse>, PluginFault> {
-    match route(sources, logs, imports, priority_logs, pin_logs, call).await {
+    match route(
+        sources,
+        logs,
+        imports,
+        priority_logs,
+        pin_logs,
+        cline_adapter,
+        call,
+    )
+    .await
+    {
         Ok(value) => api::reply(200, &value),
         Err(error) => error.reply(),
     }
@@ -207,7 +220,8 @@ async fn route(
     logs: &RequestLogs,
     imports: &usage::Imports,
     priority_logs: &model_priority::logs::Logs,
-    pin_logs: &upstream_pin::Logs,
+    pin_logs: &upstream_pin::Runtime,
+    cline_adapter: &cline::Adapter,
     call: TypedCall<ManagementRequest>,
 ) -> Result<Value> {
     if !call.request.query.is_empty()
@@ -223,14 +237,18 @@ async fn route(
         .clone()
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     match (call.request.method.as_str(), call.request.path.as_str()) {
+        ("GET", "api/cline") => cline_adapter.get(host).await,
+        ("POST", "api/cline/save") => cline_adapter.save(host, api::decode(&call.payload)?).await,
         ("POST", "api/key-models/get") => key_models::get(host, api::decode(&call.payload)?).await,
-        ("POST", "api/key-models/save") => key_models::save(host, api::decode(&call.payload)?).await,
-        ("GET", "api/upstream-pin") => upstream_pin::get(host).await,
+        ("POST", "api/key-models/save") => {
+            key_models::save(host, api::decode(&call.payload)?).await
+        }
+        ("GET", "api/upstream-pin") => upstream_pin::get(host, pin_logs).await,
         ("POST", "api/upstream-pin/save") => {
-            upstream_pin::save(host, api::decode(&call.payload)?).await
+            upstream_pin::save(host, pin_logs, api::decode(&call.payload)?).await
         }
         ("POST", "api/upstream-pin/delete") => {
-            upstream_pin::delete(host, api::decode(&call.payload)?).await
+            upstream_pin::delete(host, pin_logs, api::decode(&call.payload)?).await
         }
         ("POST", "api/upstream-pin/logs") => {
             let request: LogQuery = api::decode(&call.payload)?;

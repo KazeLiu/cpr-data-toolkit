@@ -3,15 +3,24 @@
   "publisher": "kazeliu",
   "name": "cpr-data-toolkit",
   "displayName": "CPR 数据工具箱",
-  "version": "1.6.0",
-  "description": "连接与用量导入、统计调整、模型定价、模型UA、上游额度、模型优先级、钉上游与 Key 模型权限",
+  "version": "1.9.0",
+  "description": "连接与用量导入、统计调整、模型定价、模型UA、上游额度、模型优先级、Cline 接入与 Key 模型权限",
   "license": "UNLICENSED",
   "engines": { "codex-proxy-rs": ">=3.33.0, <4.0.0" },
   "main": "bin/plugin",
   "runtime": "trustedProcess",
   "configurationSchema": {
     "type": "object",
-    "properties": {},
+    "properties": {
+      "clineAccountIds": {
+        "title": "Cline 转换账号 ID",
+        "description": "从插件 Cline 接入页复制配置并应用，留空时不接管任何账号",
+        "type": "array",
+        "maxItems": 100,
+        "uniqueItems": true,
+        "items": { "type": "string", "minLength": 1, "maxLength": 256 }
+      }
+    },
     "additionalProperties": false
   },
   "contributes": {
@@ -19,6 +28,11 @@
     "maintenance": { "version": 1 },
     "scheduler": { "version": 3 },
     "observer": { "version": 2 },
+    "upstream_adapter": {
+      "version": 5,
+      "inputFormats": ["openai"],
+      "outputFormats": ["openai"]
+    },
     "middleware": {
       "version": 6,
       "stages": ["http", "request", "attempt", "outbound"],
@@ -32,6 +46,22 @@
     "web/app.css": "text/css"
   },
   "state": [
+    {
+      "namespace": "cline_adapter",
+      "schemaVersion": 1,
+      "schema": {
+        "type": "object",
+        "required": ["accountIds"],
+        "additionalProperties": false,
+        "properties": {
+          "accountIds": { "type": "array", "maxItems": 100, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 256 } }
+        }
+      },
+      "maximumRecords": 1,
+      "maximumBytes": 65536,
+      "maximumValueBytes": 65536,
+      "migratesFrom": []
+    },
     {
       "namespace": "key_models",
       "schemaVersion": 1,

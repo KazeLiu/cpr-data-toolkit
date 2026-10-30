@@ -13,7 +13,7 @@ import UpstreamPin from './features/UpstreamPin.vue'
 import UpstreamQuota from './features/UpstreamQuota.vue'
 import UsageImport from './features/UsageImport.vue'
 
-const tabs = ['上游额度', 'API 导入', '用量导入', '手动调整', '模型定价', '模型UA定制', '模型上游优先级', '钉上游', 'Key 模型权限']
+const tabs = ['上游额度', 'API 导入', '用量导入', '手动调整', '模型定价', '模型UA定制', '模型上游优先级', 'Cline 接入', 'Key 模型权限']
 const page = reactive({
   tab: 0,
   ready: false,

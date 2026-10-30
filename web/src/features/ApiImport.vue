@@ -7,6 +7,7 @@ import type { Choice, ImportGroup, ImportSource, OperationResult } from '../api'
 import { copyText } from '../clipboard'
 import ImportActionIcon from '../components/ImportActionIcon.vue'
 import OperationResults from '../components/OperationResults.vue'
+import TablePagination from '../components/TablePagination.vue'
 
 const props = defineProps<{ sourceId: string; locked: boolean; active: boolean }>()
 const emit = defineEmits<{ busy: [value: boolean] }>()
@@ -248,7 +249,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="panel">
+  <section class="section">
     <div class="toolbar">
       <ZButton :loading="state.busy" :disabled="!sourceId || locked || state.busy" @click="load"
         >重新预览</ZButton
@@ -265,7 +266,7 @@ onBeforeUnmount(() => {
       <span class="muted">已选 {{ selectedRows.length }} 项 · {{ selectedIds.length }} 个上游</span>
     </div>
     <p v-if="state.error" class="error" role="alert">{{ state.error }}</p>
-    <p v-if="state.notice" class="success" role="status">{{ state.notice }}</p>
+    <p v-if="state.notice" class="muted" role="status">{{ state.notice }}</p>
     <p v-if="state.note" class="muted">{{ state.note }}</p>
     <div v-if="!sourceId" class="empty">先选择 CCS 完整 SQL 导出</div>
     <template v-else>
@@ -357,24 +358,8 @@ onBeforeUnmount(() => {
           </div>
         </template>
       </ZTable>
-      <div v-if="state.rows.length > pageSize" class="toolbar">
-        <ZButton
-          variant="text"
-          :disabled="state.offset === 0 || state.busy"
-          @click="state.offset -= pageSize"
-          >上一页</ZButton
-        >
-        <ZButton
-          variant="text"
-          :disabled="state.offset + pageSize >= state.rows.length || state.busy"
-          @click="state.offset += pageSize"
-          >下一页</ZButton
-        >
-        <span class="muted"
-          >{{ state.offset + 1 }}–{{ state.offset + visibleRows.length }} /
-          {{ state.rows.length }} 项 · 全选包含所有页</span
-        >
-      </div>
+      <TablePagination v-if="state.rows.length > pageSize" :offset="state.offset" :total="state.rows.length" :page-size="pageSize" :busy="state.busy" @change="state.offset = $event" />
+      <p v-if="state.rows.length > pageSize" class="muted">全选包含所有页</p>
     </template>
     <OperationResults :results="state.results" />
     <ZDialog

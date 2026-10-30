@@ -31,6 +31,9 @@ body {
   flex-wrap: wrap;
   gap: 8px;
 }
+.table-pagination {
+  font-variant-numeric: tabular-nums;
+}
 .tabs {
   padding-bottom: 12px;
   border-bottom: 1px solid var(--cp-color-border-secondary);
@@ -50,21 +53,34 @@ body {
   border-radius: var(--cp-border-radius);
   background: var(--cp-color-bg-container);
 }
+.panel h2,
 .section h2 {
   margin: 0;
   font-size: 1rem;
   font-weight: 650;
+}
+.panel h3,
+.section h3 {
+  margin: 0;
+  font-size: inherit;
+  font-weight: 600;
+}
+.panel > p,
+.section > p {
+  margin: 0;
+}
+.status-success {
+  color: var(--cp-color-success);
+}
+.status-error {
+  color: var(--cp-color-error-text);
 }
 .muted {
   color: var(--cp-color-text-secondary);
 }
 .quota-account-title {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
   gap: 8px;
-}
-.quota-account-title {
   justify-content: space-between;
   align-items: flex-start;
   flex-wrap: nowrap;
@@ -79,33 +95,6 @@ body {
 .quota-source-tag {
   flex-shrink: 0;
   max-width: 50%;
-}
-.quota-details {
-  min-width: 0;
-}
-.quota-details > summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 4px 0 12px;
-  cursor: pointer;
-  font-weight: 600;
-  list-style: none;
-}
-.quota-details > summary::-webkit-details-marker {
-  display: none;
-}
-.quota-details > summary:focus-visible {
-  outline: 2px solid var(--cp-color-primary);
-  outline-offset: 2px;
-}
-.quota-collapse {
-  flex-shrink: 0;
-  transform: rotate(-90deg);
-}
-.quota-details[open] > summary .quota-collapse {
-  transform: none;
 }
 .quota-cards {
   display: grid;
@@ -241,16 +230,9 @@ body {
 .quota-window[data-tone='danger'] strong {
   color: var(--cp-color-error-text);
 }
-.quota-settings {
-  display: block;
-}
-.quota-settings > summary {
-  padding: 0;
-}
 .quota-settings-body {
   display: grid;
   gap: 12px;
-  margin-top: 16px;
 }
 .quota-settings-body p,
 .quota-results p {
@@ -325,8 +307,7 @@ body {
   }
 }
 .notice,
-.error,
-.success {
+.error {
   padding: 10px 14px;
   border-radius: var(--cp-border-radius);
   overflow-wrap: anywhere;
@@ -338,10 +319,6 @@ body {
 .error {
   background: var(--cp-color-error-container);
   color: var(--cp-color-error-on-container);
-}
-.success {
-  background: var(--cp-color-success-container);
-  color: var(--cp-color-success-on-container);
 }
 .form-grid {
   display: grid;
@@ -425,9 +402,6 @@ body {
   display: grid;
   gap: 12px;
 }
-.diagnostic-details > :not(summary) {
-  margin-top: 10px;
-}
 .ua-log-cell {
   display: grid;
   gap: 8px;
@@ -443,13 +417,8 @@ body {
 }
 .ua-log-status {
   justify-self: start;
-  padding: 4px 8px;
 }
-.ua-log-details > :not(summary) {
-  display: block;
-  margin-top: 8px;
-}
-.ua-log-details > dl {
+.ua-log-headers > dl {
   display: grid;
 }
 .cp-modal-panel:not(:has(.quota-model-content)) {

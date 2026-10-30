@@ -94,7 +94,7 @@ jobs:
             --binary "target/$PLUGIN_TARGET/release/cpr-data-toolkit" \
             --target "$PLUGIN_TARGET" --resource-map web=web/dist --output-dir dist
           cp docs/installation.md dist/INSTALL.md
-          display_version="$(python3 -c 'import json; v=json.load(open("plugin.json"))["version"]; print(v.rsplit(".",1)[0])')"
+          display_version="$(python3 -c 'import json; v=json.load(open("plugin.json"))["version"]; print(v[:-2] if v.endswith(".0") else v)')"
           zip -j "dist/cpr-data-toolkit-$display_version-$PACKAGE_LABEL.zip" \
             dist/*.tar.gz dist/*.sha256 dist/INSTALL.md
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
