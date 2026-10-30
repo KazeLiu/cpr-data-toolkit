@@ -14,6 +14,8 @@ import {
   saveRules,
 } from '../api'
 import type { Header, Key, Rule, UaLogStatus, UaRequestLog } from '../api'
+import TablePagination from '../components/TablePagination.vue'
+import { formatDateTime } from '../dates'
 
 const rules = reactive({
   rows: [] as Rule[],
@@ -55,13 +57,13 @@ const logs = reactive({
 })
 const logColumns: TableColumn<UaRequestLog>[] = [
   { key: 'timeMs', label: '时间', size: 'lg', kind: 'custom' },
-  { key: 'model', label: '模型名称', size: 'lg', kind: 'custom' },
+  { key: 'model', label: '请求模型名称', size: 'lg', kind: 'custom' },
   { key: 'rule', label: '规则', size: 'lg', kind: 'custom' },
-  { key: 'before', label: '替换前 UA', size: '3xl', kind: 'custom' },
-  { key: 'after', label: '替换后 UA', size: '3xl', kind: 'custom' },
+  { key: 'before', label: '改写前 UA', size: '3xl', kind: 'custom' },
+  { key: 'after', label: '改写后 UA', size: '3xl', kind: 'custom' },
 ]
 const logLabels: Record<UaLogStatus, string> = {
-  rewritten: '已改写',
+  rewritten: '已命中',
   unmatched: '未命中',
   missing_model: '模型缺失，未改写',
   rules_error: '规则读取失败，未改写',
@@ -257,13 +259,14 @@ onMounted(async () => {
 
 <template>
   <section class="panel">
+    <section class="section">
     <p class="muted">
       忽略大小写，按顺序使用首条命中规则 · 未命中时保留API密钥身份 · 作用范围沿用宿主 request
       绑定，空绑定范围表示全局
     </p>
     <div class="toolbar">
       <ZButton :disabled="!rules.loaded || rules.busy || rules.rows.length >= 100" @click="edit(-1)"
-        >新增规则</ZButton
+        >添加规则</ZButton
       >
       <ZButton
         type="primary"
@@ -272,19 +275,19 @@ onMounted(async () => {
         @click="save"
         >保存规则</ZButton
       >
-      <ZButton variant="text" :disabled="rules.busy" @click="dirty ? (reload.open = true) : load()"
+      <ZButton :disabled="rules.busy" @click="dirty ? (reload.open = true) : load()"
         >重新读取</ZButton
       >
       <span v-if="dirty" class="muted">有未保存修改</span>
     </div>
     <p v-if="rules.error" class="error" role="alert">{{ rules.error }}</p>
-    <p v-if="rules.notice" class="success" role="status">{{ rules.notice }}</p>
+    <p v-if="rules.notice" class="muted" role="status">{{ rules.notice }}</p>
     <ZTable
       :columns="columns"
       :data="rules.rows"
       row-key="id"
       size="small"
-      empty-text="暂无规则，新增后保存即可生效"
+      empty-text="暂无规则，添加后保存即可生效"
     >
       <template #enabled="{ row }"
         ><ZSwitch v-model="row.enabled" :disabled="rules.busy" :aria-label="`启用 ${row.keyword}`"
@@ -318,17 +321,18 @@ onMounted(async () => {
         </div></template
       >
     </ZTable>
+    </section>
     <div class="section">
       <div class="toolbar">
         <h2>请求改写日志</h2>
         <ZButton :loading="logs.busy" @click="loadLogs()">刷新日志</ZButton>
-        <ZButton variant="text" :disabled="logs.busy || !logs.total" @click="clearLogs"
+        <ZButton :disabled="logs.busy || !logs.total" @click="clearLogs"
           >清空日志</ZButton
         >
         <span class="muted">最近 {{ logs.capacity }} 条 · 最新在前 · 重启插件后清空</span>
       </div>
       <p class="muted">
-        替换前为插件入口 UA，不是API密钥默认 UA · 替换后为插件交给宿主的 UA · 预览与安全验证不计入日志
+        改写前为插件接收的 UA，不是API密钥默认 UA · 改写后为插件交给宿主的 UA · 预览与安全验证不计入日志
       </p>
       <p v-if="logs.error" class="error" role="alert">{{ logs.error }}</p>
       <ZTable
@@ -345,26 +349,22 @@ onMounted(async () => {
       >
         <template #timeMs="{ row }">
           <time :datetime="new Date(row.timeMs).toISOString()" class="ua-log-time">
-            {{ new Date(row.timeMs).toLocaleString('zh-CN', { hour12: false }) }}
+            {{ formatDateTime(row.timeMs) }}
           </time>
         </template>
         <template #model="{ row }">
           <div class="ua-log-cell">
-            <span class="mono">{{ row.model ?? '未提供模型名' }}</span>
-            <details class="ua-log-details">
-              <summary>请求 ID</summary>
-              <span class="mono">{{ row.requestId }}</span>
-            </details>
+            <span class="mono">{{ row.model ?? '未提供' }}</span>
           </div>
         </template>
         <template #rule="{ row }">
           <div class="ua-log-cell">
             <span
               class="ua-log-status"
-              :class="row.status === 'rewritten' ? 'success' : 'error'"
+              :class="{ 'status-success': row.status === 'rewritten', 'status-error': row.status === 'rules_error' }"
               >{{ logLabels[row.status] }}</span
             >
-            <span v-if="row.rule" class="mono" :title="`规则 ID：${row.rule.id}`">
+            <span v-if="row.rule" class="mono">
               包含 {{ row.rule.keyword }}
             </span>
             <span v-if="row.nextFailed" class="error">下游调用失败</span>
@@ -373,57 +373,38 @@ onMounted(async () => {
         <template #before="{ row }">
           <div class="ua-log-cell">
             <span class="mono ua-log-header">{{ headerValue(row.before.userAgent) }}</span>
-            <details v-if="hasExtraChanges(row)" class="ua-log-details">
-              <summary>配套头</summary>
+            <div v-if="hasExtraChanges(row)" class="ua-log-headers">
               <dl>
                 <dt>originator</dt>
                 <dd class="mono">{{ headerValue(row.before.originator) }}</dd>
                 <dt>version</dt>
                 <dd class="mono">{{ headerValue(row.before.version) }}</dd>
               </dl>
-            </details>
+            </div>
           </div>
         </template>
         <template #after="{ row }">
           <div class="ua-log-cell">
             <span class="mono ua-log-header">{{ headerValue(row.after.userAgent) }}</span>
-            <details v-if="hasExtraChanges(row)" class="ua-log-details">
-              <summary>配套头</summary>
+            <div v-if="hasExtraChanges(row)" class="ua-log-headers">
               <dl>
                 <dt>originator</dt>
                 <dd class="mono">{{ headerValue(row.after.originator) }}</dd>
                 <dt>version</dt>
                 <dd class="mono">{{ headerValue(row.after.version) }}</dd>
               </dl>
-            </details>
+            </div>
           </div>
         </template>
       </ZTable>
-      <div class="toolbar">
-        <ZButton
-          variant="text"
-          :disabled="logs.busy || logs.offset === 0"
-          @click="loadLogs(logs.offset - logs.pageSize)"
-          >上一页</ZButton
-        >
-        <ZButton
-          variant="text"
-          :disabled="logs.busy || logs.offset + logs.pageSize >= logs.total"
-          @click="loadLogs(logs.offset + logs.pageSize)"
-          >下一页</ZButton
-        >
-        <span class="muted">
-          {{ logs.entries.length ? logs.offset + 1 : 0 }}–{{ logs.offset + logs.entries.length }}
-          / {{ logs.total }} 条
-        </span>
-      </div>
+      <TablePagination :offset="logs.offset" :total="logs.total" :page-size="logs.pageSize" :busy="logs.busy" @change="loadLogs" />
     </div>
     <div class="section">
       <h2>匹配预览</h2>
       <div class="toolbar">
         <ZInput
           v-model="probe.model"
-          aria-label="预览模型名"
+          aria-label="请求模型名称"
           placeholder="例如 grok-4.7"
           style="max-width: 360px"
         /><ZButton :loading="probe.busy" :disabled="!probe.model" @click="preview"
@@ -432,7 +413,7 @@ onMounted(async () => {
         <div
           v-if="probe.evaluated"
           class="match-result"
-          :class="probe.ruleId ? 'success' : 'error'"
+          :class="{ 'status-success': probe.ruleId }"
           role="status"
         >
           <template v-if="probe.ruleId">
@@ -463,7 +444,7 @@ onMounted(async () => {
             @change="models"
         /></label>
         <label class="field"
-          ><span>模型</span
+          ><span>请求模型名称</span
           ><ZSelect
             :model-value="diagnostic.model"
             @update:model-value="diagnostic.model = $event ?? ''"
@@ -494,11 +475,11 @@ onMounted(async () => {
       <div
         v-if="diagnostic.result"
         class="diagnostic-result"
-        :class="diagnostic.result.ruleId ? 'success' : 'error'"
+        :class="{ 'status-success': diagnostic.result.ruleId }"
         role="status"
       >
         <strong>
-          {{ diagnostic.result.ruleId ? '已命中规则，插件出口头已改写' : '未命中规则，插件未改写' }}
+          {{ diagnostic.result.ruleId ? '已命中，插件出口头已改写' : '未命中，插件未改写' }}
         </strong>
         <dl v-if="diagnostic.result.headers.length">
           <template v-for="header in diagnostic.result.headers" :key="header.name"
@@ -506,8 +487,8 @@ onMounted(async () => {
             <dd class="mono">{{ header.value }}</dd></template
           >
         </dl>
-        <details class="diagnostic-details">
-          <summary>验证范围</summary>
+        <div class="panel">
+          <h3>验证范围</h3>
           <ol class="compact-list">
             <li v-for="stage in diagnostic.result.stages" :key="stage">{{ stage }}</li>
           </ol>
@@ -515,12 +496,12 @@ onMounted(async () => {
             未覆盖：{{ diagnostic.result.notCovered.join('、')
             }}{{ !diagnostic.result.baselineKnown ? ' · 未读取真实API密钥默认 UA' : '' }}
           </p>
-        </details>
+        </div>
       </div>
     </div>
     <ZDialog
       v-model="editor.open"
-      :title="editor.index < 0 ? '新增模型 UA 规则' : '编辑模型 UA 规则'"
+      :title="editor.index < 0 ? '添加规则' : '编辑规则'"
     >
       <div class="panel">
         <label class="field"
@@ -529,9 +510,8 @@ onMounted(async () => {
         ><label class="field"
           ><span>User-Agent</span><ZInput v-model="editor.value.userAgent" maxlength="4096"
         /></label>
-        <details>
-          <summary>配套身份头，可选</summary>
-          <div class="panel" style="margin-top: 12px">
+        <div class="panel">
+          <h3>配套身份头，可选</h3>
             <label class="field"
               ><span>originator</span
               ><ZInput
@@ -543,12 +523,11 @@ onMounted(async () => {
                 :model-value="editor.value.version ?? ''"
                 @update:model-value="editor.value.version = $event" /></label
             ><span class="muted">未填写的头保持原样</span>
-          </div>
-        </details>
+        </div>
         <p v-if="rules.error" class="error" role="alert">{{ rules.error }}</p>
       </div>
       <template #footer
-        ><ZButton variant="text" @click="editor.open = false">取消</ZButton
+        ><ZButton @click="editor.open = false">取消</ZButton
         ><ZButton type="primary" @click="applyEdit">加入编辑列表</ZButton></template
       >
     </ZDialog>

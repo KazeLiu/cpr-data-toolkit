@@ -66,7 +66,7 @@ watch(() => [props.active, props.available], ([active, available]) => {
 
 <template>
   <section class="section">
-    <h3>向下游分享额度</h3>
+    <h2>额度分享</h2>
     <div class="quota-sharing-controls">
       <ZSelect
         v-model="state.keyId" :options="state.keys.map((key) => ({ value: key.id, label: `${key.name}${key.enabled ? '' : '（已停用）'}` }))"
@@ -83,7 +83,7 @@ watch(() => [props.active, props.available], ([active, available]) => {
           <ZButton type="primary" :disabled="!available || !dirty" :loading="state.busy" @click="save">
             保存设置
           </ZButton>
-          <ZButton variant="text" :disabled="state.busy || !available" @click="load">
+          <ZButton :disabled="state.busy || !available" @click="load">
             重新读取
           </ZButton>
         </div>

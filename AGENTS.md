@@ -20,6 +20,7 @@
 ## 后端与页面接入
 
 - 插件后端按宿主的标准输入输出协议运行；stdout 专用于协议，诊断不得混入 stdout，也不得包含凭据或原始导入文档。
+- 锁定 SDK 对应宿主的 `upstream_adapter.register` 早于私有状态激活；首次安装及配置或制品切换时不能依赖 `host.state.*`。注册范围从 `Handshake.configuration` 冻结读取，私有状态留到管理等激活后的入口使用；核对入口为宿主 `generation/prepare/instance.rs`、`generation/prepare/state.rs` 与 `callback/private_state.rs`。
 - 插件页面使用 Vue SFC、TypeScript 和 `@codex-proxy/ui` 的公开组件与主题入口。UI、Vue 和页面样式编译进包内资源，不借用宿主运行时模块。
 - 页面调用自己的已注册相对管理路由，经 `window.codexProxyPlugin.request` 交给宿主；页面不直接获取宿主管理 Cookie，也不绕过宿主桥调用管理 HTTP 接口。
 - 页面业务 API 集中封装；输入、响应和错误在边界校验。原始来源结构转换为内部类型的逻辑集中在适配层。

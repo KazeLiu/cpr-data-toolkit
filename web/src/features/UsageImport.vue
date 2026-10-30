@@ -4,6 +4,7 @@ import type { UsageEvidence, UsageGroup, UsageOptions, UsageTask } from '../api'
 import { ZButton, ZDatePicker, ZDialog, ZInput, ZSelect, ZTable } from '@codex-proxy/ui'
 import { reactive, watch } from 'vue'
 import { applyUsage, discardUsage, getUsage, message, prepareUsage } from '../api'
+import TablePagination from '../components/TablePagination.vue'
 
 const props = defineProps<{ sourceId: string; locked: boolean }>()
 const emit = defineEmits<{ busy: [value: boolean] }>()
@@ -64,7 +65,7 @@ const columns: TableColumn<UsageGroup>[] = [
   },
   { key: 'appType', label: '应用', size: 'sm' },
   { key: 'providerId', label: '来源供应商', kind: 'mono', size: 'lg' },
-  { key: 'model', label: '模型', kind: 'mono', size: 'lg' },
+  { key: 'model', label: '模型名称', kind: 'mono', size: 'lg' },
   { key: 'sourceContext', label: '来源口径', kind: 'custom', size: 'xl' },
   {
     key: 'time',
@@ -262,7 +263,7 @@ watch(
 </script>
 
 <template>
-  <section class="panel">
+  <section class="section">
     <p class="muted">写入原生总量与趋势，不生成请求明细，不改变API密钥预算</p>
     <div class="form-grid">
       <label class="field"
@@ -370,7 +371,7 @@ watch(
     <p v-if="state.error" class="error" role="alert">
       {{ state.error }}
     </p>
-    <p v-if="state.notice" class="notice" role="status">
+    <p v-if="state.notice" class="muted" role="status">
       {{ state.notice }}
     </p>
     <p v-if="state.task" role="status">
@@ -432,12 +433,10 @@ watch(
       "
     >
       <template #sourceContext="{ row }">
-        <details>
-          <summary>查看来源</summary>
           <dl>
-            <dt>请求模型</dt>
+            <dt>请求模型名称</dt>
             <dd class="mono">{{ row.requestModel ?? '未知' }}</dd>
-            <dt>计价模型</dt>
+            <dt>计价模型名称</dt>
             <dd class="mono">{{ row.pricingModel ?? '未知' }}</dd>
             <dt>数据来源</dt>
             <dd>{{ row.dataSources.map((source) => source ?? '未知').join('、') }}</dd>
@@ -454,22 +453,9 @@ watch(
               }}
             </dd>
           </dl>
-        </details>
       </template>
     </ZTable>
-    <div v-if="state.total" class="toolbar">
-      <ZButton :disabled="state.busy || state.offset === 0" @click="load(state.offset - 100)"
-        >上一页</ZButton
-      ><span
-        >{{ state.offset + 1 }}–{{ Math.min(state.offset + 100, state.total) }} /
-        {{ state.total }} 个分组</span
-      ><ZButton
-        :disabled="state.busy || state.offset + 100 >= state.total"
-        @click="load(state.offset + 100)"
-      >
-        下一页
-      </ZButton>
-    </div>
+    <TablePagination v-if="state.total" :offset="state.offset" :total="state.total" :page-size="100" :busy="state.busy" @change="load($event)" />
     <ZDialog v-model="state.confirm" title="是否覆盖所选时间段的 CCS 用量" type="warning">
       <div class="panel">
         <p>来源 {{ state.task?.options.sourceName }} · 时区 {{ state.task?.options.timezone }}</p>
@@ -491,14 +477,12 @@ watch(
           CCS 代理日志记录时间对 CPR 完成时间 ±30 秒 · 仅双方唯一对应时排除 · 时间按
           {{ state.task?.options.timezone }} 显示
         </p>
-        <details
+        <section
           v-for="(item, index) in state.evidence"
           :key="`${item.sourceId}:${index}`"
           class="import-group"
         >
-          <summary>
-            {{ item.excluded ? '排除' : '保留' }} · {{ item.model }} · {{ item.sourceId }}
-          </summary>
+          <h3>{{ item.excluded ? '排除' : '保留' }} · {{ item.model }}</h3>
           <p>
             {{ item.app }} / {{ item.provider }} ·
             {{ item.date ?? sourceTime(item.sourceTimeMs) }} ·
@@ -509,7 +493,7 @@ watch(
             {{ item.cacheRead ?? '未知' }} · 缓存写 {{ item.cacheWrite ?? '未知' }}
           </p>
           <div v-for="candidate in item.candidates" :key="candidate.id" class="panel">
-            <p class="mono">CPR {{ candidate.id }}</p>
+            <h3>CPR 候选</h3>
             <p>
               开始 {{ sourceTime(candidate.startedAtMs) }} · 完成
               {{ sourceTime(candidate.completedAtMs) }} · 时间差 {{ candidate.deltaMs / 1000 }} 秒
@@ -522,25 +506,8 @@ watch(
           <p v-if="item.candidateCount > item.candidates.length" class="muted">
             共 {{ item.candidateCount }} 条候选，展示前 20 条，请缩小时间范围后核对
           </p>
-        </details>
-        <div class="toolbar">
-          <ZButton
-            :disabled="state.busy || state.reviewOffset === 0"
-            @click="load(state.offset, state.reviewOffset - 100)"
-            >上一页</ZButton
-          >
-          <span
-            >{{ state.evidenceTotal ? state.reviewOffset + 1 : 0 }}–{{
-              Math.min(state.reviewOffset + 100, state.evidenceTotal)
-            }}
-            / {{ state.evidenceTotal }}</span
-          >
-          <ZButton
-            :disabled="state.busy || state.reviewOffset + 100 >= state.evidenceTotal"
-            @click="load(state.offset, state.reviewOffset + 100)"
-            >下一页</ZButton
-          >
-        </div>
+        </section>
+        <TablePagination :offset="state.reviewOffset" :total="state.evidenceTotal" :page-size="100" :busy="state.busy" @change="load(state.offset, $event)" />
       </section>
       <template #footer>
         <ZButton @click="state.reviewOpen = false">关闭</ZButton>

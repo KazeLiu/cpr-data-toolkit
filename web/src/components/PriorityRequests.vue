@@ -5,6 +5,8 @@ import { ZButton, ZTable } from '@codex-proxy/ui'
 import { reactive, watch } from 'vue'
 import { message } from '../api'
 import { clearPriorityLogs, getPriorityLogs } from '../api/model-priority'
+import TablePagination from './TablePagination.vue'
+import { formatDateTime } from '../dates'
 
 const props = defineProps<{ active: boolean, accounts: PriorityAccount[] }>()
 const logs = reactive({
@@ -21,7 +23,7 @@ const kinds: Record<string, string> = {
   primary: '首选',
   backup: '备用',
   native_fallback: '其他备用交给宿主',
-  unmatched: '未命中规则',
+  unmatched: '未命中',
   rules_error: '规则读取失败',
 }
 const outcomes: Record<string, string> = {
@@ -33,10 +35,10 @@ const outcomes: Record<string, string> = {
 }
 const columns: TableColumn<PriorityLog>[] = [
   { key: 'time', label: '时间', kind: 'custom', size: 'lg' },
-  { key: 'model', label: '模型', kind: 'custom', size: 'xl' },
+  { key: 'model', label: '请求模型名称', kind: 'custom', size: 'xl' },
   { key: 'decisions', label: '插件选择', kind: 'custom', size: '2xl' },
   { key: 'actual', label: '最终上游', kind: 'custom', size: 'xl' },
-  { key: 'result', label: '固定结果', kind: 'custom', size: 'lg' },
+  { key: 'result', label: '匹配结果', kind: 'custom', size: 'lg' },
 ]
 function name(id: string) {
   return props.accounts.find(account => account.id === id)?.name ?? id
@@ -107,7 +109,7 @@ watch(() => props.active, (active) => {
       <ZButton :loading="logs.busy" @click="load()">
         刷新日志
       </ZButton>
-      <ZButton variant="text" :disabled="logs.busy || !logs.total" @click="clear">
+      <ZButton :disabled="logs.busy || !logs.total" @click="clear">
         清空日志
       </ZButton>
     </div>
@@ -117,11 +119,10 @@ watch(() => props.active, (active) => {
     <p v-if="logs.error" class="error" role="alert">
       {{ logs.error }}
     </p>
-    <ZTable :columns="columns" :data="logs.entries" row-key="requestId" :loading="logs.busy" empty-text="暂无请求，请发送模型请求后刷新日志">
+    <ZTable size="small" :columns="columns" :data="logs.entries" row-key="requestId" :loading="logs.busy" empty-text="暂无请求，请发送模型请求后刷新日志">
       <template #time="{ row }">
         <div class="request-cell">
-          <time>{{ new Date(row.timeMs).toLocaleString() }}</time>
-          <span class="muted mono" :title="row.requestId">{{ row.requestId }}</span>
+          <time>{{ formatDateTime(row.timeMs) }}</time>
         </div>
       </template>
       <template #model="{ row }">
@@ -134,7 +135,7 @@ watch(() => props.active, (active) => {
         <div class="request-cell">
           <span v-if="!row.decisions.length" class="muted">未收到调度记录</span>
           <span v-for="decision in row.decisions" :key="decision.attemptIndex">
-            {{ decision.attemptIndex }} · {{ kinds[decision.kind] ?? decision.kind }}
+            {{ kinds[decision.kind] ?? decision.kind }}
             <template v-if="decision.selectedAccountId"> {{ name(decision.selectedAccountId) }}</template>
             <span v-if="decision.primaryAccountId && decision.kind === 'backup'" class="muted">（首选 {{ name(decision.primaryAccountId) }}）</span>
           </span>
@@ -144,26 +145,17 @@ watch(() => props.active, (active) => {
       <template #actual="{ row }">
         <div class="request-cell">
           <strong :title="row.actualAccountId ?? ''">{{ row.actualAccountId ? name(row.actualAccountId) : row.completed ? '未选择上游' : '尚未确认' }}</strong>
-          <span v-if="row.outcome" class="muted">{{ outcomes[row.outcome] ?? row.outcome }} · {{ row.attemptCount }} 次尝试</span>
+          <span v-if="row.outcome" class="muted">{{ outcomes[row.outcome] ?? row.outcome }}</span>
         </div>
       </template>
       <template #result="{ row }">
-        {{ result(row) }}
+        <span :class="{ 'status-success': result(row) === '首选匹配' || result(row) === '备用匹配' }">{{ result(row) }}</span>
       </template>
     </ZTable>
-    <div class="toolbar">
-      <ZButton variant="text" :disabled="logs.busy || logs.offset === 0" @click="load(logs.offset - logs.pageSize)">
-        上一页
-      </ZButton>
-      <ZButton variant="text" :disabled="logs.busy || logs.offset + logs.pageSize >= logs.total" @click="load(logs.offset + logs.pageSize)">
-        下一页
-      </ZButton>
-      <span class="muted">{{ logs.entries.length ? logs.offset + 1 : 0 }}–{{ logs.offset + logs.entries.length }} / {{ logs.total }} 条</span>
-    </div>
+    <TablePagination :offset="logs.offset" :total="logs.total" :page-size="logs.pageSize" :busy="logs.busy" @change="load" />
   </section>
 </template>
 
 <style scoped>
 .request-cell { display: grid; gap: 6px; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
-.request-cell > .mono.muted { max-width: 14rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

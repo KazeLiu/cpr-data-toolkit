@@ -22,8 +22,8 @@ function configuration(value: unknown) {
   return { version: version(data.version), rules: array(data.rules, rule) }
 }
 export const getPins = () => request('GET', 'api/upstream-pin', null, configuration)
-export const savePin = (expectedVersion: number | null, rule: PinRule) =>
-  request('POST', 'api/upstream-pin/save', { expectedVersion, rule }, configuration)
+export const savePin = (expectedVersion: number | null, rule: PinRule, originalModel?: string) =>
+  request('POST', 'api/upstream-pin/save', { expectedVersion, rule, originalModel }, configuration)
 export const deletePin = (expectedVersion: number | null, rule: PinRule) =>
   request('POST', 'api/upstream-pin/delete', { expectedVersion, accountId: rule.accountId, model: rule.model }, configuration)
 
