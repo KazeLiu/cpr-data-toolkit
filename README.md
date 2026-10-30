@@ -248,3 +248,7 @@ cargo +1.99.1 zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.1
 多平台构建使用 `.github/workflows/package.yml`，在 GitHub Actions 手动运行「Build release packages」，选择待发布提交所在分支。工作流只构建产物，不自动发布；前端资源构建一次后供三个平台使用，Rust、SDK、CLI 和构建工具版本固定，Linux 使用 glibc 2.17 目标。下载对应构建产物后，通过 GitHub CLI 将安装包附到 Release。
 
 实际发行物和已验证平台以对应 Release 附件与说明为准。RPC v7 安装、接口缺失提示和真实上游链路仍需在目标宿主验收
+
+## 鸣谢
+
+感谢 [venenosix24](https://linux.do/u/venenosix24) 提供 Cline 账号，支持本项目完成部分 Cline 功能的测试与验证。
