@@ -480,13 +480,13 @@ watch(
   align-items: center;
   gap: 12px;
   padding: 12px;
-  border: 1px solid var(--cp-color-border-secondary);
-  border-radius: var(--cp-border-radius);
-  background: var(--cp-color-bg-container);
+  border: 1px solid var(--z-color-border-secondary);
+  border-radius: var(--z-border-radius);
+  background: var(--z-color-bg-container);
 }
 .priority-handle {
   flex-shrink: 0;
-  color: var(--cp-color-text-tertiary);
+  color: var(--z-color-text-tertiary);
   cursor: grab;
 }
 .priority-account {
@@ -506,8 +506,8 @@ watch(
   opacity: 0.5;
 }
 .priority-drop {
-  border-color: var(--cp-color-primary);
-  background: var(--cp-color-primary-container);
+  border-color: var(--z-color-primary);
+  background: var(--z-color-primary-container);
 }
 @media (max-width: 560px) {
   .priority-row {

@@ -2,11 +2,11 @@
 
 Codex Proxy RS 的API密钥与 CC-Switch 用量导入、统计维护和下游模型权限管理插件，项目标识为 `cpr-data-toolkit`，开发目录为 `D:\code\cpr-data-toolkit`。
 
-项目包含 Rust 后端和 Vue 管理页，当前版本为 **1.8.1**（包内 `1.8.1`），要求 CPR **3.33.0 或更新的兼容版本**，使用 RPC v7、公开 SDK **0.1.0**、upstream_adapter v5 和 middleware v6，不兼容旧 RPC。SDK 与打包 CLI 固定到 [CPR v3.33.0 的提交 `8c8618aa`](https://github.com/zyycn/codex-proxy-rs/commit/8c8618aa0f841638262262e3338c115bc075f125)，安装入口见 `docs/installation.md`
+项目包含 Rust 后端和 Vue 管理页，当前版本为 **1.9**（包内 `1.9.0`），要求 CPR **3.33.0 或更新的兼容版本**，使用 RPC v7、公开 SDK **0.1.0**、upstream_adapter v5 和 middleware v6，不兼容旧 RPC。SDK 与打包 CLI 固定到 [CPR v3.33.0 的提交 `8c8618aa`](https://github.com/zyycn/codex-proxy-rs/commit/8c8618aa0f841638262262e3338c115bc075f125)，安装入口见 `docs/installation.md`
 
-从 [1.8.1 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.8.1)选择对应平台附件，发行状态以 Release 为准。旧 RPC 宿主应先升级，不能只改清单版本号
+从 [1.9 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.9.0)选择对应平台附件，发行状态以 Release 为准。旧 RPC 宿主应先升级，不能只改清单版本号
 
-1.8.1 合入「Cline 接入」协议转换、工具增量、尾部用量与 SSE 错误处理，并优化钉选规则和流解析。规则统一使用「添加规则」，支持修改请求模型名称；各标签页统一日志、分页和时间格式，见 [页面统一说明](docs/ui-consistency.md)
+1.9 升级 UI 库到 0.8.0，并声明页面主题前缀，修复新版 CPR 中按钮、表单、卡片和额度进度条的样式丢失。保留 Cline 接入、钉选规则及各标签页原有功能，见 [发布说明](docs/releases/1.9.md)与[页面统一说明](docs/ui-consistency.md)
 
 保留 1.7.2 的状态迁移及密钥文案和复选框修复。1.6.1、1.7.1 和 1.7.2 用户可在原插件实例上升级，不要卸载或清空插件状态
 
@@ -204,7 +204,9 @@ CC-Switch用量导入与用量调整不修改API密钥预算。负修正不能�
 
 ## 构建与打包入口
 
-需要 Node.js 24 或更高、pnpm 12.6.0、Rust 1.99.1，以及宿主目标的 Rust target 和链接工具。前端 Git 依赖 `@codex-proxy/ui` 固定到 0.5.0 的提交 `5dec2c78fba37ee1f4c5007e4a0316837a72655a`，需要执行其构建脚本，已在 `web/pnpm-workspace.yaml` 明确允许；不要用 `--ignore-scripts` 安装后直接构建页面。
+需要 Node.js 24 或更高、pnpm 12.6.0、Rust 1.99.1，以及宿主目标的 Rust target 和链接工具。前端 `@codex-proxy/ui` 使用官方 Release 的固定 0.8.0 安装包，编译产物已包含在依赖中，不再安装 Git 源码或执行 UI 库准备脚本。
+
+`CodexProxyUI({ themePrefix: 'cp' })` 同时生成页面主题前缀元数据和匹配的 CSS 变量。源码样式使用 UI 库的 `--z-*` 变量及 `*-z-*` utility，构建后变量转换为 `--cp-*`，由宿主主题桥注入，不自行生成固定明暗主题。
 
 构建前确认宿主 target；开发电脑为 Windows 不代表宿主也是 Windows。
 
@@ -237,11 +239,11 @@ cargo +1.99.1 zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.1
 .tools/plugin-cli-v7/bin/cpr-plugin.exe package --manifest plugin.json --binary target/aarch64-unknown-linux-gnu/release/cpr-data-toolkit --target aarch64-unknown-linux-gnu --resource-map web=web/dist --output-dir dist
 ```
 
-构建 x86_64 时将命令中的 target 替换为 `x86_64-unknown-linux-gnu`。锁文件保留发布年龄策略；`allowBuilds` 只允许固定提交的 UI Git 依赖执行准备脚本。
+构建 x86_64 时将命令中的 target 替换为 `x86_64-unknown-linux-gnu`。提交依赖锁文件，保留固定下载地址与包完整性记录。
 
 ### 交付与版本递增
 
-1.8.1 的发行目标为 Linux x86_64、Linux ARM64 和 macOS ARM64，提供原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/1.8.1.md`。
+1.9 的发行目标为 Linux x86_64、Linux ARM64 和 macOS ARM64，提供原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/1.9.md`。
 
 以后每次交付新包增加 `0.1`；打包前同步 `plugin.json`、`Cargo.toml`、`web/package.json` 和 Cargo 锁文件中的本项目版本。失败修复及同一次打包重试不重复递增，约定见 `AGENTS.md`。
 

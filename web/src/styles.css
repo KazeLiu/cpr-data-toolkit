@@ -18,8 +18,8 @@ body {
   min-height: inherit;
 }
 .toolkit {
-  color: var(--cp-color-text);
-  font-size: var(--cp-font-size);
+  color: var(--z-color-text);
+  font-size: var(--z-font-size);
   line-height: 1.6;
   padding: 8px 0 24px;
 }
@@ -36,7 +36,7 @@ body {
 }
 .tabs {
   padding-bottom: 12px;
-  border-bottom: 1px solid var(--cp-color-border-secondary);
+  border-bottom: 1px solid var(--z-color-border-secondary);
   margin-bottom: 20px;
 }
 .panel {
@@ -49,9 +49,9 @@ body {
   gap: 16px;
   min-width: 0;
   padding: 16px;
-  border: 1px solid var(--cp-color-border-secondary);
-  border-radius: var(--cp-border-radius);
-  background: var(--cp-color-bg-container);
+  border: 1px solid var(--z-color-border-secondary);
+  border-radius: var(--z-border-radius);
+  background: var(--z-color-bg-container);
 }
 .panel h2,
 .section h2 {
@@ -70,13 +70,13 @@ body {
   margin: 0;
 }
 .status-success {
-  color: var(--cp-color-success);
+  color: var(--z-color-success);
 }
 .status-error {
-  color: var(--cp-color-error-text);
+  color: var(--z-color-error-text);
 }
 .muted {
-  color: var(--cp-color-text-secondary);
+  color: var(--z-color-text-secondary);
 }
 .quota-account-title {
   display: flex;
@@ -108,8 +108,8 @@ body {
   min-width: 0;
   overflow: hidden;
   padding: 12px;
-  border-radius: var(--cp-border-radius);
-  background: var(--cp-color-fill-quaternary);
+  border-radius: var(--z-border-radius);
+  background: var(--z-color-fill-quaternary);
 }
 .quota-card-heading {
   display: grid;
@@ -118,7 +118,7 @@ body {
   z-index: 1;
   gap: 4px;
   padding-bottom: 8px;
-  background: linear-gradient(var(--cp-color-fill-quaternary), var(--cp-color-fill-quaternary)), var(--cp-color-bg-container);
+  background: linear-gradient(var(--z-color-fill-quaternary), var(--z-color-fill-quaternary)), var(--z-color-bg-container);
 }
 .quota-card-scroll {
   min-height: 0;
@@ -140,7 +140,7 @@ body {
 .quota-observed,
 .quota-reset,
 .quota-card-meta {
-  font-size: var(--cp-font-size-sm, 12px);
+  font-size: var(--z-font-size-sm, 12px);
 }
 .quota-card-meta {
   display: flex;
@@ -165,7 +165,7 @@ body {
 }
 .quota-windows {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  font-size: var(--cp-font-size-sm, 12px);
+  font-size: var(--z-font-size-sm, 12px);
 }
 .quota-window-monthly,
 .quota-window:only-child {
@@ -184,7 +184,7 @@ body {
 .quota-balance-row {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  font-size: var(--cp-font-size-sm, 12px);
+  font-size: var(--z-font-size-sm, 12px);
 }
 .quota-balance-row .quota-balance-detail {
   display: grid;
@@ -209,26 +209,26 @@ body {
 .quota-track {
   height: 6px;
   border-radius: 999px;
-  background: var(--cp-color-border-secondary);
+  background: var(--z-color-border-secondary);
   overflow: hidden;
 }
 .quota-fill {
   height: 100%;
   border-radius: inherit;
-  background: var(--cp-color-success);
+  background: var(--z-color-success);
 }
 .quota-window[data-tone='warning'] .quota-fill {
-  background: var(--cp-color-warning);
+  background: var(--z-color-warning);
 }
 .quota-window[data-tone='danger'] .quota-fill {
-  background: var(--cp-color-error);
+  background: var(--z-color-error);
 }
 .quota-window[data-tone='warning'] strong,
 .quota-warning {
-  color: var(--cp-color-warning-text);
+  color: var(--z-color-warning-text);
 }
 .quota-window[data-tone='danger'] strong {
-  color: var(--cp-color-error-text);
+  color: var(--z-color-error-text);
 }
 .quota-settings-body {
   display: grid;
@@ -285,14 +285,14 @@ body {
   text-align: left;
 }
 .quota-model-copy:focus-visible {
-  outline: 2px solid var(--cp-color-primary);
+  outline: 2px solid var(--z-color-primary);
   outline-offset: 2px;
 }
 .quota-model-copy:hover > span {
-  @apply bg-cp-fill-secondary;
+  @apply bg-z-fill-secondary;
 }
 .quota-model-copy:active > span {
-  @apply bg-cp-primary-container text-cp-primary-on-container;
+  @apply bg-z-primary-container text-z-primary-on-container;
 }
 @container toolkit (max-width: 440px) {
   .quota-cards,
@@ -309,16 +309,16 @@ body {
 .notice,
 .error {
   padding: 10px 14px;
-  border-radius: var(--cp-border-radius);
+  border-radius: var(--z-border-radius);
   overflow-wrap: anywhere;
 }
 .notice {
-  background: var(--cp-color-warning-container);
-  color: var(--cp-color-warning-on-container);
+  background: var(--z-color-warning-container);
+  color: var(--z-color-warning-on-container);
 }
 .error {
-  background: var(--cp-color-error-container);
-  color: var(--cp-color-error-on-container);
+  background: var(--z-color-error-container);
+  color: var(--z-color-error-on-container);
 }
 .form-grid {
   display: grid;
@@ -352,12 +352,12 @@ body {
   display: grid;
   gap: 12px;
   min-width: 0;
-  border: 1px solid var(--cp-color-border-secondary);
+  border: 1px solid var(--z-color-border-secondary);
   padding: 14px;
-  border-radius: var(--cp-border-radius);
+  border-radius: var(--z-border-radius);
 }
 .native-check {
-  accent-color: var(--cp-color-primary);
+  accent-color: var(--z-color-primary);
   width: 16px;
   height: 16px;
 }
@@ -421,26 +421,26 @@ body {
 .ua-log-headers > dl {
   display: grid;
 }
-.cp-modal-panel:not(:has(.quota-model-content)) {
+.z-modal-panel:not(:has(.quota-model-content)) {
   align-self: start;
   max-height: min(720px, calc(100dvh - 48px));
 }
 textarea {
   width: 100%;
   resize: vertical;
-  color: var(--cp-color-text);
-  background: var(--cp-color-bg-container);
-  border: 1px solid var(--cp-color-border);
-  border-radius: var(--cp-border-radius);
+  color: var(--z-color-text);
+  background: var(--z-color-bg-container);
+  border: 1px solid var(--z-color-border);
+  border-radius: var(--z-border-radius);
   padding: 8px 12px;
 }
 input[type='datetime-local'] {
   min-width: 0;
   font: inherit;
-  color: var(--cp-color-text);
-  background: var(--cp-color-bg-container);
-  border: 1px solid var(--cp-color-border);
-  border-radius: var(--cp-border-radius);
+  color: var(--z-color-text);
+  background: var(--z-color-bg-container);
+  border: 1px solid var(--z-color-border);
+  border-radius: var(--z-border-radius);
   padding: 6px 12px;
 }
 .import-group legend {
@@ -450,7 +450,7 @@ input[type='datetime-local'] {
 .empty {
   padding: 28px;
   text-align: center;
-  color: var(--cp-color-text-secondary);
+  color: var(--z-color-text-secondary);
 }
 dl {
   margin: 0;

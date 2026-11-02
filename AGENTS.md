@@ -27,6 +27,7 @@
 - 请求头改写使用 SDK `MiddlewareRequest::remove_header` / `append_header` 增量接口，不整体替换 `head.headers`。v3.26.1 的 `finish_header_mutations` 会将未用增量表达的差异转换为全量移除和追加，使未配置的入站身份头也进入上游覆盖集合；核对入口为 SDK `src/client/middleware/mod.rs`。
 - 模型批量定价通过插件后端的 `HostClient::service` 调用公开 `call::services::settings` 合同，页面经自己的管理路由进入。使用 SDK 的类型化输入，不把管理 HTTP 的 JSON 格式直接当作服务输入；全局价目与站点/账号独立定价分别核对。
 - 页面标题与副标题由宿主呈现；内容区不重复渲染。主题遵循宿主桥及 `codex-proxy-themechange`，不自行固定明暗模式或硬编码业务配色。
+- UI 0.8.0 接入使用 `CodexProxyUI({ themePrefix: 'cp' })`，由官方 Vite 插件生成 `codex-proxy-ui-theme-prefix` 元数据；新宿主据此注入主题变量，旧宿主继续使用 `--cp-*`。源码 CSS 使用 `--z-*` 及 `*-z-*` utility，构建插件将变量转换为 `--cp-*`；DOM 选择器使用 UI 库的 `z-` 名称。变更接入时核对包内 HTML 元数据、CSS 变量与宿主主题桥。
 - 根容器需要延续宿主最小高度时使用 `min-height: inherit`；整页滚动由宿主承接。
 - 界面沿用宿主紧凑的表格、筛选和表单习惯。自行编写的 UI 文案使用短语，不使用句末句号或分号；URL、版本号、小数、代码及原始内容保持原样。
 

@@ -8,7 +8,7 @@ export default defineConfig({
   plugins: [
     vue(),
     tailwindcss(),
-    CodexProxyUI(),
+    CodexProxyUI({ themePrefix: 'cp' }),
     {
       name: 'plugin-classic-script',
       transformIndexHtml: {

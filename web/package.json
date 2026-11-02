@@ -1,7 +1,7 @@
 {
   "name": "@kazeliu/cpr-data-toolkit-web",
   "private": true,
-  "version": "1.8.1",
+  "version": "1.9.0",
   "type": "module",
   "packageManager": "pnpm@12.6.0",
   "engines": {
@@ -14,7 +14,7 @@
     "dev": "vite --host 127.0.0.1"
   },
   "dependencies": {
-    "@codex-proxy/ui": "github:zyycn/codex-proxy-ui#5dec2c78fba37ee1f4c5007e4a0316837a72655a",
+    "@codex-proxy/ui": "https://github.com/zyycn/codex-proxy-ui/releases/download/v0.8.0/codex-proxy-ui-0.8.0.tgz",
     "vue": "3.5.42"
   },
   "devDependencies": {

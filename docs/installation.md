@@ -1,12 +1,14 @@
 # 安装 CPR 数据工具箱
 
-当前版本为 **1.8.1**，内部版本 `1.8.1`，要求 CPR **3.33.0 或更新的兼容版本**，使用 RPC v7、公开 SDK 0.1.0、upstream_adapter v5 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.33.0 的提交 `8c8618aa`](https://github.com/zyycn/codex-proxy-rs/commit/8c8618aa0f841638262262e3338c115bc075f125)
+当前版本为 **1.9**，内部版本 `1.9.0`，要求 CPR **3.33.0 或更新的兼容版本**，使用 RPC v7、公开 SDK 0.1.0、upstream_adapter v5 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.33.0 的提交 `8c8618aa`](https://github.com/zyycn/codex-proxy-rs/commit/8c8618aa0f841638262262e3338c115bc075f125)
 
-从 [1.8.1 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.8.1)下载对应平台的 `.tar.gz` 和 `.sha256`，或下载 ZIP 后解压。通过宿主 GitHub 来源安装时，仓库填写 `KazeLiu/cpr-data-toolkit`，标签填写 `v1.8.1`
+从 [1.9 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v1.9.0)下载对应平台的 `.tar.gz` 和 `.sha256`，或下载 ZIP 后解压。通过宿主 GitHub 来源安装时，仓库填写 `KazeLiu/cpr-data-toolkit`，标签填写 `v1.9.0`
 
-## 从 1.6.1、1.7.1 或 1.7.2 升级
+## 在原插件实例上升级
 
-直接在原插件实例上升级到 `v1.8.1`，不要先卸载或清空插件状态。升级前保留常规宿主备份，升级后重新打开插件管理页
+直接在原插件实例上升级到 `v1.9.0`，不要先卸载或清空插件状态。升级前保留常规宿主备份，升级后关闭再打开插件管理页，加载新页面资源
+
+1.9 适配新版 CPR 的主题命名空间，修复按钮、表单边框、卡片和进度条样式丢失。后端能力、实例配置和状态 schema 保持不变
 
 1.7.1 扩展了上游额度状态中的查询类型，却未声明状态迁移，导致从 1.6.1 升级时被宿主拒绝。1.7.2 将 `upstream_quota` schema 升为 2，声明从 schema 1 迁移，并逐项原样保留键和值；记录版本和状态提交由宿主管理。已有查询设置、额度快照和其他命名空间中的配置原样保留，不修改账号凭据和 `/v1/quota` 的 `schemaVersion: 1` 协议
 
