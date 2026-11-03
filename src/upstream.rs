@@ -121,7 +121,14 @@ pub async fn accounts(host: &HostClient) -> Result<Value> {
 
 async fn load(host: &HostClient, id: &str) -> Result<(Option<u64>, Record)> {
     let (version, record) = state::get(host, "upstream_quota", id).await?;
-    Ok((version, record.unwrap_or_default()))
+    let mut record: Record = record.unwrap_or_default();
+    if record.mode == QuotaQueryMode::Cpr {
+        record = Record {
+            credential_revision: record.credential_revision,
+            ..Default::default()
+        };
+    }
+    Ok((version, record))
 }
 
 fn view(version: Option<u64>, record: &Record, current_revision: u64) -> Value {
@@ -157,6 +164,9 @@ pub async fn get(host: &HostClient, input: Selection) -> Result<Value> {
 }
 
 pub async fn save(host: &HostClient, input: Save) -> Result<Value> {
+    if input.query_type == QuotaQueryMode::Cpr {
+        return Err(ApiError::invalid("CPR 额度请在宿主账号管理中查看"));
+    }
     if input.query_type != QuotaQueryMode::Disabled {
         support::require_query(host).await?;
     }

@@ -210,6 +210,7 @@ where
 pub enum QuotaQueryMode {
     #[default]
     Disabled,
+    // 仅用于读取旧配置，加载时转为不查询，保留状态 schema 兼容性
     Cpr,
     Kimi,
     KimiGlobal,
@@ -223,7 +224,7 @@ pub enum QuotaQueryMode {
 
 impl QuotaQueryMode {
     pub const fn refresh_interval(self) -> std::time::Duration {
-        std::time::Duration::from_secs(if matches!(self, Self::Cpr | Self::ClinePass) {
+        std::time::Duration::from_secs(if matches!(self, Self::ClinePass) {
             60
         } else {
             300

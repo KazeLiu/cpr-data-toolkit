@@ -2,7 +2,6 @@ import { array, boolean, integer, nullable, object, request, text } from './inde
 
 export type QueryType
   = | 'disabled'
-    | 'cpr'
     | 'kimi'
     | 'kimi_global'
     | 'kimi_coding'
@@ -14,7 +13,6 @@ export type QueryType
 
 export const queryOptions: { path: string[], value: QueryType }[] = [
   { path: ['不查询'], value: 'disabled' },
-  { path: ['CPR'], value: 'cpr' },
   { path: ['Kimi', '按量付费', '国内'], value: 'kimi' },
   { path: ['Kimi', '按量付费', '海外'], value: 'kimi_global' },
   { path: ['Kimi', '编程订阅', '国内'], value: 'kimi_coding' },
