@@ -12,6 +12,7 @@ mod pricing;
 mod quota_export;
 mod sources;
 mod state;
+mod statistics;
 mod upstream;
 mod upstream_pin;
 mod usage;
@@ -55,6 +56,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             interval.tick().await;
             cleanup.expire().await;
             import_cleanup.expire().await;
+            statistics::expire().await;
         }
     });
     let plugin = builder

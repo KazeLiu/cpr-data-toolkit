@@ -9,11 +9,12 @@ import ManualAdjust from './features/ManualAdjust.vue'
 import ModelPriority from './features/ModelPriority.vue'
 import ModelUa from './features/ModelUa.vue'
 import Pricing from './features/Pricing.vue'
+import Statistics from './features/Statistics.vue'
 import UpstreamPin from './features/UpstreamPin.vue'
 import UpstreamQuota from './features/UpstreamQuota.vue'
 import UsageImport from './features/UsageImport.vue'
 
-const tabs = ['上游额度', 'API密钥导入', 'CC-Switch用量导入', '用量调整', '模型批量定价', '模型UA定制', '模型上游优先级', 'Cline 接入', '下游模型权限']
+const tabs = ['上游额度', 'API密钥导入', 'CC-Switch用量导入', '用量调整', '模型批量定价', '模型UA定制', '模型上游优先级', 'Cline 接入', '下游模型权限', '用量统计']
 const page = reactive({
   tab: 0,
   ready: false,
@@ -123,6 +124,9 @@ onBeforeUnmount(() => window.removeEventListener('codex-proxy-themechange', them
       </div>
       <div v-show="page.tab === 8" id="panel-8" role="tabpanel" aria-labelledby="tab-8">
         <KeyModels :active="page.tab === 8" />
+      </div>
+      <div v-show="page.tab === 9" id="panel-9" role="tabpanel" aria-labelledby="tab-9">
+        <Statistics :active="page.tab === 9" />
       </div>
     </template>
   </main>

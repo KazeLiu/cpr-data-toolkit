@@ -7,7 +7,7 @@ use crate::{
     model_ua::{self, Configuration, RequestLogs},
     pricing,
     sources::SourceStore,
-    state, upstream, upstream_pin, usage,
+    state, statistics, upstream, upstream_pin, usage,
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
 use gateway_plugin_sdk::{
@@ -67,6 +67,12 @@ pub fn registration() -> ManagementRegistration {
         "api/pricing/sync",
         "api/pricing/community",
         "api/usage/summary",
+        "api/statistics/metadata",
+        "api/statistics/start",
+        "api/statistics/step",
+        "api/statistics/query",
+        "api/statistics/export",
+        "api/statistics/cancel",
         "api/uploads/start",
         "api/uploads/chunk",
         "api/uploads/finish",
@@ -109,7 +115,7 @@ pub fn registration() -> ManagementRegistration {
             id: "toolkit".into(),
             title: "CPR 数据工具箱".into(),
             description: Some(
-                "API密钥导入、CC-Switch用量导入、用量调整、模型批量定价、模型UA、上游额度、模型优先级、Cline 接入与下游模型权限".into(),
+                "API密钥导入、用量统计、CC-Switch用量导入、用量调整、模型批量定价、模型UA、上游额度、模型优先级、Cline 接入与下游模型权限".into(),
             ),
             entry: "web/index.html".into(),
             icon: None,
@@ -237,6 +243,14 @@ async fn route(
         .clone()
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     match (call.request.method.as_str(), call.request.path.as_str()) {
+        ("POST", "api/statistics/metadata") => statistics::metadata(api::decode(&call.payload)?),
+        ("POST", "api/statistics/start") => statistics::start(api::decode(&call.payload)?).await,
+        ("POST", "api/statistics/step") => {
+            statistics::step(host, api::decode(&call.payload)?).await
+        }
+        ("POST", "api/statistics/query") => statistics::query(api::decode(&call.payload)?).await,
+        ("POST", "api/statistics/export") => statistics::export(api::decode(&call.payload)?).await,
+        ("POST", "api/statistics/cancel") => statistics::cancel(api::decode(&call.payload)?).await,
         ("GET", "api/cline") => cline_adapter.get(host).await,
         ("POST", "api/cline/save") => cline_adapter.save(host, api::decode(&call.payload)?).await,
         ("POST", "api/key-models/get") => key_models::get(host, api::decode(&call.payload)?).await,
