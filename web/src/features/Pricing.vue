@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { TableColumn } from '@codex-proxy/ui'
 import type { Catalog, CommunityPrice, HistoryFilter, OperationResult, TokenPrice } from '../api'
-import { ZButton, ZDialog, ZInput, ZRadio, ZSelect, ZTable } from '@codex-proxy/ui'
+import { ZButton, ZDatePicker, ZDialog, ZInput, ZRadio, ZSelect, ZTable } from '@codex-proxy/ui'
 import { computed, onMounted, reactive } from 'vue'
 import {
   array,
@@ -92,6 +92,13 @@ const history = reactive({
   saved: 0,
   skipped: 0,
   results: [] as { id: string; status: string; message: string }[],
+})
+const historyRange = computed<string[] | null>({
+  get: () => history.start && history.end ? [history.start, history.end] : null,
+  set: (value) => {
+    history.start = value?.[0] ?? ''
+    history.end = value?.[1] ?? ''
+  },
 })
 const sync = reactive({
   open: false,
@@ -679,18 +686,16 @@ onMounted(load)
       <div class="panel">
         <p>按当前 CPR 全局价目试算并写回选定范围的原生请求费用</p>
         <div class="form-grid">
-          <label class="field"
-            ><span>开始时间（本机时区）</span
-            ><input
-              v-model="history.start"
-              type="datetime-local"
-              :disabled="!!history.filter && !history.done"
-          /></label>
-          <label class="field"
-            ><span>结束时间（不含）</span
-            ><input
-              v-model="history.end"
-              type="datetime-local"
+          <label class="field col-span-full"
+            ><span>日期与时间（本机时区，结束不含）</span
+            ><ZDatePicker
+              v-model="historyRange"
+              type="datetimerange"
+              format="YYYY-MM-DD HH:mm"
+              value-format="YYYY-MM-DD[T]HH:mm"
+              start-placeholder="开始时间"
+              end-placeholder="结束时间"
+              aria-label="历史费用日期与分钟范围"
               :disabled="!!history.filter && !history.done"
           /></label>
           <label class="field"

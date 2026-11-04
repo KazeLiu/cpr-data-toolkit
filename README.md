@@ -2,9 +2,11 @@
 
 Codex Proxy RS 的API密钥与 CC-Switch 用量导入、统计维护和下游模型权限管理插件，项目标识为 `cpr-data-toolkit`，开发目录为 `D:\code\cpr-data-toolkit`。
 
-项目包含 Rust 后端和 Vue 管理页，当前版本为 **2.0**（包内 `2.0.0`），要求 CPR **3.33.0 或更新的兼容版本**，使用 RPC v7、公开 SDK **0.1.0**、upstream_adapter v5 和 middleware v6，不兼容旧 RPC。SDK 与打包 CLI 固定到 [CPR v3.33.0 的提交 `8c8618aa`](https://github.com/zyycn/codex-proxy-rs/commit/8c8618aa0f841638262262e3338c115bc075f125)，安装入口见 `docs/installation.md`
+项目包含 Rust 后端和 Vue 管理页，当前版本为 **2.1**（包内 `2.1.0`），要求 CPR **3.33.0 或更新的兼容版本**，使用 RPC v7、公开 SDK **0.1.0**、upstream_adapter v5 和 middleware v6，不兼容旧 RPC。SDK 与打包 CLI 固定到 [CPR v3.33.0 的提交 `8c8618aa`](https://github.com/zyycn/codex-proxy-rs/commit/8c8618aa0f841638262262e3338c115bc075f125)，安装入口见 `docs/installation.md`
 
-从 [2.0 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v2.0.0)选择对应平台附件，发行状态以 Release 为准。旧 RPC 宿主应先升级，不能只改清单版本号
+从 [2.1 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v2.1.0)选择对应平台附件，发行状态以 Release 为准。旧 RPC 宿主应先升级，不能只改清单版本号
+
+2.1 新增模型、Key 和当前 Key 分组用量统计，并将「同步历史费用」改为统一的分钟级日期时间范围选择器，见 [发布说明](docs/releases/2.1.md)
 
 「上游额度」仅提供第三方平台查询，CPR 上游额度改用宿主原生互联功能。旧 CPR 查询设置按「不查询」读取，不再刷新、展示或转发旧快照；其他平台查询、向下游分享和 Cline 接入保持不变，见 [发布说明](docs/releases/2.0.md)
 
@@ -200,7 +202,7 @@ CC-Switch用量导入与用量调整不修改API密钥预算。负修正不能�
 
 在「models.dev 社区价目」输入名称、模型 ID 或价格关键词，也可在「社区模型 ID」表头输入包含条件，点击「筛选」或按 Enter 应用。两项条件同时生效，忽略大小写，在整个选定来源中过滤后再分页；翻页保持已应用的条件，点击「清空筛选」恢复目录。
 
-社区价目按钮右侧的「价格同步」打开历史费用同步弹窗，选择时间范围和 Provider，默认「只补全缺失费用」，已有 0 费用不视为缺失；另可选择覆盖范围内全部历史费用。每页扫描 50 条，只将能确定的 Token 估算费用写回；无法计价、缺少必要用量或包含图像的项显示跳过原因。覆盖会替换原费用并清除原计价快照，工具等附加费用不参与试算，API密钥预算不变。CCS 导入的聚合贡献不参与费用重算。
+社区价目按钮右侧的「价格同步」打开历史费用同步弹窗，使用一个日期时间范围组件选择起止日期与分钟，按本机时区解释、结束时间不含。选择 Provider 后，默认「只补全缺失费用」，已有 0 费用不视为缺失；另可选择覆盖范围内全部历史费用。每页扫描 50 条，只将能确定的 Token 估算费用写回；无法计价、缺少必要用量或包含图像的项显示跳过原因。覆盖会替换原费用并清除原计价快照，工具等附加费用不参与试算，API密钥预算不变。CCS 导入的聚合贡献不参与费用重算。
 
 可暂停后续页并继续当前范围。响应未确认时停止，不自动重发；继续时重新核对当前页，已确认数量不含未知结果。页面重载后需要重新选择范围，补全模式会保留已经写回的费用。
 
@@ -245,7 +247,7 @@ cargo +1.99.1 zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.1
 
 ### 交付与版本递增
 
-2.0 的发行目标为 Linux x86_64、Linux ARM64 和 macOS ARM64，提供原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/2.0.md`。
+2.1 的发行目标为 Linux x86_64、Linux ARM64 和 macOS ARM64，提供原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/2.1.md`。
 
 以后每次交付新包增加 `0.1`；打包前同步 `plugin.json`、`Cargo.toml`、`web/package.json` 和 Cargo 锁文件中的本项目版本。失败修复及同一次打包重试不重复递增，约定见 `AGENTS.md`。
 
