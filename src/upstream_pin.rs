@@ -177,7 +177,10 @@ fn invalid_body() -> PluginFault {
 }
 
 fn official_region(model: &str, providers: &[String]) -> Option<Value> {
-    (model == "cline-pass/deepseek-v4.1-flash-1017"
+    (matches!(
+        model,
+        "cline-pass/deepseek-v4.1-flash-1017" | "deepseek/deepseek-v4.1-flash-1017"
+    )
         && providers.len() == 1
         && providers[0] == "deepseek")
         .then(|| json!({"scope":"global","providers":{"openai-compatible-private":{"scope":"zone","geoRegion":"us"}}}))

@@ -49,7 +49,7 @@ const editor = reactive({
 const removal = reactive({ open: false, rule: null as PinRule | null, error: '' })
 const logs = reactive({ entries: [] as PinLog[], offset: 0, total: 0, busy: false, error: '' })
 const detail = reactive({ open: false, busy: false, error: '', value: null as Awaited<ReturnType<typeof getPinDetail>> | null })
-const officialRule = computed(() => editor.model.trim() === 'cline-pass/deepseek-v4.1-flash-1017'
+const officialRule = computed(() => ['cline-pass/deepseek-v4.1-flash-1017', 'deepseek/deepseek-v4.1-flash-1017'].includes(editor.model.trim())
   && split(editor.providers).length === 1 && split(editor.providers)[0]?.toLowerCase() === 'deepseek')
 const accountOptions = computed(() => state.accounts.map(account => ({ value: account.id, label: `${account.name}${account.enabled ? '' : '（已停用）'}` })))
 const conversionRows = computed(() => [...new Set([...conversion.accountIds, ...conversion.activeAccountIds])].map(id => ({
@@ -380,7 +380,11 @@ watch(() => props.active, (active) => {
       <div class="panel">
         <div class="form-grid">
           <label class="field"><span>上游账号</span><ZSelect :model-value="editor.accountId" :options="accountOptions" filterable :disabled="editor.existing || editor.busy" placeholder="选择 Cline 或其反代账号" @update:model-value="editor.accountId = $event ?? ''" /></label>
-          <label class="field"><span>请求模型名称</span><ZInput v-model="editor.model" :disabled="editor.busy" placeholder="填写 CPR 映射后发给上游的 model" /></label>
+          <label class="field">
+            <span>请求模型名称</span>
+            <ZInput v-model="editor.model" :disabled="editor.busy" placeholder="例如 cline-pass/deepseek-v4.1-flash-1017" />
+            <small class="field-help">按完整名称精确匹配，不会修改请求中的模型<br>可从下方日志复制，有模型映射时填映射后的名称</small>
+          </label>
           <label class="field"><span>允许的提供方</span><ZInput v-model="editor.providers" :disabled="editor.busy" placeholder="deepseek，多项用逗号分隔" /></label>
           <label class="field"><span>能力过滤</span><ZInput v-model="editor.has" :disabled="editor.busy" placeholder="vision, implicit-caching，留空关闭" /></label>
         </div>
@@ -438,6 +442,7 @@ watch(() => props.active, (active) => {
 </template>
 
 <style scoped>
+.form-grid { align-items: start; }
 .response-model { overflow-wrap: anywhere; font-weight: 600; }
 .response-json { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--z-font-size-sm); }
 .conversion-setup {

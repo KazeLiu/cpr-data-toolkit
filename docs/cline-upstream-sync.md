@@ -5,18 +5,20 @@
 - 上游：[xiao-qiu-qiu/ClinePassBridge](https://github.com/xiao-qiu-qiu/ClinePassBridge)
 - 已审查提交：`af2d5f051bc4b566cb2d043589255809e6af15d8`
 - 日期：2026-11-05
-- 对应插件版本：2.4（2.4.0）
+- 对应插件版本：2.5（2.5.0）
 - 上次参考基线：`f8266a91540cfa8f56fe9884403adef9a35aa771`
 
 ## 本次采用
 
-上游 `internal/bridge/official_routing.go` 与 `docs/upstream-capability-filter.md` 已修正旧结论：2026-11-04 的实验中，单独的 `only + has` 仍会进入私有通道。插件在启用的账号规则精确匹配 `cline-pass/deepseek-v4.1-flash-1017`、允许列表恰为 `["deepseek"]` 时，在现有 `providerOptions.gateway` 中加入：
+上游 `internal/bridge/official_routing.go` 与 `docs/upstream-capability-filter.md` 已修正旧结论：2026-11-04 的实验中，单独的 `only + has` 仍会进入私有通道。插件在启用的账号规则精确匹配 `cline-pass/deepseek-v4.1-flash-1017` 或 `deepseek/deepseek-v4.1-flash-1017`、允许列表恰为 `["deepseek"]` 时，在现有 `providerOptions.gateway` 中加入：
 
 ```json
 {"inferenceRegion":{"scope":"global","providers":{"openai-compatible-private":{"scope":"zone","geoRegion":"us"}}}}
 ```
 
 顶层 provider 与 gateway 的 only/order、既有 has 保持原义。能力留空不关闭区域筛选；停用规则、其他模型或更宽的提供方列表不添加该区域规则。`us` 是筛选参数，不表示实际推理地点。规则保持配置优先，状态 schema、账号选择与模型映射不变，未命中请求不改写，不自动补发推理。
+
+上游通过模型配置把客户端别名解析为 `cline-pass/` 名称后判断是否添加区域参数。插件直接使用 CPR 已解析的请求模型名称，因此同时识别用户实际发送并正常返回的 `deepseek/` 形式，不转换请求模型，也不将任意包含 `1017` 的名称视为同一模型。发送正文与日志中的已应用参数共用此识别条件，编辑器同步提示。匹配的新请求应显示「已附加区域筛选」，详情中的 `inferenceRegion` 应为上述对象，旧日志保持原记录。
 
 日志参考上游 `ui/index.html` 和响应模型处理，区分请求模型、真实 Chat 响应 model 与 finalProvider。响应模型取最后一次明确回报，不根据 provider 推断模型或成功；反代后的 Responses model 可能已经被桥重写，因此不冒充真实响应模型。
 

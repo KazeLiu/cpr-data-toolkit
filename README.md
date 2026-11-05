@@ -2,11 +2,11 @@
 
 Codex Proxy RS 的API密钥与 CC-Switch 用量导入、统计维护和下游模型权限管理插件，项目标识为 `cpr-data-toolkit`，开发目录为 `D:\code\cpr-data-toolkit`。
 
-项目包含 Rust 后端和 Vue 管理页，当前版本为 **2.4**（包内 `2.4.0`），要求 CPR **3.40.0 或更新的兼容版本**，使用 RPC v7、公开 SDK **0.1.0**、upstream_adapter v5 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.40.0 的提交 `789609dd`](https://github.com/zyycn/codex-proxy-rs/commit/789609dd53663b323e43567d2476f7f83b6b77a1)，安装入口见 `docs/installation.md`
+项目包含 Rust 后端和 Vue 管理页，当前版本为 **2.5**（包内 `2.5.0`），要求 CPR **3.40.0 或更新的兼容版本**，使用 RPC v7、公开 SDK **0.1.0**、upstream_adapter v5 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.40.0 的提交 `789609dd`](https://github.com/zyycn/codex-proxy-rs/commit/789609dd53663b323e43567d2476f7f83b6b77a1)，安装入口见 `docs/installation.md`
 
-从 [2.4 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v2.4.0)选择对应平台附件，发行状态以 Release 为准。旧宿主先升级，不能只改清单版本号
+从 [2.5 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v2.5.0)选择对应平台附件，发行状态以 Release 为准。旧宿主先升级，不能只改清单版本号
 
-2.4 跟进 ClinePassBridge 新的 DeepSeek 区域筛选，日志补充真实响应模型、耗时与上游返回详情，见 [发布说明](docs/releases/2.4.md) 和 [上游跟进基线](docs/cline-upstream-sync.md)
+2.5 修复 `deepseek/` 形式的 1017 请求命中钉选却漏加区域筛选的问题，并在规则弹窗说明如何填写请求模型名称，见 [发布说明](docs/releases/2.5.md) 和 [上游跟进基线](docs/cline-upstream-sync.md)
 
 2.3 统一全部十个标签页的排版、控件与主题样式，精简界面文案，调整额度余额层级与 Cline 接入流程，见 [发布说明](docs/releases/2.3.md)
 
@@ -53,7 +53,7 @@ Codex Proxy RS 的API密钥与 CC-Switch 用量导入、统计维护和下游模
 
 转换账号在发送 Chat 请求前直接应用钉选，无需另开 outbound / attempt 绑定。「请求模型名称」指发送正文的 `model`，不是上游返回的模型名称，也不是 CPR 映射前的客户端公开别名；未选择转换的账号保持原生执行。原有 Responses 反代仍可单独使用钉选，继续按原方式启用 `outbound`，观察实际来源还需 `attempt`
 
-插件以保存的规则覆盖顶层 `provider` 和 `providerOptions.gateway` 路由条件：向两处写 `only/order`，`has` 只写入 gateway；其他 providerOptions 命名空间、消息和工具保留。启用规则精确匹配 `cline-pass/deepseek-v4.1-flash-1017` 且仅允许 `deepseek` 时，自动加入 `inferenceRegion` 区域筛选，排除私有通道。能力留空不关闭区域筛选；其他模型、多提供方、未命中、停用或删除规则不增加该参数。最多 100 条规则，每条最多 8 个提供方及 8 项能力，配置上限 240 KiB，保存和删除使用私有状态版本比较
+插件以保存的规则覆盖顶层 `provider` 和 `providerOptions.gateway` 路由条件：向两处写 `only/order`，`has` 只写入 gateway；其他 providerOptions 命名空间、消息和工具保留。启用规则精确匹配 `cline-pass/deepseek-v4.1-flash-1017` 或 `deepseek/deepseek-v4.1-flash-1017` 且仅允许 `deepseek` 时，自动加入 `inferenceRegion` 区域筛选，排除私有通道，不改写请求模型名称。能力留空不关闭区域筛选；其他模型、多提供方、未命中、停用或删除规则不增加该参数。最多 100 条规则，每条最多 8 个提供方及 8 项能力，配置上限 240 KiB，保存和删除使用私有状态版本比较
 
 区域规则依据 [ClinePassBridge 最新的对照说明](https://github.com/xiao-qiu-qiu/ClinePassBridge/blob/af2d5f051bc4b566cb2d043589255809e6af15d8/docs/upstream-capability-filter.md)：旧 only/has 组合已不能可靠固定官方。`us` 是筛选参数，不代表推理位置。具体模型和订阅可用性以 Cline 当前账号为准，插件不调用推理接口自动探测
 
@@ -253,7 +253,7 @@ cargo +1.99.1 zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.1
 
 ### 交付与版本递增
 
-2.4 的发行目标为 Linux x86_64、Linux ARM64 和 macOS ARM64，提供原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/2.4.md`。
+2.5 的发行目标为 Linux x86_64、Linux ARM64 和 macOS ARM64，提供原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/2.5.md`。
 
 以后每次交付新包增加 `0.1`；打包前同步 `plugin.json`、`Cargo.toml`、`web/package.json` 和 Cargo 锁文件中的本项目版本。失败修复及同一次打包重试不重复递增，约定见 `AGENTS.md`。
 
