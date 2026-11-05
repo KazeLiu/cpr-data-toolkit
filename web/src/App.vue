@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ZButton } from '@codex-proxy/ui'
 import { computed, onBeforeUnmount, onMounted, reactive } from 'vue'
 import { host, message } from './api'
 import SourceUpload from './components/SourceUpload.vue'
@@ -60,22 +59,24 @@ onBeforeUnmount(() => window.removeEventListener('codex-proxy-themechange', them
       {{ page.error }}
     </p>
     <template v-if="page.ready">
-      <nav class="tabs" role="tablist" aria-label="工具箱功能" @keydown="navigate">
-        <ZButton
-          v-for="(tab, index) in tabs"
-          :id="`tab-${index}`"
-          :key="tab"
-          role="tab"
-          :aria-selected="page.tab === index"
-          :aria-controls="`panel-${index}`"
-          :tabindex="page.tab === index ? 0 : -1"
-          :type="page.tab === index ? 'primary' : 'default'"
-          :variant="page.tab === index ? 'solid' : 'text'"
-          @click="page.tab = index"
-        >
-          {{ tab }}
-        </ZButton>
-      </nav>
+      <header class="toolkit-header">
+        <nav class="tabs" role="tablist" aria-label="工具箱功能" @keydown="navigate">
+          <button
+            v-for="(tab, index) in tabs"
+            :id="`tab-${index}`"
+            :key="tab"
+            role="tab"
+            :aria-selected="page.tab === index"
+            :aria-controls="`panel-${index}`"
+            :tabindex="page.tab === index ? 0 : -1"
+            type="button"
+            class="toolkit-tab"
+            @click="page.tab = index"
+          >
+            {{ tab }}
+          </button>
+        </nav>
+      </header>
       <SourceUpload
         v-show="page.tab === 1 || page.tab === 2"
         :source-id="page.sourceId"

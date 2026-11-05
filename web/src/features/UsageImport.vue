@@ -264,7 +264,7 @@ watch(
 
 <template>
   <section class="section">
-    <p class="muted">写入原生总量与趋势，不生成请求明细，不改变API密钥预算</p>
+    <h2>导入范围</h2>
     <div class="form-grid">
       <label class="field"
         ><span>CCS 来源标识</span
@@ -272,7 +272,7 @@ watch(
           v-model="state.sourceName"
           maxlength="32"
           :disabled="state.busy || state.submitted"
-      /></label>
+      /><small class="field-help">同一安装保持相同标识，不同安装使用不同标识</small></label>
       <label class="field"
         ><span>CCS 来源时区</span
         ><ZInput
@@ -281,7 +281,6 @@ watch(
           :disabled="state.busy || state.submitted"
       /></label>
     </div>
-    <p class="muted">同一 CCS 安装始终使用相同来源标识，覆盖仅影响该来源，保留 CPR 原生请求和其他来源</p>
     <div class="form-grid">
       <label class="field"
         ><span>应用</span
@@ -322,14 +321,10 @@ watch(
           @update:model-value="state.endTime = $event as string | null"
       /></label>
     </div>
-    <p class="muted">
-      时间留空表示不限，按 CCS 来源时区 {{ state.timezone }} 解释，包含开始时间、不包含结束时间 ·
-      日聚合须完整覆盖来源日期
+    <p class="field-help">
+      时间留空不限，包含开始、不含结束
     </p>
-    <p class="muted">
-      覆盖会替换当前来源在所选时段的全部旧贡献，不限应用和模型，再导入筛选结果 · 旧贡献按归属时间判断
-    </p>
-    <div class="toolbar">
+    <div class="toolbar selection-bar">
       <ZButton :disabled="!sourceId || state.busy || locked" @click="load(state.offset)">
         刷新筛选结果 </ZButton
       ><ZButton
@@ -463,8 +458,7 @@ watch(
           {{ state.task?.options.startTime?.replace('T', ' ') ?? '不限开始时间' }} 至
           {{ state.task?.options.endTime?.replace('T', ' ') ?? '不限结束时间' }}
         </p>
-        <p>替换该时段本来源的全部旧贡献，不限应用和模型，再导入本次筛选结果</p>
-        <p class="muted">保留时段外数据、CPR 原生请求和其他来源</p>
+        <p>将替换该时段本来源的全部旧用量，不限应用和模型</p>
       </div>
       <template #footer>
         <ZButton @click="state.confirm = false"> 取消 </ZButton
@@ -474,8 +468,7 @@ watch(
     <ZDialog v-model="state.reviewOpen" title="CCS 与 CPR 请求核对">
       <section class="panel">
         <p class="muted">
-          CCS 代理日志记录时间对 CPR 完成时间 ±30 秒 · 仅双方唯一对应时排除 · 时间按
-          {{ state.task?.options.timezone }} 显示
+          按 CPR 完成时间匹配，误差 ±30 秒 · 时区 {{ state.task?.options.timezone }}
         </p>
         <section
           v-for="(item, index) in state.evidence"

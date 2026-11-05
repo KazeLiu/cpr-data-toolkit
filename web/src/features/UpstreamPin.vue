@@ -102,7 +102,7 @@ async function changeConversion(removeId?: string) {
     applyConversion(await saveCline(conversion.version, ids))
     conversion.selected = ''
     conversion.removeId = ''
-    state.notice = conversion.pendingConfiguration ? '账号选择已保存，请复制实例配置并按下方说明应用' : '账号选择与当前实例配置一致'
+    state.notice = conversion.pendingConfiguration ? '配置待应用' : '账号选择已保存'
   }
   catch (error) {
     conversion.error = message(error)
@@ -119,7 +119,7 @@ async function copyConfiguration() {
   }
   try {
     await copyText(JSON.stringify({ clineAccountIds: conversion.accountIds }, null, 2))
-    state.notice = '实例配置已复制，请按下方说明粘贴并保存'
+    state.notice = '实例配置已复制'
   }
   catch (error) {
     conversion.error = message(error)
@@ -254,38 +254,54 @@ watch(() => props.active, (active) => {
 <template>
   <div class="panel">
     <section class="section">
-      <div class="toolbar">
+      <div class="section-heading">
         <h2>协议转换</h2>
         <ZButton :loading="state.busy" :disabled="conversion.busy" @click="load">重新读取</ZButton>
       </div>
-      <p class="notice">下游 Responses → 插件转换与钉选 → Cline Chat Completions</p>
-      <p class="muted">先在 CPR 新增 OpenAI API密钥账号并填入 Cline API密钥，再在这里选择账号，启用宿主 upstream 绑定并使用 reject 故障策略</p>
-      <div class="toolbar conversion-toolbar">
-        <label class="field conversion-account"><span>转换账号</span><ZSelect :model-value="conversion.selected" :options="conversionOptions" filterable :disabled="!state.loaded || state.busy || conversion.busy" placeholder="选择已有 Cline 账号" @update:model-value="conversion.selected = $event ?? ''" /></label>
-        <ZButton :loading="conversion.busy" :disabled="!state.loaded || state.busy || !conversion.selected" @click="changeConversion()">加入转换配置</ZButton>
-        <ZButton type="primary" :disabled="!state.loaded || state.busy || conversion.busy" @click="copyConfiguration">复制实例配置</ZButton>
+      <div class="conversion-setup">
+        <div class="section-body">
+          <div class="filter-bar">
+            <label class="field"><span>1 · 选择转换账号</span><ZSelect :model-value="conversion.selected" :options="conversionOptions" filterable :disabled="!state.loaded || state.busy || conversion.busy" placeholder="选择已有 Cline 账号" @update:model-value="conversion.selected = $event ?? ''" /></label>
+            <ZButton type="primary" :loading="conversion.busy" :disabled="!state.loaded || state.busy || !conversion.selected" @click="changeConversion()">加入转换配置</ZButton>
+          </div>
+          <p class="field-help">使用已在宿主创建、填入 Cline API密钥的 OpenAI 账号</p>
+        </div>
+        <div class="conversion-apply">
+          <h3>2 · 应用实例配置</h3>
+          <ZButton :disabled="!state.loaded || state.busy || conversion.busy" @click="copyConfiguration">复制实例配置</ZButton>
+          <p class="field-help">插件管理 → 本插件卡片设置 → 弹窗内设置，粘贴并保存</p>
+          <p class="field-help">启用「上游调用」，「插件失败时」选择「拒绝请求」</p>
+          <p v-if="conversion.pendingConfiguration" class="notice" role="status">应用前先停用相关账号，等待请求结束，配置完成后再恢复</p>
+        </div>
       </div>
       <p v-if="state.error" class="error" role="alert">{{ state.error }}</p>
       <p v-if="conversion.error && !conversion.removeId" class="error" role="alert">{{ conversion.error }}</p>
       <p v-if="state.notice" class="muted" role="status">{{ state.notice }}</p>
-      <p class="notice" :role="conversion.pendingConfiguration ? 'status' : undefined">加入账号后复制实例配置，在插件管理中点击‘CPR 数据工具箱’卡片右下角的设置按钮，弹窗内再点开设置按钮，在接下来的弹窗内，粘贴已经被复制到剪切板内的一段JSON文本，保存设置</p>
-      <p v-if="conversion.pendingConfiguration" class="muted">账号范围待应用，操作前先停用相关账号并排空请求，保存宿主配置并确认 upstream 绑定后恢复账号</p>
-      <ZTable size="small" :columns="conversionColumns" :data="conversionRows" :loading="state.busy || conversion.busy" empty-text="尚未选择转换账号，所有账号保留原生协议">
+      <ZTable size="small" :columns="conversionColumns" :data="conversionRows" :loading="state.busy || conversion.busy" empty-text="暂无转换账号">
+        <template #empty><p class="table-empty">暂无转换账号</p></template>
         <template #account="{ row }">{{ name(row.id) }}</template>
         <template #status="{ row }">{{ row.saved && row.registered ? '当前实例已配置' : row.saved ? '待应用实例配置' : '待应用后移除' }}</template>
         <template #actions="{ row }"><ZButton v-if="row.saved" size="small" variant="text" type="danger" :disabled="state.busy || conversion.busy" @click="conversion.removeId = row.id; conversion.error = ''">移除转换</ZButton></template>
       </ZTable>
-      <p class="muted">转换固定发送到 api.cline.bot/api/v1/chat/completions，账号仅提供凭据和代理；模型映射与权限仍由 CPR 管理</p>
-      <p class="muted">支持 HTTP 文本、图片 URL、函数工具和完整历史，不支持 previous_response_id、WebSocket、加密推理历史或原生工具</p>
+      <div class="protocol-info">
+        <h3>Responses → Cline Chat Completions</h3>
+        <p class="field-help">固定发送至 <code>api.cline.bot/api/v1/chat/completions</code>，账号提供凭据和代理，模型映射与权限由宿主管理</p>
+        <details>
+          <summary>协议兼容范围</summary>
+          <p>支持 HTTP 文本、图片 URL、函数工具和完整历史</p>
+          <p>不支持 <code>previous_response_id</code>、WebSocket、加密推理历史或原生工具</p>
+        </details>
+      </div>
     </section>
     <section class="section">
       <h2>DeepSeek 钉选</h2>
-      <div class="toolbar conversion-toolbar">
-        <label class="field conversion-account"><span>上游账号</span><ZSelect :model-value="state.selectedAccountId" :options="accountOptions" filterable :disabled="!state.loaded || state.busy || editor.busy" placeholder="选择需要钉选的上游账号" @update:model-value="state.selectedAccountId = $event ?? ''" /></label>
+      <div class="filter-bar">
+        <label class="field"><span>上游账号</span><ZSelect :model-value="state.selectedAccountId" :options="accountOptions" filterable :disabled="!state.loaded || state.busy || editor.busy" placeholder="选择需要钉选的上游账号" @update:model-value="state.selectedAccountId = $event ?? ''" /></label>
         <ZButton type="primary" :disabled="!state.loaded || state.busy || !state.accounts.length" @click="edit()">添加规则</ZButton>
       </div>
-      <p class="notice">转换账号在发送 Chat 请求前直接应用钉选，已有 Responses 反代账号仍需 outbound 绑定</p>
-      <ZTable size="small" :columns="columns" :data="state.rules" :loading="state.busy" empty-text="暂无规则，添加后可限制 Cline 网关的模型提供方">
+      <p class="field-help">Cline 原生账号先完成协议转换，Responses 反代账号可单独钉选，需启用「出站请求准备」</p>
+      <ZTable size="small" :columns="columns" :data="state.rules" :loading="state.busy" empty-text="暂无规则">
+        <template #empty><p class="table-empty">暂无规则</p></template>
         <template #account="{ row }">{{ name(row.accountId) }}</template>
         <template #routing="{ row }"><div>{{ row.providers.join(', ') }}</div><div v-if="row.has.length" class="muted">{{ row.has.join(', ') }}</div></template>
         <template #enabled="{ row }">{{ row.enabled ? '已启用' : '已停用' }}</template>
@@ -294,17 +310,18 @@ watch(() => props.active, (active) => {
           <ZButton size="small" variant="text" type="danger" :disabled="state.busy" @click="confirmRemoval(row)">删除</ZButton>
         </template>
       </ZTable>
-      <p class="muted">按账号和请求模型名称精确匹配，请填写 CPR 映射后发给上游的 model</p>
     </section>
     <section class="section">
-      <div class="toolbar">
+      <div class="section-heading">
         <h2>转换与钉选日志</h2>
-        <ZButton :loading="logs.busy" @click="readLogs()">刷新日志</ZButton>
-        <ZButton :disabled="logs.busy || !logs.total" @click="clearLogs">清空日志</ZButton>
+        <div class="toolbar">
+          <ZButton :loading="logs.busy" @click="readLogs()">刷新日志</ZButton>
+          <ZButton variant="text" :disabled="logs.busy || !logs.total" @click="clearLogs">清空日志</ZButton>
+        </div>
       </div>
-      <p class="muted">来源与钉选一致时显示绿色，未回报来源时显示未知</p>
       <p v-if="logs.error" class="error" role="alert">{{ logs.error }}</p>
-      <ZTable size="small" :columns="logColumns" :data="logs.entries" :loading="logs.busy" empty-text="暂无钉选记录，发送请求后刷新日志">
+      <ZTable size="small" :columns="logColumns" :data="logs.entries" :loading="logs.busy" empty-text="暂无钉选记录">
+        <template #empty><p class="table-empty">暂无钉选记录</p></template>
         <template #time="{ row }">{{ formatDateTime(row.timeMs) }}</template>
         <template #target="{ row }"><div>{{ name(row.accountId) }}</div><code>{{ row.model }}</code></template>
         <template #routing="{ row }"><div>{{ row.providers.join(', ') || '未命中' }}</div><div v-if="row.providers.length && row.has.length" class="muted">{{ row.has.join(', ') }}</div></template>
@@ -327,8 +344,6 @@ watch(() => props.active, (active) => {
         <div class="toolbar">
           <ZSwitch v-model="editor.enabled" :disabled="editor.busy" label="启用规则" />
         </div>
-        <p class="muted">提供方与能力多项用逗号分隔，能力留空关闭过滤</p>
-        <p class="muted">Cline 原生账号需先启用上方协议转换，已有 Responses 反代可单独使用钉选</p>
         <p v-if="editor.error" class="error" role="alert">{{ editor.error }}</p>
       </div>
       <template #footer>
@@ -351,10 +366,48 @@ watch(() => props.active, (active) => {
 </template>
 
 <style scoped>
-.conversion-toolbar {
-  align-items: flex-end;
+.conversion-setup {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
 }
-.conversion-account {
-  width: min(100%, 26rem);
+.conversion-apply {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  min-width: 0;
+  padding-left: 24px;
+  border-left: 1px solid var(--z-color-border-secondary);
+}
+.conversion-apply > .notice {
+  margin: 0;
+}
+.protocol-info {
+  display: grid;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--z-color-border-secondary);
+  overflow-wrap: anywhere;
+}
+.protocol-info summary {
+  width: fit-content;
+  color: var(--z-color-text-secondary);
+  cursor: pointer;
+}
+.protocol-info details p {
+  margin: 8px 0 0;
+  color: var(--z-color-text-secondary);
+}
+@container toolkit (max-width: 900px) {
+  .conversion-setup {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+  .conversion-apply {
+    padding: 16px 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--z-color-border-secondary);
+  }
 }
 </style>

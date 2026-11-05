@@ -116,7 +116,7 @@ onBeforeUnmount(() => {
           start-placeholder="开始时间" end-placeholder="结束时间" aria-label="统计日期与分钟范围"
           :disabled="state.running || state.starting || state.metadataBusy"
           @update:model-value="state.range = $event as string[] | null" @change="state.preset = 'custom'"
-        /></label>
+        /><small class="field-help">包含开始时间，不含结束时间</small></label>
       </div>
       <div class="toolbar">
         <ZButton type="primary" :loading="state.starting" :disabled="state.inFlight || state.metadataBusy || !state.range || state.range.length !== 2" @click="start">查询统计</ZButton>
@@ -127,9 +127,8 @@ onBeforeUnmount(() => {
       </div>
       <p v-if="state.formError" class="error" role="alert">{{ state.formError }}</p>
       <p v-if="state.error" class="error" role="alert">{{ state.error }}</p>
-      <p class="muted">按所选时区解释，包含开始、不包含结束 · 结束时间晚于当前时刻时截到查询开始时刻</p>
       <p v-if="state.task" class="muted" role="status">
-        {{ phase }}{{ !state.running && state.task.phase !== 'complete' ? ' · 已暂停' : '' }} · 已读 {{ state.task.scanned }} 条聚合行
+        {{ phase }}{{ !state.running && state.task.phase !== 'complete' ? state.inFlight ? ' · 正在暂停' : ' · 已暂停' : '' }} · 已读 {{ state.task.scanned }} 条聚合行
         <br>{{ state.task.startDisplay }} 至 {{ state.task.endDisplay }}（{{ state.task.timezone }}）
       </p>
     </section>
@@ -142,15 +141,15 @@ onBeforeUnmount(() => {
         <div><span class="muted">已知费用</span><strong>{{ formatCosts(state.summary.costs) }}</strong></div>
         <p v-if="quality(state.summary)" class="muted stat-overview-note">{{ quality(state.summary) }}</p>
       </section>
-      <p class="muted">输入已包含缓存读写，总 Token 不重复累加缓存 · 统计资格沿用宿主预热、恢复及完整交付规则，金额保留历史记录</p>
       <section v-for="dimension in dimensions" :key="dimension.id" class="section">
-        <h2>{{ dimension.title }}</h2>
-        <p v-if="dimension.id === 'group'" class="muted">按请求当时保存的路由分组归类 · 多组请求分别计入各组，组间合计不能相加 · 未关联分组与外部未归属项不支持交叉筛选</p>
+        <div class="section-heading">
+          <h2>{{ dimension.title }}</h2>
+          <span v-if="dimension.id === 'group'" class="muted">分组数据可能重叠，请勿直接相加</span>
+        </div>
         <StatisticsTable :task-id="state.task.taskId" :dimension="dimension.id" @inspect="inspect(dimension.id, $event)" @summary="dimension.id === 'model' && (state.summary = $event)" />
       </section>
-      <p class="muted">模型与 Key 共用聚合快照，路由分组及其交叉明细分别查询，以各表观察信息为准 · 投影更新后新数据才可见 · 任务闲置 15 分钟后清理</p>
     </template>
-    <p v-else-if="!state.task" class="muted">选择时间范围后查询完整聚合结果，不限于前 100 项 · 暂停在本次维度查询结束后生效</p>
+    <p v-else-if="!state.task" class="muted">选择时间范围后查询</p>
     <ZDialog :model-value="state.details !== null" :title="state.details?.title ?? '交叉明细'" width="min(94vw, 90rem)" @update:model-value="!$event && (state.details = null)">
       <StatisticsTable v-if="state.details && state.task" :key="`${state.details.parent.dimension}:${state.details.parent.id}`" :task-id="state.task.taskId" :dimension="state.details.dimension" :parent="state.details.parent" :inspect="false" />
     </ZDialog>
@@ -158,11 +157,13 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.stat-filters { display: grid; grid-template-columns: minmax(12rem, 1fr) minmax(9rem, 0.7fr) minmax(22rem, 2fr); align-items: end; gap: 12px; }
-.stat-overview { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; padding: 16px; border-radius: var(--z-border-radius); background: var(--z-color-fill-quaternary); }
-.stat-overview > div { display: grid; gap: 6px; min-width: 0; }
-.stat-overview strong { font-size: var(--z-font-size-lg); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; white-space: pre-line; }
-.stat-overview-note { grid-column: 1 / -1; margin: 0; }
-@container toolkit (max-width: 900px) { .stat-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stat-range { grid-column: 1 / -1; } .stat-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.stat-filters { display: grid; grid-template-columns: minmax(12rem, 1fr) minmax(9rem, 0.7fr) minmax(22rem, 2fr); align-items: start; gap: 16px; }
+.stat-overview { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; padding: 20px 4px; border-radius: var(--z-card-border-radius, 18px); background: var(--z-card-bg, var(--z-color-bg-container)); box-shadow: var(--z-card-shadow); }
+.stat-overview > div { display: grid; align-content: start; gap: 8px; min-width: 0; padding: 0 18px; }
+.stat-overview > div + div { border-left: 1px solid var(--z-color-border-secondary); }
+.stat-overview strong { font-size: 22px; line-height: 1.3; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; white-space: pre-line; }
+.stat-overview-note { grid-column: 1 / -1; margin: 0; padding: 12px 18px 0; }
+@container toolkit (max-width: 1100px) { .stat-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stat-range { grid-column: 1 / -1; } .stat-overview { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px 0; } .stat-overview > div:nth-child(4) { border-left: 0; } }
+@container toolkit (max-width: 640px) { .stat-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stat-overview > div:nth-child(n) { border-left: 0; } .stat-overview > div:nth-child(even) { border-left: 1px solid var(--z-color-border-secondary); } }
 @container toolkit (max-width: 480px) { .stat-filters { grid-template-columns: minmax(0, 1fr); } }
 </style>

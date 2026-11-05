@@ -114,9 +114,7 @@ pub fn registration() -> ManagementRegistration {
         pages: vec![ManagementPage {
             id: "toolkit".into(),
             title: "CPR 数据工具箱".into(),
-            description: Some(
-                "API密钥导入、用量统计、CC-Switch用量导入、用量调整、模型批量定价、模型UA、上游额度、模型优先级、Cline 接入与下游模型权限".into(),
-            ),
+            description: Some("上游接入与用量管理".into()),
             entry: "web/index.html".into(),
             icon: None,
         }],

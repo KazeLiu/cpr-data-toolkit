@@ -100,10 +100,9 @@ onMounted(initialize)
 
 <template>
   <section class="section">
-    <p class="muted">
-      修正归属首次提交时刻，只改变 Token 与请求总量，不生成明细，不改变费用或API密钥预算
-    </p>
-    <div class="toolbar">
+    <h2>调整 Token 与请求数</h2>
+    <div class="filter-bar">
+      <label class="field adjust-range"><span>统计范围</span>
       <ZSelect
         :model-value="state.period"
         aria-label="统计范围"
@@ -113,12 +112,11 @@ onMounted(initialize)
           { value: '30d', label: '近 30 天' },
         ]"
         :disabled="state.busy"
-        style="width: 160px"
         @update:model-value="state.period = $event ?? ''"
         @change="load"
-      /><ZButton :loading="state.busy" @click="state.ready ? load() : initialize()">
+      /></label><ZButton :loading="state.busy" @click="state.ready ? load() : initialize()">
         读取当前统计 </ZButton
-      ><span class="muted">以下总量属于所选范围，不代表全部历史</span>
+      >
     </div>
     <p v-if="state.error" class="error" role="alert">{{ state.error }}</p>
     <div class="form-grid">
@@ -141,20 +139,18 @@ onMounted(initialize)
           placeholder="例如 10 或 -10"
       /></label>
     </div>
-    <div class="section">
-      <div class="metrics">
-        <div>
-          当前 Token<strong>{{ state.summary?.tokens ?? '当前统计不可用' }}</strong>
-        </div>
-        <div>
-          调整后预览<strong>{{ preview.tokens ?? '—' }}</strong>
-        </div>
-        <div>
-          当前请求数<strong>{{ state.summary?.requests ?? '当前统计不可用' }}</strong>
-        </div>
-        <div>
-          调整后预览<strong>{{ preview.requests ?? '—' }}</strong>
-        </div>
+    <div class="metrics adjust-preview">
+      <div>
+        当前 Token<strong>{{ state.summary?.tokens ?? '当前统计不可用' }}</strong>
+      </div>
+      <div>
+        调整后预览<strong>{{ preview.tokens ?? '—' }}</strong>
+      </div>
+      <div>
+        当前请求数<strong>{{ state.summary?.requests ?? '当前统计不可用' }}</strong>
+      </div>
+      <div>
+        调整后预览<strong>{{ preview.requests ?? '—' }}</strong>
       </div>
     </div>
     <p v-if="preview.error" class="error" role="alert">{{ preview.error }}</p>
@@ -185,10 +181,8 @@ onMounted(initialize)
           <dt>请求次数增减</dt>
           <dd class="mono">{{ state.requests }}</dd>
         </dl>
-        <p>
-          未提供模型、费用和耗时信息，总计费、首字均值等指标无法随补录量完整更新，可能与调整后的总量不一致
-        </p>
-        <p class="muted">减量不能超过首次提交时刻所属 15 分钟桶的已有量，宿主写入前会核对</p>
+        <p>仅调整 Token 与请求数，费用和预算不变</p>
+        <p class="notice">减量不能超过首次提交时刻所在 15 分钟桶的已有用量</p>
       </div>
       <template #footer
         ><ZButton @click="state.confirm = false">取消</ZButton
@@ -197,3 +191,18 @@ onMounted(initialize)
     >
   </section>
 </template>
+
+<style scoped>
+.filter-bar > .adjust-range {
+  flex: 0 1 12rem;
+  max-width: 100%;
+}
+.adjust-preview {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@container toolkit (max-width: 800px) {
+  .adjust-preview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+</style>

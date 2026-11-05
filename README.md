@@ -2,9 +2,11 @@
 
 Codex Proxy RS 的API密钥与 CC-Switch 用量导入、统计维护和下游模型权限管理插件，项目标识为 `cpr-data-toolkit`，开发目录为 `D:\code\cpr-data-toolkit`。
 
-项目包含 Rust 后端和 Vue 管理页，当前版本为 **2.2**（包内 `2.2.0`），要求 CPR **3.40.0 或更新的兼容版本**，使用 RPC v7、公开 SDK **0.1.0**、upstream_adapter v5 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.40.0 的提交 `789609dd`](https://github.com/zyycn/codex-proxy-rs/commit/789609dd53663b323e43567d2476f7f83b6b77a1)，安装入口见 `docs/installation.md`
+项目包含 Rust 后端和 Vue 管理页，当前版本为 **2.3**（包内 `2.3.0`），要求 CPR **3.40.0 或更新的兼容版本**，使用 RPC v7、公开 SDK **0.1.0**、upstream_adapter v5 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.40.0 的提交 `789609dd`](https://github.com/zyycn/codex-proxy-rs/commit/789609dd53663b323e43567d2476f7f83b6b77a1)，安装入口见 `docs/installation.md`
 
-从 [2.2 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v2.2.0)选择对应平台附件，发行状态以 Release 为准。旧宿主先升级，不能只改清单版本号
+从 [2.3 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v2.3.0)选择对应平台附件，发行状态以 Release 为准。旧宿主先升级，不能只改清单版本号
+
+2.3 统一全部十个标签页的排版、控件与主题样式，精简界面文案，调整额度余额层级与 Cline 接入流程，见 [发布说明](docs/releases/2.3.md)
 
 2.2 用宿主快照聚合替换逐请求扫描，按请求历史路由分组统计；Token 使用 M、Key 隐藏内部 ID、请求结果整行展开。模型 UA 改到宿主画像生成后的出站阶段，见 [发布说明](docs/releases/2.2.md)
 
@@ -28,8 +30,8 @@ Codex Proxy RS 的API密钥与 CC-Switch 用量导入、统计维护和下游模
 - **API密钥导入**：解析 CCS 完整手动 SQL 导出，提取 Claude、Codex 和 Gemini 的名称、地址与API密钥，选择后通过宿主账号合同接入 OpenAI Responses 兼容上游，不按来源协议拦截。表格支持多选、跨页全选、复制 API，以及主动查看或复制隐藏的API密钥。相同地址与API密钥只接入一次，名称不同在弹窗中选择；更新已有账号使用精确凭据版本
 - **CC-Switch用量导入**：按应用、模型和来源时区的请求时间筛选完整 CCS 来源，预览 Token、费用与原生请求疑似重复项。确认后替换所选时段内该来源的全部旧贡献，再写入筛选结果；保留源内代理／会话去重、稳定记录键、时段外贡献、CPR 原生请求和其他来源
 - **用量调整**：填写 Token 总量和请求次数的正负增减量，读取今天／近 7 天／近 30 天的真实原值并预览，确认后写入首次提交时刻。结果未确认时保留原操作 ID，重新打开页面可继续核对
-- **模型批量定价**：读取、同步和批量维护 CPR 全局价目；社区价目支持关键词与模型 ID 过滤，缓存价格缺失或留空按零处理，输入与输出价格必填。「价格同步」按选定时间和 Provider 补全缺失费用或覆盖该范围原生请求的 Token 估算费用
-- **模型UA定制**：忽略大小写，按顺序使用第一条命中的启用规则覆盖 `User-Agent`；可选配套 `originator`、`version`，未填写的头不变更，未命中不改写。预览和安全验证用绿／红色块显示结果；请求改写日志展示时间、模型、命中规则及替换前后 UA
+- **模型批量定价**：读取、同步和批量维护 CPR 全局价目；社区价目支持关键词与模型 ID 过滤，缓存价格缺失或留空按零处理，输入与输出价格必填。「同步历史费用」按选定时间和 Provider 补全缺失费用或覆盖该范围原生请求的 Token 估算费用
+- **模型UA定制**：忽略大小写，按顺序使用第一条命中的启用规则覆盖 `User-Agent`；可选配套 `originator`、`version`，未填写的头不变更，未命中不改写。预览和规则验证用绿／红色块显示结果；请求改写日志展示时间、模型、命中规则及替换前后 UA
 - **模型上游优先级**：按完整模型名称查询同一 Provider 下的上游，拖拽或使用上移／下移设置首选与备用顺序；最近请求对照插件选择与最终上游，查看首选／备用是否匹配
 - **Cline 接入**：在同一个 Tab 选择已有 Cline 账号启用 Responses → Chat Completions 转换、配置 DeepSeek 钉选并查看实际提供方；账号凭据、调度和代理仍由 CPR 管理
 - **下游模型权限**：选择API密钥，获取模型列表并勾选白名单；过滤下游模型列表、模型详情和额度分享中的模型，未授权模型请求返回 403，未启用限制时保持宿主原有权限
@@ -86,7 +88,7 @@ DeepSeek 1017 的组合依据 [ClinePassBridge v0.4.0 的 Chat Completions 对�
 「上游额度」是默认打开的第一个标签页。在直接展示的「查询设置」中选择已有上游账号和查询平台，点击「保存并获取」。Kimi 的产品和地区在第三、第四列逐级选择，各级均支持搜索。每个账号独立保存查询类型和最近快照，默认不查询，不根据地址或模型自动识别上游。
 
 - **Kimi**：按量付费和编程订阅分别选择国内或海外，使用对应的官方查询地址。编程订阅分别显示短周期与周额度的已用进度，按量余额保留现金和代金券明细
-- **DeepSeek**：查询账号地址的 `/user/balance`，分别显示 CNY、USD 余额；可用、赠送和充值余额同一行展示，可用余额加粗
+- **DeepSeek**：查询账号地址的 `/user/balance`，分别显示 CNY、USD 余额；突出可用余额，赠送和充值余额列在下方
 - **Sub2API**：查询账号地址的 `/v1/usage`，显示钱包、API密钥总额度、订阅及限额窗口，金额不换算成百分比
 - **Command Code**：选择同名查询平台，沿用 CC Switch 的官方 `/alpha` 身份、credits、订阅与用量查询流程，自动带上组织及订阅周期范围。卡片显示五小时、周、月三项已用百分比，月额度按 CC Switch 的账期池口径计算，重置时间取订阅结束时间，不展示 credits 和本期费用明细。该控制面未公开文档化，接口变化可能需要同步适配
 - **Cline Pass**：使用所选账号中保存的 **Cline API密钥**，经账号受管 HTTP 查询 `https://api.cline.bot/api/v1/users/me/plan/usage-limits`，不能使用 CPA 或 CPR 的客户端API密钥代替。解析 `success/data/limits` 中的 `type`、`percentUsed` 和 `resetsAt`，显示 5 小时、周、月额度，未知窗口保留原名称，缺少比例或重置时间保持未知。超过 100% 的进度显示为 100%，仍标记已达限额；日历月不换算成固定秒数。不估算美元额度，不把模型名中的 DeepSeek 当作提供方证明
@@ -143,10 +145,10 @@ SDK 和打包 CLI 固定到 [CPR v3.40.0 的提交 `789609dd`](https://github.co
 
 1. 打开「模型UA定制」，新增 `grok`、`gemini` 等包含规则并填写实际 UA
 2. 将更具体的规则放在前面，保存后新请求使用新规则
-3. 「匹配预览」检查当前编辑，「安全验证」选择API密钥并读取可见模型，检查已保存规则
+3. 「匹配预览」检查当前编辑，「规则验证」选择API密钥并读取可见模型，检查已保存规则
 4. 从客户端发送真实模型请求，再点击「请求改写日志」的「刷新日志」，检查是否进入插件以及使用了哪条规则
 
-安全验证共用正式出站头规则进行试算，**不调用真实推理接口**。它不覆盖真实入口鉴权、宿主绑定筛选、账号选择、模型路由映射、默认画像组装和最终网络传输；模拟基准 UA 可选，留空时不推测宿主 UA。实际 HTTP 及 WebSocket opening 头在目标宿主确认。
+规则验证共用正式出站头规则进行试算，**不调用真实推理接口**。它不覆盖真实入口鉴权、宿主绑定筛选、账号选择、模型路由映射、默认画像组装和最终网络传输；模拟基准 UA 可选，留空时不推测宿主 UA。实际 HTTP 及 WebSocket opening 头在目标宿主确认。
 
 ### 用日志定位 UA 未生效
 
@@ -247,7 +249,7 @@ cargo +1.99.1 zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.1
 
 ### 交付与版本递增
 
-2.2 的发行目标为 Linux x86_64、Linux ARM64 和 macOS ARM64，提供原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/2.2.md`。
+2.3 的发行目标为 Linux x86_64、Linux ARM64 和 macOS ARM64，提供原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/2.3.md`。
 
 以后每次交付新包增加 `0.1`；打包前同步 `plugin.json`、`Cargo.toml`、`web/package.json` 和 Cargo 锁文件中的本项目版本。失败修复及同一次打包重试不重复递增，约定见 `AGENTS.md`。
 

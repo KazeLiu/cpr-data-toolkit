@@ -179,7 +179,7 @@ async function save() {
   try {
     rules.version = await saveRules(rules.version, rules.rows)
     rules.saved = JSON.stringify(rules.rows)
-    rules.notice = '规则已保存，新请求使用最新规则'
+    rules.notice = '规则已保存'
   } catch (error) {
     rules.error = message(error)
   } finally {
@@ -260,10 +260,9 @@ onMounted(async () => {
 <template>
   <section class="panel">
     <section class="section">
-    <p class="muted">
-      按出站模型忽略大小写匹配首条规则 · 未命中时保留宿主身份 · 启用 outbound 绑定，空绑定范围表示全局
-    </p>
-    <div class="toolbar">
+    <div class="section-heading">
+      <h2>UA 改写规则</h2>
+      <div class="toolbar">
       <ZButton :disabled="!rules.loaded || rules.busy || rules.rows.length >= 100" @click="edit(-1)"
         >添加规则</ZButton
       >
@@ -278,6 +277,7 @@ onMounted(async () => {
         >重新读取</ZButton
       >
       <span v-if="dirty" class="muted">有未保存修改</span>
+      </div>
     </div>
     <p v-if="rules.error" class="error" role="alert">{{ rules.error }}</p>
     <p v-if="rules.notice" class="muted" role="status">{{ rules.notice }}</p>
@@ -286,7 +286,7 @@ onMounted(async () => {
       :data="rules.rows"
       row-key="id"
       size="small"
-      empty-text="暂无规则，添加后保存即可生效"
+      empty-text="暂无规则"
     >
       <template #enabled="{ row }"
         ><ZSwitch v-model="row.enabled" :disabled="rules.busy" :aria-label="`启用 ${row.keyword}`"
@@ -322,18 +322,18 @@ onMounted(async () => {
     </ZTable>
     </section>
     <div class="section">
-      <div class="toolbar">
+      <div class="section-heading">
+        <div class="toolbar">
         <h2>请求改写日志</h2>
+        <span class="muted">最近 {{ logs.capacity }} 条</span>
+        </div>
+        <div class="toolbar">
         <ZButton :loading="logs.busy" @click="loadLogs()">刷新日志</ZButton>
-        <ZButton :disabled="logs.busy || !logs.total" @click="clearLogs"
+        <ZButton variant="text" :disabled="logs.busy || !logs.total" @click="clearLogs"
           >清空日志</ZButton
         >
-        <span class="muted">最近 {{ logs.capacity }} 条 · 最新在前 · 重启插件后清空</span>
+        </div>
       </div>
-      <p class="muted">
-        改写前为宿主生成的出站 UA，改写后为本插件完成准备并交给上游传输的 UA · 将本插件放在出站链最外层，避免返回后被其他插件覆盖
-      </p>
-      <p class="muted">Cline 转换独立应用 UA 规则，不生成原生出站日志 · 预览与安全验证不计入日志</p>
       <p v-if="logs.error" class="error" role="alert">{{ logs.error }}</p>
       <ZTable
         :columns="logColumns"
@@ -343,7 +343,7 @@ onMounted(async () => {
         size="small"
         :empty-text="
           logs.loaded
-            ? '暂无出站记录 · 发送模型请求后刷新 · 检查 outbound 绑定范围'
+            ? '暂无记录'
             : '读取日志后查看实际请求'
         "
       >
@@ -400,17 +400,19 @@ onMounted(async () => {
       </ZTable>
       <TablePagination :offset="logs.offset" :total="logs.total" :page-size="logs.pageSize" :busy="logs.busy" @change="loadLogs" />
     </div>
+    <div class="ua-tools">
     <div class="section">
       <h2>匹配预览</h2>
-      <div class="toolbar">
+      <div class="filter-bar">
+        <label class="field"><span>请求模型名称</span>
         <ZInput
           v-model="probe.model"
           aria-label="请求模型名称"
           placeholder="例如 grok-4.7"
-          style="max-width: 360px"
-        /><ZButton :loading="probe.busy" :disabled="!probe.model" @click="preview"
+        /></label><ZButton :loading="probe.busy" :disabled="!probe.model" @click="preview"
           >预览当前编辑</ZButton
         >
+      </div>
         <div
           v-if="probe.evaluated"
           class="match-result"
@@ -425,12 +427,11 @@ onMounted(async () => {
           </template>
           <strong v-else>未命中</strong>
         </div>
-      </div>
       <p v-if="probe.error" class="error" role="alert">{{ probe.error }}</p>
     </div>
     <div class="section">
-      <h2>安全验证</h2>
-      <p class="notice">使用已保存规则 · 验证到插件出口 · 不发送上游推理请求</p>
+      <h2>规则验证</h2>
+      <p class="muted">使用已保存规则，不发送模型请求</p>
       <div class="form-grid">
         <label class="field"
           ><span>API密钥</span
@@ -455,11 +456,11 @@ onMounted(async () => {
             placeholder="从该API密钥可见模型中选择"
         /></label>
         <label class="field"
-          ><span>模拟入口 UA，可选</span
+          ><span>基准 UA（可选）</span
           ><ZInput
             v-model="diagnostic.baselineUa"
             :disabled="diagnostic.busy"
-            placeholder="留空时不推测API密钥默认 UA"
+            placeholder="留空表示未提供"
         /></label>
       </div>
       <div class="toolbar">
@@ -480,7 +481,7 @@ onMounted(async () => {
         role="status"
       >
         <strong>
-          {{ diagnostic.result.ruleId ? '已命中，插件出口头已改写' : '未命中，插件未改写' }}
+          {{ diagnostic.result.ruleId ? '已命中' : '未命中' }}
         </strong>
         <dl v-if="diagnostic.result.headers.length">
           <template v-for="header in diagnostic.result.headers" :key="header.name"
@@ -488,17 +489,8 @@ onMounted(async () => {
             <dd class="mono">{{ header.value }}</dd></template
           >
         </dl>
-        <div class="panel">
-          <h3>验证范围</h3>
-          <ol class="compact-list">
-            <li v-for="stage in diagnostic.result.stages" :key="stage">{{ stage }}</li>
-          </ol>
-          <p>
-            未覆盖：{{ diagnostic.result.notCovered.join('、')
-            }}{{ !diagnostic.result.baselineKnown ? ' · 未读取真实API密钥默认 UA' : '' }}
-          </p>
-        </div>
       </div>
+    </div>
     </div>
     <ZDialog
       v-model="editor.open"
@@ -541,3 +533,17 @@ onMounted(async () => {
     >
   </section>
 </template>
+
+<style scoped>
+.ua-tools {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+@container toolkit (max-width: 1000px) {
+  .ua-tools {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style>

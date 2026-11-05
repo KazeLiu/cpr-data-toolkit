@@ -478,7 +478,7 @@ async function saveSync() {
   try {
     await json('POST', 'api/pricing/sync', { preview: sync.preview, models })
     state.catalog = await getPricing()
-    state.notice = '选中模型的来源价目已同步，人工覆盖保持原样'
+    state.notice = '价目已同步'
   } catch (error) {
     state.catalog = null
     state.error = `${message(error)}；请重新预览和读取价目核对`
@@ -507,7 +507,16 @@ onMounted(load)
 
 <template>
   <section class="section">
-    <p class="muted">CPR 全局价目 · USD / 每百万 Token · 改价影响后续估算，不重算历史费用</p>
+    <div class="section-heading">
+      <div class="toolbar">
+        <h2>模型价目</h2>
+        <span class="muted">USD / 百万 Token</span>
+      </div>
+      <div class="toolbar">
+        <ZButton :disabled="state.busy" @click="openCommunity">models.dev 社区价目</ZButton>
+        <ZButton :disabled="state.busy || history.busy" @click="openHistory">同步历史费用</ZButton>
+      </div>
+    </div>
     <div class="toolbar">
       <ZSelect
         :model-value="state.provider"
@@ -516,22 +525,21 @@ onMounted(load)
           { value: 'openai', label: 'OpenAI 兼容' },
           { value: 'xai', label: '原生 xAI' },
         ]"
-        style="width: 180px"
+        class="filter-control"
         @update:model-value="state.provider = $event ?? ''"
       /><ZInput
         v-model="state.search"
         aria-label="筛选模型"
         placeholder="筛选模型"
-        style="max-width: 280px"
+        class="search-control"
       /><ZButton :loading="state.busy" @click="load"> 重新读取 </ZButton
-      ><ZButton :disabled="state.busy || !state.catalog || selected.length > 500" @click="edit()">
+      ><ZButton class="push-end" type="primary" :disabled="state.busy || !state.catalog || selected.length > 500" @click="edit()">
         添加或批量编辑价目 </ZButton
       ><ZButton :disabled="state.busy || !state.catalog" @click="previewSync">
-        宿主同步预览 </ZButton
-      ><ZButton :disabled="state.busy" @click="openCommunity"> models.dev 社区价目 </ZButton
-      ><ZButton :disabled="state.busy || history.busy" @click="openHistory"> 价格同步 </ZButton>
+        宿主同步预览 </ZButton>
     </div>
-    <div class="toolbar">
+    <div class="selection-bar">
+      <span class="muted">已选 {{ selected.length }} 个 · 内置模型不能删除</span>
       <ZButton
         :disabled="!selected.length || selected.length > 500 || state.busy"
         @click="state.action = 'reset'"
@@ -549,7 +557,7 @@ onMounted(load)
         :disabled="state.busy || !state.catalog"
         @click="drafts.open = true"
         >待写列表 {{ drafts.rows.length }}</ZButton
-      ><span class="muted">已选 {{ selected.length }} 个 · 内置模型不能删除</span>
+      >
     </div>
     <p v-if="state.error" class="error" role="alert">
       {{ state.error }}
@@ -563,7 +571,7 @@ onMounted(load)
     <p v-if="history.error" class="error" role="alert">
       {{ history.error }}
     </p>
-    <div v-if="history.filter" class="section">
+    <div v-if="history.filter" class="section-body inset">
       <p role="status">
         已确认扫描 {{ history.scanned }} 条 · 写回 {{ history.saved }} 条 · 跳过
         {{ history.skipped }} 条
@@ -634,7 +642,7 @@ onMounted(load)
           ><span>计价模型名称，每行一个</span
           ><textarea v-model="editor.models" rows="4" class="mono" aria-label="计价模型名称" />
         </label>
-        <p class="muted">这组模型使用相同标准价，其他人工档位保留 · 缓存价格留空按 0 写入</p>
+        <p class="muted">缓存价格留空按 0 写入</p>
         <div class="form-grid">
           <label
             v-for="field in ['input', 'output', 'cacheRead', 'cacheWrite'] as const"
@@ -675,7 +683,6 @@ onMounted(load)
         <p>
           {{ state.action === 'delete' ? '删除' : '重置' }}选中的 {{ selected.length }} 个模型价目
         </p>
-        <p class="muted">不会修改历史费用</p>
       </div>
       <template #footer
         ><ZButton @click="state.action = ''">取消</ZButton
@@ -684,7 +691,7 @@ onMounted(load)
     >
     <ZDialog v-model="history.open" title="同步历史费用" type="warning">
       <div class="panel">
-        <p>按当前 CPR 全局价目试算并写回选定范围的原生请求费用</p>
+        <p>按当前价目重算 Token 费用</p>
         <div class="form-grid">
           <label class="field col-span-full"
             ><span>日期与时间（本机时区，结束不含）</span
@@ -720,7 +727,7 @@ onMounted(load)
           >
             只补全缺失费用
           </ZRadio>
-          <p class="muted">保留已有费用，0 费用不视为缺失</p>
+          <p class="muted">0 费用不视为缺失</p>
           <ZRadio
             :model-value="history.mode"
             name="history-pricing-mode"
@@ -730,15 +737,8 @@ onMounted(load)
           >
             覆盖范围内全部历史费用
           </ZRadio>
-          <p class="muted">按当前价目重新计算并替换已有费用</p>
         </div>
-        <p class="notice">
-          仅计算 Token 费用，不包含工具等附加费用 · 覆盖会替换原费用并清除原计价快照，不改变API密钥
-          预算
-        </p>
-        <p class="muted">
-          缺少 Token、图像用量或无法计价的记录跳过 · CCS 导入的聚合贡献不参与费用重算
-        </p>
+        <p v-if="history.mode === 'all'" class="notice">覆盖会替换已有费用并清除原计价快照</p>
         <p v-if="history.error" class="error" role="alert">
           {{ history.error }}
         </p>
@@ -752,9 +752,6 @@ onMounted(load)
     </ZDialog>
     <ZDialog v-model="community.open" title="models.dev 社区价目" width="min(1100px, 94vw)"
       ><div class="panel">
-        <p class="notice">
-          社区价目仅供参考，不代表中转账单 · 模型 ID 不一定与中转相同，加入列表后核对再写入
-        </p>
         <div class="toolbar">
           <ZSelect
             :model-value="community.provider"
@@ -762,7 +759,7 @@ onMounted(load)
             aria-label="社区供应商"
             filterable
             :disabled="community.busy"
-            style="width: 240px"
+            class="pricing-provider"
             @update:model-value="community.provider = $event ?? ''"
             @change="loadCommunity()"
           /><ZSelect
@@ -772,7 +769,7 @@ onMounted(load)
               { value: 'xai', label: '写入原生 xAI 价目' },
             ]"
             aria-label="目标 Provider"
-            style="width: 240px"
+            class="pricing-provider"
             @update:model-value="community.target = $event ?? ''"
           /><ZButton :loading="community.busy" @click="loadCommunity(community.offset, false)">
             刷新价目
@@ -785,7 +782,7 @@ onMounted(load)
             placeholder="筛选模型名称或价格"
             maxlength="256"
             :disabled="community.busy"
-            style="max-width: 280px"
+            class="search-control"
             @keydown.enter="loadCommunity()"
           />
           <ZButton :disabled="community.busy" @click="loadCommunity()">筛选</ZButton>
@@ -856,7 +853,7 @@ onMounted(load)
               :aria-label="`选择 ${row.model}`" /></template
         ></ZTable>
         <TablePagination :offset="community.offset" :total="community.total" :page-size="100" :busy="community.busy" @change="loadCommunity($event, false)" />
-        <p class="muted">筛选结果中跳过不支持的价目 {{ community.skipped }} 项</p>
+        <p v-if="community.skipped" class="muted">已跳过 {{ community.skipped }} 项不支持的价目</p>
       </div>
       <template #footer
         ><ZButton @click="community.open = false">关闭</ZButton
@@ -867,7 +864,7 @@ onMounted(load)
     >
     <ZDialog v-model="drafts.open" title="核对社区价目" width="min(1200px, 94vw)"
       ><div class="panel">
-        <p class="muted">计价模型名称须与请求的 model 一致 · 缓存价格缺失或留空时按 0 写入</p>
+        <p class="muted">核对上游模型名称，缓存价格留空按 0 写入</p>
         <ZTable :columns="draftColumns" :data="drafts.rows" row-key="id" size="small"
           ><template #model="{ row }"
             ><ZInput v-model="row.model" :aria-label="`目标模型 ${row.id}`" /></template
@@ -903,7 +900,7 @@ onMounted(load)
     >
     <ZDialog v-model="sync.open" title="宿主同步预览" width="min(1100px, 94vw)"
       ><div class="panel">
-        <p class="muted">同步只更新来源层，人工覆盖保持原样</p>
+        <p class="muted">人工覆盖价格保持不变</p>
         <ZTable
           :columns="columns.filter((c) => c.key !== 'actions')"
           :data="syncPage"
@@ -946,3 +943,9 @@ onMounted(load)
     >
   </section>
 </template>
+
+<style scoped>
+.pricing-provider {
+  width: min(100%, 16rem);
+}
+</style>

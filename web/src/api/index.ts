@@ -144,7 +144,7 @@ export const saveRules = (expectedVersion: number | null, rules: Rule[]) =>
 export const diagnose = (clientKeyId: string, model: string, baselineUa: string | null) =>
   request('POST', 'api/ua/diagnose', { clientKeyId, model, baselineUa }, (value) => {
     const r = object(value)
-    if (boolean(r.outboundSent)) throw new Error('安全验证返回了异常发送状态')
+    if (boolean(r.outboundSent)) throw new Error('规则验证返回了异常发送状态')
     return {
       ruleId: nullable(r.ruleId),
       baselineKnown: boolean(r.baselineKnown),

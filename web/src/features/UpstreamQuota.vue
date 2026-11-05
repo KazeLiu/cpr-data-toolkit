@@ -86,15 +86,6 @@ const canRefresh = computed(() => support.value?.queryAvailable && !dirty.value 
   const value = state.snapshots[source.id]
   return source.enabled && (!value || (value.queryType !== 'disabled' && cooldownUntil(value) <= now.value))
 }))
-const resetHint = computed(() =>
-  state.queryType.startsWith('kimi')
-    ? 'Kimi 查询使用所选地区的官方额度接口'
-    : state.queryType === 'cline_pass'
-      ? '使用账号中的 Cline API密钥查询官方套餐额度，不可使用 CPA 或 CPR 的客户端API密钥'
-      : state.queryType === 'command_code'
-        ? 'Command Code 查询使用官方控制面接口，沿用账号当前凭据和出站代理'
-        : '使用上游账号的 API 地址和当前凭据查询，不自动探测上游类型',
-)
 
 function isActive() {
   return props.active && !disposed
@@ -223,7 +214,7 @@ async function save() {
       ? '设置已保存，本次获取失败'
       : state.queryType === 'disabled'
         ? '已关闭查询'
-        : '设置已保存，额度已获取，插件将继续定期刷新'
+        : '设置已保存，额度已更新'
   }
   catch (error) {
     if (error instanceof ApiError && error.status === 409) {
@@ -260,7 +251,7 @@ onBeforeUnmount(() => {
       <h2>宿主额度接口尚未就绪</h2>
       <p class="notice">
         {{ !support.queryAvailable && !support.sharingAvailable ? '当前宿主尚不支持额度查询和分享' : !support.queryAvailable ? '当前宿主尚不支持额度查询' : '当前宿主尚不支持额度分享' }}
-        ，请使用包含 <a href="https://github.com/zyycn/codex-proxy-rs/pull/525" target="_blank" rel="noopener noreferrer">PR #525</a> 接口的宿主和匹配 RPC 版本的插件，其他标签页仍可使用
+        ，请升级宿主后重试
       </p>
       <ZButton :loading="state.busy" :disabled="dirty" @click="load">
         重新检查
@@ -287,15 +278,8 @@ onBeforeUnmount(() => {
             :placeholder="`选择${field.label.slice(2)}`"
             @update:model-value="selectQueryLevel(field.level, $event)"
           /></label>
-        </div>
-        <p v-if="data && state.queryType !== 'disabled'" class="muted">
-          {{ resetHint }}
-        </p>
-        <p v-if="data && state.queryType !== 'disabled'" class="muted">
-          使用上游账号的当前凭据和出站代理，保存后由插件在后台自动刷新
-        </p>
-        <div class="toolbar">
           <ZButton
+            class="quota-query-submit"
             type="primary"
             :loading="state.busy"
             :disabled="!support?.queryAvailable || !dirty || (!source?.enabled && state.queryType !== 'disabled')"
@@ -304,10 +288,11 @@ onBeforeUnmount(() => {
             {{ state.queryType === 'disabled' ? '关闭查询' : '保存并获取' }}
           </ZButton>
         </div>
+        <p v-if="data && state.queryType === 'cline_pass'" class="field-help">请使用 Cline API密钥</p>
       </div>
     </section>
     <section class="section quota-results">
-      <div class="toolbar quota-results-heading">
+      <div class="section-heading quota-results-heading">
         <h2>额度详情</h2>
         <ZSelect
           v-if="!state.aggregate"
@@ -323,7 +308,7 @@ onBeforeUnmount(() => {
         />
         <div class="toolbar quota-results-actions">
           <ZSwitch v-model="state.aggregate" label="聚合" :disabled="state.busy || dirty" @change="syncCooldown" />
-          <ZButton type="primary" :loading="state.busy" :disabled="!canRefresh" title="打开插件时刷新一次，之后每 3 分钟刷新" @click="refresh">
+          <ZButton :loading="state.busy" :disabled="!canRefresh" @click="refresh">
             刷新额度
           </ZButton>
         </div>
@@ -341,10 +326,10 @@ onBeforeUnmount(() => {
         暂无上游账号，请先在宿主添加API密钥账号或通过「API密钥导入」接入
       </p>
       <p v-if="!state.aggregate && source && !source.enabled" class="muted">
-        账号已停用，可查看已保存快照，恢复启用后再查询
+        账号已停用，显示上次查询结果
       </p>
       <p v-for="blocked in blockedSources" :key="blocked.id" class="muted">
-        {{ state.aggregate ? `${blocked.name}：` : '' }}上游认证或权限被拒绝，旧快照已停止下传，成功获取后恢复
+        {{ state.aggregate ? `${blocked.name}：` : '' }}认证或权限被拒绝，请检查上游凭据与权限
       </p>
       <UpstreamQuotaCards
         v-if="cards.length"

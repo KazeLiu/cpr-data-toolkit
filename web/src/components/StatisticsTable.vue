@@ -4,7 +4,7 @@ import type { Dimension, Parent, StatPage, StatQuery, StatRow, StatSort, Totals 
 import { ZButton, ZInput, ZSelect, ZTable } from '@codex-proxy/ui'
 import { onBeforeUnmount, reactive, watch } from 'vue'
 import { message } from '../api'
-import { costDetails, exportStatistics, formatCosts, formatCount, formatMetric, metricDetails, observationLabel, quality, queryStatistics } from '../api/statistics'
+import { costDetails, exportStatistics, formatCosts, formatCount, formatMetric, metricDetails, quality, queryStatistics } from '../api/statistics'
 import TablePagination from './TablePagination.vue'
 
 const props = withDefaults(defineProps<{
@@ -88,12 +88,12 @@ onBeforeUnmount(() => { revision += 1 })
       <ZInput v-model="state.draft" aria-label="搜索名称或 ID" placeholder="搜索名称或 ID" class="stat-search" @keydown.enter="search" />
       <ZButton :disabled="state.busy" @click="search">筛选</ZButton>
       <ZSelect v-model="state.sort" :options="sortOptions" aria-label="排序指标" class="stat-sort" :disabled="state.busy" @change="load()" />
-      <ZButton :disabled="state.busy" @click="state.ascending = !state.ascending; load()">{{ state.ascending ? '升序' : '降序' }}</ZButton>
+      <ZButton variant="text" :disabled="state.busy" @click="state.ascending = !state.ascending; load()">{{ state.ascending ? '升序' : '降序' }}</ZButton>
       <ZButton class="stat-export" :loading="state.exporting" :disabled="state.busy || !state.page?.total" @click="download">导出 CSV</ZButton>
     </div>
     <p v-if="state.error" class="error" role="alert">{{ state.error }}</p>
     <p v-if="state.busy" class="muted" role="status">正在汇总分组</p>
-    <p v-if="state.page" class="muted">{{ observationLabel(state.page.observation) }}</p>
+    <p v-if="state.page?.observation.lag" class="notice">统计数据延迟 {{ state.page.observation.lag }} 秒</p>
     <ZTable :columns="columns" :data="state.page?.items ?? []" :expanded-row-keys="state.expanded" row-key="id" :empty-text="state.busy ? '正在读取' : '此范围没有匹配记录'">
       <template #name="{ row }">
         <div class="stat-name">
@@ -113,7 +113,7 @@ onBeforeUnmount(() => { revision += 1 })
       <template #cacheRead="{ row }"><span class="stat-metric" :title="metricDetails(row.totals.cacheRead)">{{ formatMetric(row.totals.cacheRead) }}</span></template>
       <template #cacheWrite="{ row }"><span class="stat-metric" :title="metricDetails(row.totals.cacheWrite)">{{ formatMetric(row.totals.cacheWrite) }}</span></template>
       <template #cacheRatio="{ row }">{{ row.totals.cacheRatio === null ? '未知' : `${(row.totals.cacheRatio * 100).toFixed(1)}%` }}</template>
-      <template #cost="{ row }"><span :title="costDetails(row.totals)">{{ formatCosts(row.totals.costs) }}</span></template>
+      <template #cost="{ row }"><span class="stat-metric" :title="costDetails(row.totals)">{{ formatCosts(row.totals.costs) }}</span></template>
       <template #actions="{ row }"><ZButton v-if="row.canInspect" variant="text" type="primary" @click="emit('inspect', row)">{{ dimension === 'key' ? '查看模型' : '查看 Key' }}</ZButton><span v-else class="muted">无分组维度</span></template>
     </ZTable>
     <TablePagination v-if="state.page" :offset="state.page.offset" :total="state.page.total" :page-size="state.page.pageSize" :busy="state.busy" @change="load" />
@@ -122,10 +122,10 @@ onBeforeUnmount(() => { revision += 1 })
 
 <style scoped>
 .stat-search { width: min(100%, 20rem); }
-.stat-sort { width: 10rem; }
+.stat-sort { width: min(100%, 10rem); }
 .stat-export { margin-left: auto; }
 .stat-name { display: grid; gap: 4px; overflow-wrap: anywhere; }
 .stat-request-trigger { max-width: 100%; white-space: normal; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .stat-metric { display: block; min-width: 0; white-space: pre-line; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.stat-outcomes { margin: 0; padding: 12px 16px; white-space: normal; overflow-wrap: anywhere; }
+.stat-outcomes { margin: 0; padding: 12px 16px; white-space: normal; overflow-wrap: anywhere; color: var(--z-color-text-secondary); }
 </style>

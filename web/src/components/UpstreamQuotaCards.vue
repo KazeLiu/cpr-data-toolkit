@@ -68,8 +68,7 @@ function tone(used: number | null) {
             </div>
             <ZTag v-if="aggregate" size="small" class="quota-source-tag" :title="source.name">{{ source.name }}</ZTag>
           </div>
-          <div class="quota-card-meta">
-            <span class="muted">最后获取：{{ date(account.observedAt) }}</span>
+          <div class="toolbar">
             <span v-if="account.models === null" class="muted">模型未提供</span>
             <ZButton v-else type="primary" variant="text" size="small" class="quota-model-button" :disabled="!account.models.length" aria-haspopup="dialog" @click="showModels(source.id, account.id)">
               {{ account.models.length }} 个模型
@@ -80,6 +79,22 @@ function tone(used: number | null) {
           <p v-if="account.message" class="quota-warning" role="status">
             {{ account.message }}
           </p>
+          <div v-if="amounts.length" class="quota-amounts">
+            <div v-for="(entry, index) in amounts" :key="index" class="quota-amount" :class="{ 'quota-amount-secondary': isCredits(entry) }">
+              <span v-if="!entry.isValid" class="quota-warning">{{ entry.invalidMessage ?? (isCredits(entry) ? '额外点数不可用' : '额度不可用') }}</span>
+              <div class="quota-amount-fields" :class="{ 'quota-balance-row': entry.details.length > 0 }">
+                <div class="quota-balance">
+                  <span class="muted">{{ isCredits(entry) ? '额外点数余额' : entry.label }}</span>
+                  <strong v-if="entry.unlimited">不限额</strong>
+                  <strong v-else-if="entry.remaining !== null" class="mono">{{ entry.remaining }} {{ entry.unit }}</strong>
+                  <span v-if="entry.used !== null || entry.total !== null" class="mono quota-usage">已用 {{ entry.used ?? '未知' }} / {{ entry.total ?? '未知' }} {{ entry.unit }}</span>
+                  <span v-if="!entry.unlimited && entry.remaining === null && entry.used === null && entry.total === null" class="muted">{{ isCredits(entry) ? '余额未提供' : '额度未知' }}</span>
+                </div>
+                <div v-for="detail in entry.details" :key="detail.label" class="quota-balance-detail">{{ detail.label }} <span class="mono">{{ detail.amount ?? '未知' }} {{ entry.unit }}</span></div>
+              </div>
+              <span v-if="entry.resetAt" class="quota-amount-reset">重置 {{ date(entry.resetAt) }}</span>
+            </div>
+          </div>
           <div
             v-if="account.windows.length"
             class="quota-windows"
@@ -110,31 +125,10 @@ function tone(used: number | null) {
               </div>
             </div>
           </div>
-          <div v-if="amounts.length" class="quota-amounts">
-            <div v-for="(entry, index) in amounts" :key="index" class="quota-amount">
-              <span v-if="!entry.isValid" class="quota-warning">{{ entry.invalidMessage ?? (isCredits(entry) ? '额外点数不可用' : '额度不可用') }}</span>
-              <div class="quota-amount-fields" :class="{ 'quota-balance-row': entry.details.length === 2 }">
-                <div class="quota-balance">
-                  <span class="muted">{{ isCredits(entry) ? '额外点数余额' : entry.label }}</span>
-                  <strong v-if="entry.unlimited">不限额</strong>
-                  <strong v-else-if="entry.remaining !== null" class="mono">{{ entry.remaining }} {{ entry.unit }}</strong>
-                  <span v-if="entry.used !== null || entry.total !== null" class="mono">已用 {{ entry.used ?? '未知' }} / {{ entry.total ?? '未知' }} {{ entry.unit }}</span>
-                  <span
-                    v-if="
-                      !entry.unlimited
-                        && entry.remaining === null
-                        && entry.used === null
-                        && entry.total === null
-                    "
-                    class="muted"
-                  >{{ isCredits(entry) ? '余额未提供' : '额度未知' }}</span>
-                </div>
-                <div v-for="detail in entry.details" :key="detail.label" class="quota-balance-detail muted">{{ detail.label }} <span class="mono">{{ detail.amount ?? '未知' }} {{ entry.unit }}</span></div>
-              </div>
-              <span v-if="entry.resetAt" class="muted">重置 {{ date(entry.resetAt) }}</span>
-            </div>
-          </div>
           <span v-if="!account.windows.length && !amounts.length" class="muted">额度待观测</span>
+          <footer class="quota-card-meta muted">
+            <span>更新于 <time :datetime="account.observedAt ?? undefined">{{ date(account.observedAt) }}</time></span>
+          </footer>
         </div>
       </ZScrollbar>
     </section>

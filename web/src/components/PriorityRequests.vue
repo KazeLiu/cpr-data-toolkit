@@ -104,22 +104,21 @@ watch(() => props.active, (active) => {
 
 <template>
   <section class="section">
-    <div class="toolbar">
+    <div class="section-heading">
       <h2>最近请求</h2>
-      <ZButton :loading="logs.busy" @click="load()">
-        刷新日志
-      </ZButton>
-      <ZButton :disabled="logs.busy || !logs.total" @click="clear">
-        清空日志
-      </ZButton>
+      <div class="toolbar">
+        <ZButton :loading="logs.busy" @click="load()">
+          刷新日志
+        </ZButton>
+        <ZButton variant="text" :disabled="logs.busy || !logs.total" @click="clear">
+          清空日志
+        </ZButton>
+      </div>
     </div>
-    <p class="muted">
-      最终上游来自宿主完成事件，需启用 observer 的 request_completed 绑定 · 最近 {{ logs.capacity }} 条，重启后清空
-    </p>
     <p v-if="logs.error" class="error" role="alert">
       {{ logs.error }}
     </p>
-    <ZTable size="small" :columns="columns" :data="logs.entries" row-key="requestId" :loading="logs.busy" empty-text="暂无请求，请发送模型请求后刷新日志">
+    <ZTable size="small" :columns="columns" :data="logs.entries" row-key="requestId" :loading="logs.busy" empty-text="暂无请求记录">
       <template #time="{ row }">
         <div class="request-cell">
           <time>{{ formatDateTime(row.timeMs) }}</time>

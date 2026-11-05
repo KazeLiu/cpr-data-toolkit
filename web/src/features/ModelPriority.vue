@@ -168,7 +168,7 @@ async function save() {
     state.version = result.version
     state.rules = result.rules
     editor.open = false
-    state.notice = '规则已保存，匹配账号调度绑定的新请求按最新顺序选择上游'
+    state.notice = '规则已保存'
   }
   catch (error) {
     editor.error = message(error)
@@ -189,7 +189,7 @@ async function remove() {
     state.version = result.version
     state.rules = result.rules
     removal.open = false
-    state.notice = '规则已删除，此模型恢复宿主原有调度'
+    state.notice = '规则已删除'
   }
   catch (error) {
     removal.error = message(error)
@@ -229,21 +229,21 @@ watch(
 <template>
   <div class="panel">
     <section class="section">
-      <div class="toolbar">
-        <ZButton
-          type="primary"
-          :disabled="!state.loaded || state.busy || !state.accounts.length"
-          @click="edit()"
-        >
-          添加规则
-        </ZButton>
-        <ZButton :loading="state.busy" @click="load">
-          重新读取
-        </ZButton>
+      <div class="section-heading">
+        <h2>优先级规则</h2>
+        <div class="toolbar">
+          <ZButton
+            type="primary"
+            :disabled="!state.loaded || state.busy || !state.accounts.length"
+            @click="edit()"
+          >
+            添加规则
+          </ZButton>
+          <ZButton :loading="state.busy" @click="load">
+            重新读取
+          </ZButton>
+        </div>
       </div>
-      <p class="notice">
-        保存规则后，在宿主为本插件启用 scheduler（账号调度）绑定，并选择需要生效的API密钥范围
-      </p>
       <p v-if="state.error" class="error" role="alert">
         {{ state.error }}
       </p>
@@ -258,7 +258,7 @@ watch(
         :data="state.rules"
         size="small"
         :loading="state.busy"
-        empty-text="暂无规则，添加后可按模型设置首选和备用上游"
+        empty-text="暂无规则"
       >
         <template #order="{ row }">
           <ol class="priority-summary">
@@ -285,9 +285,7 @@ watch(
           </ZButton>
         </template>
       </ZTable>
-      <p class="muted">
-        默认将其他可用上游作为备用；如不希望某个上游承接此模型，请在「账号管理」中将该模型加入黑名单
-      </p>
+      <p class="field-help">未列出的账号仍可作为备用</p>
     </section>
 
     <PriorityRequests :active="active" :accounts="state.accounts" />
@@ -480,9 +478,9 @@ watch(
   align-items: center;
   gap: 12px;
   padding: 12px;
-  border: 1px solid var(--z-color-border-secondary);
+  border: 1px solid transparent;
   border-radius: var(--z-border-radius);
-  background: var(--z-color-bg-container);
+  background: var(--z-color-fill-quaternary);
 }
 .priority-handle {
   flex-shrink: 0;

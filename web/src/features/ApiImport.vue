@@ -16,7 +16,6 @@ const state = reactive({
   busy: false,
   error: '',
   notice: '',
-  note: '',
   rows: [] as ImportSource[],
   groups: [] as ImportGroup[],
   selected: {} as Record<string, boolean>,
@@ -107,7 +106,6 @@ async function load() {
   state.offset = 0
   state.error = ''
   state.notice = ''
-  state.note = ''
   state.busy = false
   if (!id) return
   state.busy = true
@@ -116,7 +114,6 @@ async function load() {
     if (id !== props.sourceId || !alive) return
     state.rows = result.rows
     state.groups = result.groups
-    state.note = result.note
   } catch (error) {
     if (id === props.sourceId && alive) state.error = message(error)
   } finally {
@@ -250,24 +247,27 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="section">
-    <div class="toolbar">
+    <div class="section-heading">
+      <h2>OpenAI Responses 兼容上游</h2>
       <ZButton :loading="state.busy" :disabled="!sourceId || locked || state.busy" @click="load"
         >重新预览</ZButton
       >
+    </div>
+    <div class="selection-bar">
       <ZButton :disabled="disabled || !selectable.length" @click="selectAll(!allSelected)">{{
-        allSelected ? '取消全选' : '全选'
+        allSelected ? '取消全选' : '全选所有页'
       }}</ZButton>
+      <span class="muted">已选 {{ selectedRows.length }} 项 · {{ selectedIds.length }} 个上游</span>
       <ZButton
+        class="push-end"
         type="primary"
         :disabled="disabled || !selectedIds.length"
         @click="confirm(selectedIds)"
-        >一键接入 OpenAI Responses 兼容上游</ZButton
+        >接入选中上游</ZButton
       >
-      <span class="muted">已选 {{ selectedRows.length }} 项 · {{ selectedIds.length }} 个上游</span>
     </div>
     <p v-if="state.error" class="error" role="alert">{{ state.error }}</p>
     <p v-if="state.notice" class="muted" role="status">{{ state.notice }}</p>
-    <p v-if="state.note" class="muted">{{ state.note }}</p>
     <div v-if="!sourceId" class="empty">先选择 CCS 完整 SQL 导出</div>
     <template v-else>
       <ZTable
@@ -359,7 +359,6 @@ onBeforeUnmount(() => {
         </template>
       </ZTable>
       <TablePagination v-if="state.rows.length > pageSize" :offset="state.offset" :total="state.rows.length" :page-size="pageSize" :busy="state.busy" @change="state.offset = $event" />
-      <p v-if="state.rows.length > pageSize" class="muted">全选包含所有页</p>
     </template>
     <OperationResults :results="state.results" />
     <ZDialog
@@ -369,8 +368,8 @@ onBeforeUnmount(() => {
       :width="720"
     >
       <div class="panel">
-        <p>将接入 {{ pendingGroups.length }} 个上游，相同 API 与API密钥合并为一项</p>
-        <p class="muted">新建项进入 CPR 账号管理，已有项按选择更新名称和连接配置</p>
+        <p>将接入 {{ pendingGroups.length }} 个上游</p>
+        <p v-if="pendingGroups.some(group => group.targets.length)" class="notice">已有账号将更新名称及连接配置</p>
         <fieldset v-for="group in promptGroups" :key="group.id" class="import-group">
           <legend class="mono">{{ group.address }}</legend>
           <div v-if="nameChoices(group).length > 1" class="field">

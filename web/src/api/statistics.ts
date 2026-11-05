@@ -154,7 +154,3 @@ function observation(value: unknown): Observation {
     start: analytics && analytics.coverage_start_ms !== null ? timestamp(analytics.coverage_start_ms) : null,
     end: analytics && analytics.coverage_end_ms !== null ? timestamp(analytics.coverage_end_ms) : null }
 }
-export function observationLabel(value: Observation) {
-  const date = (value: number) => new Date(value).toISOString().replace('T', ' ').replace('Z', ' UTC')
-  return `快照 ${date(value.generatedAt)}${value.state === null ? '' : ` · 投影 ${value.state} · 延迟 ${value.lag} 秒 · 代次 ${value.generation} · 覆盖 ${value.start === null ? '未知' : date(value.start)} 至 ${value.end === null ? '未知' : date(value.end)}`}`
-}

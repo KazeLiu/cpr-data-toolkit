@@ -103,38 +103,32 @@ async function clear() {
 </script>
 
 <template>
-  <section class="section" style="margin-bottom: 16px">
-    <div class="toolbar">
-      <input
-        ref="input"
-        type="file"
-        accept=".sql"
-        hidden
-        :disabled="locked || upload.busy || upload.clearing"
-        @change="choose"
-      />
-      <ZButton :disabled="locked || upload.busy || upload.clearing" @click="input?.click()"
-        >选择 CCS 完整 SQL 导出</ZButton
-      >
-      <ZButton v-if="upload.busy" variant="text" @click="upload.cancelled = true">取消上传</ZButton>
-      <ZButton
-        v-else-if="sourceId"
-        variant="text"
-        :disabled="locked"
-        :loading="upload.clearing"
-        @click="clear"
-        >清理来源</ZButton
-      >
-      <span v-if="upload.busy" aria-live="polite"
-        >{{ upload.progress }}% ·
-        {{ upload.progress === 100 ? '正在检查来源结构' : '上传中' }}</span
-      >
-      <span v-else-if="filename" class="mono">{{ filename }}</span>
+  <section class="section source-upload">
+    <div class="section-heading">
+      <div class="section-body source-upload-info">
+        <h2>来源文件</h2>
+        <span v-if="upload.busy" aria-live="polite">{{ upload.progress }}% · {{ upload.progress === 100 ? '正在检查来源结构' : '上传中' }}</span>
+        <span v-else-if="filename" class="mono">{{ filename }}</span>
+        <p class="field-help">使用手动导出，非云同步导出，最大 64 MiB</p>
+      </div>
+      <div class="toolbar">
+        <input
+          ref="input"
+          type="file"
+          accept=".sql"
+          hidden
+          :disabled="locked || upload.busy || upload.clearing"
+          @change="choose"
+        />
+        <ZButton :disabled="locked || upload.busy || upload.clearing" @click="input?.click()">
+          选择 CCS 完整 SQL 导出
+        </ZButton>
+        <ZButton v-if="upload.busy" variant="text" @click="upload.cancelled = true">取消上传</ZButton>
+        <ZButton v-else-if="sourceId" variant="text" :disabled="locked" :loading="upload.clearing" @click="clear">
+          清理来源
+        </ZButton>
+      </div>
     </div>
-    <p class="muted">
-      使用 CCS 手动完整导出，不使用云同步导出 · 最多 64 MiB · 来源仅在后端内存暂存，闲置 15
-      分钟后清理
-    </p>
     <p v-if="upload.error" class="error" role="alert">{{ upload.error }}</p>
     <p v-if="upload.note" class="notice">{{ upload.note }}</p>
   </section>
