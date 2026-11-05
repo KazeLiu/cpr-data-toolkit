@@ -417,7 +417,7 @@ async fn route(
             }
             let rule = config.rewrite(Some(&request.model), &mut headers);
             Ok(
-                json!({"endpoint":"/v1/responses","clientKeyId":request.client_key_id,"model":request.model,"ruleId":rule.map(|r|&r.id),"headers":headers_view(&headers),"baselineKnown":request.baseline_ua.is_some(),"outboundSent":false,"coverage":"shared_request_header_rewrite","stages":["模拟 Responses 请求","查询API密钥可见模型","应用已保存的正式规则","检查插件请求出口"],"notCovered":["真实入口鉴权","宿主绑定筛选","账号选择","默认画像组装","最终网络传输"],"message":"验证缩短至插件请求头改写，未调用真实 /v1/responses，也未发起上游推理请求"}),
+                json!({"endpoint":"/v1/responses","clientKeyId":request.client_key_id,"model":request.model,"ruleId":rule.map(|r|&r.id),"headers":headers_view(&headers),"baselineKnown":request.baseline_ua.is_some(),"outboundSent":false,"coverage":"shared_outbound_header_rewrite","stages":["读取API密钥可见模型","应用已保存的正式规则","检查出站头改写结果"],"notCovered":["真实入口鉴权","宿主绑定筛选","账号选择与模型路由映射","默认画像组装","最终网络传输"],"message":"使用相同规则试算出站头，不调用真实推理接口"}),
             )
         }
         ("GET", "api/pricing") => pricing::catalog(host).await,

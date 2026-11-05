@@ -172,7 +172,7 @@ export interface UaRequestLog {
   status: UaLogStatus
   rule: { id: string; keyword: string } | null
   before: IdentityHeaders
-  after: IdentityHeaders
+  after: IdentityHeaders | null
   nextFailed: boolean
 }
 function identityHeaders(value: unknown): IdentityHeaders {
@@ -210,7 +210,7 @@ export const getUaLogs = (offset: number) =>
           status,
           rule: matched === null ? null : { id: text(matched.id), keyword: text(matched.keyword) },
           before: identityHeaders(entry.before),
-          after: identityHeaders(entry.after),
+          after: entry.after === null ? null : identityHeaders(entry.after),
           nextFailed: boolean(entry.nextFailed),
         }
       }),

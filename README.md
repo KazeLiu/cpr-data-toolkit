@@ -2,11 +2,11 @@
 
 Codex Proxy RS 的API密钥与 CC-Switch 用量导入、统计维护和下游模型权限管理插件，项目标识为 `cpr-data-toolkit`，开发目录为 `D:\code\cpr-data-toolkit`。
 
-项目包含 Rust 后端和 Vue 管理页，当前版本为 **2.1**（包内 `2.1.0`），要求 CPR **3.33.0 或更新的兼容版本**，使用 RPC v7、公开 SDK **0.1.0**、upstream_adapter v5 和 middleware v6，不兼容旧 RPC。SDK 与打包 CLI 固定到 [CPR v3.33.0 的提交 `8c8618aa`](https://github.com/zyycn/codex-proxy-rs/commit/8c8618aa0f841638262262e3338c115bc075f125)，安装入口见 `docs/installation.md`
+项目包含 Rust 后端和 Vue 管理页，当前版本为 **2.2**（包内 `2.2.0`），要求 CPR **3.40.0 或更新的兼容版本**，使用 RPC v7、公开 SDK **0.1.0**、upstream_adapter v5 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.40.0 的提交 `789609dd`](https://github.com/zyycn/codex-proxy-rs/commit/789609dd53663b323e43567d2476f7f83b6b77a1)，安装入口见 `docs/installation.md`
 
-从 [2.1 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v2.1.0)选择对应平台附件，发行状态以 Release 为准。旧 RPC 宿主应先升级，不能只改清单版本号
+从 [2.2 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v2.2.0)选择对应平台附件，发行状态以 Release 为准。旧宿主先升级，不能只改清单版本号
 
-2.1 新增模型、Key 和当前 Key 分组用量统计，并将「同步历史费用」改为统一的分钟级日期时间范围选择器，见 [发布说明](docs/releases/2.1.md)
+2.2 用宿主快照聚合替换逐请求扫描，按请求历史路由分组统计；Token 使用 M、Key 隐藏内部 ID、请求结果整行展开。模型 UA 改到宿主画像生成后的出站阶段，见 [发布说明](docs/releases/2.2.md)
 
 「上游额度」仅提供第三方平台查询，CPR 上游额度改用宿主原生互联功能。旧 CPR 查询设置按「不查询」读取，不再刷新、展示或转发旧快照；其他平台查询、向下游分享和 Cline 接入保持不变，见 [发布说明](docs/releases/2.0.md)
 
@@ -24,7 +24,7 @@ Codex Proxy RS 的API密钥与 CC-Switch 用量导入、统计维护和下游模
 ## 功能标签页
 
 - **上游额度**：默认进入此页并聚合全部已配置上游，卡片显示额度与原币种余额，模型详情弹窗支持搜索和点击复制
-- **用量统计**：手动选择分钟级时间范围，分页读取保留的历史请求与聚合贡献，按模型、Key 和当前 Key 分组查看请求数、Token、缓存及多币种费用，支持交叉明细、排序和 CSV 导出；完整口径见[统计说明](docs/statistics.md)
+- **用量统计**：选择分钟级时间范围，分批读取宿主快照聚合，按实际模型、Key 和历史路由分组查看请求数、Token、缓存及多币种费用，支持交叉明细、排序和 CSV 导出；完整口径见[统计说明](docs/statistics.md)
 - **API密钥导入**：解析 CCS 完整手动 SQL 导出，提取 Claude、Codex 和 Gemini 的名称、地址与API密钥，选择后通过宿主账号合同接入 OpenAI Responses 兼容上游，不按来源协议拦截。表格支持多选、跨页全选、复制 API，以及主动查看或复制隐藏的API密钥。相同地址与API密钥只接入一次，名称不同在弹窗中选择；更新已有账号使用精确凭据版本
 - **CC-Switch用量导入**：按应用、模型和来源时区的请求时间筛选完整 CCS 来源，预览 Token、费用与原生请求疑似重复项。确认后替换所选时段内该来源的全部旧贡献，再写入筛选结果；保留源内代理／会话去重、稳定记录键、时段外贡献、CPR 原生请求和其他来源
 - **用量调整**：填写 Token 总量和请求次数的正负增减量，读取今天／近 7 天／近 30 天的真实原值并预览，确认后写入首次提交时刻。结果未确认时保留原操作 ID，重新打开页面可继续核对
@@ -131,7 +131,7 @@ Kimi 编程订阅与 Command Code 查询期限十五秒，其他模式十秒，�
 
 ### SDK 来源
 
-SDK 和打包 CLI 固定到 [CPR v3.33.0 的提交 `8c8618aa`](https://github.com/zyycn/codex-proxy-rs/commit/8c8618aa0f841638262262e3338c115bc075f125)。插件只使用公开 `gateway-plugin-sdk` 0.1.0，不依赖宿主内部模块
+SDK 和打包 CLI 固定到 [CPR v3.40.0 的提交 `789609dd`](https://github.com/zyycn/codex-proxy-rs/commit/789609dd53663b323e43567d2476f7f83b6b77a1)。插件只使用公开 `gateway-plugin-sdk` 0.1.0，不依赖宿主内部模块
 
 新增第三方查询类型只需修改插件。通用账号 HTTP、入口验证、授权检查与原生额度明细接口已随 CPR 3.33.0 发布
 
@@ -139,20 +139,20 @@ SDK 和打包 CLI 固定到 [CPR v3.33.0 的提交 `8c8618aa`](https://github.co
 
 ## 配置模型 UA
 
-安装并启用插件后，在 CPR 为本插件启用 `middleware` 的 `request` 绑定，建议限定到个人反代使用的API密钥。空绑定范围表示全局；只保存规则但没有启用绑定，不会处理正常模型请求。
+安装并启用插件后，在 CPR 为本插件启用 `middleware` 的 `outbound` 绑定，建议限定到个人反代使用的API密钥。把本插件放在出站链最外层，使其返回时应用的头不再被外层插件覆盖。空绑定范围表示全局；原有 `request` 绑定仍用于下游模型权限，不再负责 UA。
 
 1. 打开「模型UA定制」，新增 `grok`、`gemini` 等包含规则并填写实际 UA
 2. 将更具体的规则放在前面，保存后新请求使用新规则
 3. 「匹配预览」检查当前编辑，「安全验证」选择API密钥并读取可见模型，检查已保存规则
 4. 从客户端发送真实模型请求，再点击「请求改写日志」的「刷新日志」，检查是否进入插件以及使用了哪条规则
 
-安全验证共用正式中间件的请求头改写逻辑，覆盖到插件请求出口，**不调用真实 `/v1/responses`，不发送上游推理请求**。它不覆盖真实入口鉴权、宿主绑定筛选、账号选择、默认画像组装和最终网络传输；模拟入口 UA 可选，留空时不推测真实API密钥默认 UA。最终 HTTP／WebSocket 出站头仍需在目标宿主确认。
+安全验证共用正式出站头规则进行试算，**不调用真实推理接口**。它不覆盖真实入口鉴权、宿主绑定筛选、账号选择、模型路由映射、默认画像组装和最终网络传输；模拟基准 UA 可选，留空时不推测宿主 UA。实际 HTTP 及 WebSocket opening 头在目标宿主确认。
 
 ### 用日志定位 UA 未生效
 
-日志只记录实际进入 request 中间件的请求，预览与安全验证不产生记录。时间按浏览器本地时区以中文 24 小时格式显示，规则栏区分「已命中」「未命中」「模型缺失」「规则读取失败」；下游调用报错时额外显示「下游调用失败」。配套头发生变化时，前后 UA 栏直接展示 `originator`、`version`，不展示请求 ID。
+日志只记录实际进入 outbound 的出站准备，每次重试分别记录。规则按出站模型匹配，区分「已命中」「未命中」「模型缺失」「规则读取失败」；准备失败时标注失败，改写后显示「未形成出站请求」。时间按浏览器本地时区显示，配套头变化时展示 `originator`、`version`，不展示请求 ID。
 
-改写前是插件入口头，不是宿主根据账号和API密钥画像生成的默认头；改写后是本插件交给宿主的头。如果日志显示「已命中」而上游仍收到其他 UA，应继续核对后续中间件和最终出站头。如果发送请求后刷新仍无记录，先检查插件启用状态、request 绑定和API密钥范围。
+改写前来自宿主已经完成账号画像和默认头生成的出站请求；本插件先完成内部出站链及 DeepSeek 钉选，再应用 UA，记录实际返回上游传输层的头。若还有其他外层出站插件，它们仍可能再次修改，需按前述顺序配置。无日志时检查 outbound 绑定及其账号、模型、API密钥范围。自有 Cline 转换独立保留 UA 改写，不走原生 Provider 画像链，也不生成此类宿主出站日志。
 
 日志在插件进程内存保留最近 200 条，每页 25 条，可主动清空，重启后清空。只保存模型、请求关联 ID、规则及三个身份头，不保存 Authorization、Cookie、请求正文或API密钥；每个身份头最多采集 4096 字节，超出会标注「日志截断」，实际请求头不受日志截断影响。
 
@@ -224,11 +224,11 @@ cargo build --release --locked --target $target
 打包 CLI 与 SDK 使用同一固定提交：
 
 ```powershell
-cargo install --locked --git https://github.com/zyycn/codex-proxy-rs.git --rev 8c8618aa0f841638262262e3338c115bc075f125 codex-proxy-plugin-cli --root .tools/plugin-cli-v7
+cargo install --locked --git https://github.com/zyycn/codex-proxy-rs.git --rev 789609dd53663b323e43567d2476f7f83b6b77a1 codex-proxy-plugin-cli --root .tools/plugin-cli-v7
 .tools/plugin-cli-v7/bin/cpr-plugin package --manifest plugin.json --binary "target/$target/release/cpr-data-toolkit" --target $target --resource-map web=web/dist --output-dir dist
 ```
 
-该版本 CLI 支持 `x86_64-unknown-linux-gnu`、`aarch64-unknown-linux-gnu` 和 `aarch64-apple-darwin`，没有 Windows 原生包目标。资源映射将 `web/dist` 中的三个页面文件放入包内 `web/`；输出包位于 `dist/`。详见[固定版本打包合同](https://github.com/zyycn/codex-proxy-rs/blob/8c8618aa0f841638262262e3338c115bc075f125/backend/apps/plugin-cli/README.md)。
+该版本 CLI 支持 `x86_64-unknown-linux-gnu`、`aarch64-unknown-linux-gnu` 和 `aarch64-apple-darwin`，没有 Windows 原生包目标。资源映射将 `web/dist` 中的三个页面文件放入包内 `web/`；输出包位于 `dist/`。详见[固定版本打包合同](https://github.com/zyycn/codex-proxy-rs/blob/789609dd53663b323e43567d2476f7f83b6b77a1/backend/apps/plugin-cli/README.md)。
 
 ### 本机 Windows 交叉构建
 
@@ -247,7 +247,7 @@ cargo +1.99.1 zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.1
 
 ### 交付与版本递增
 
-2.1 的发行目标为 Linux x86_64、Linux ARM64 和 macOS ARM64，提供原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/2.1.md`。
+2.2 的发行目标为 Linux x86_64、Linux ARM64 和 macOS ARM64，提供原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/2.2.md`。
 
 以后每次交付新包增加 `0.1`；打包前同步 `plugin.json`、`Cargo.toml`、`web/package.json` 和 Cargo 锁文件中的本项目版本。失败修复及同一次打包重试不重复递增，约定见 `AGENTS.md`。
 

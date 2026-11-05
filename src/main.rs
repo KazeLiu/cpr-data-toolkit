@@ -126,7 +126,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         quota_export::handle(*call).await.map(Into::into)
                     }
                     gateway_plugin_sdk::client::MiddlewareCall::Outbound(call) => {
-                        upstream_pin::outbound(&pin_logs, *call)
+                        model_ua::outbound(&logs, &pin_logs, *call)
                             .await
                             .map(Into::into)
                     }
@@ -136,7 +136,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         upstream_pin::observe(pin_logs, *call).await.map(Into::into)
                     }
                     gateway_plugin_sdk::client::MiddlewareCall::Request(call) => {
-                        key_models::middleware(&logs, *call).await.map(Into::into)
+                        key_models::middleware(*call).await.map(Into::into)
                     }
                     call => call.forward().await,
                 }

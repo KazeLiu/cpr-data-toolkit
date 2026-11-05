@@ -189,6 +189,13 @@ impl Adapter {
                 })
                 .cloned(),
         );
+        if let Err(error) =
+            crate::model_ua::adapter_headers(&call.host, &call.request.upstream_model, &mut headers)
+                .await
+        {
+            logs.failed(&key);
+            return Err(error);
+        }
         let payload = serde_json::to_vec(&body)
             .map_err(|_| PluginFault::new(ErrorCode::InvalidInput, "Cline 请求编码失败"))?;
         let upstream = match call

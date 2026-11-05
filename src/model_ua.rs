@@ -4,8 +4,8 @@ use crate::{
 };
 use gateway_plugin_sdk::{
     PluginFault,
-    call::middleware::{MiddlewareHeader, MiddlewareHeaderMutation, MiddlewareRequestHead},
-    client::{HostClient, MiddlewareResponse, RequestCall},
+    call::middleware::{MiddlewareHeader, MiddlewareHeaderMutation},
+    client::{HostClient, OutboundCall, OutboundRequest},
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -84,26 +84,23 @@ pub struct RequestLog {
     status: LogStatus,
     rule: Option<MatchedRule>,
     before: IdentityHeaders,
-    after: IdentityHeaders,
+    after: Option<IdentityHeaders>,
     next_failed: bool,
 }
 impl RequestLog {
-    fn new(head: &MiddlewareRequestHead) -> Self {
-        let before = IdentityHeaders::capture(&head.headers);
+    fn new(request_id: &str, model: Option<&str>, headers: &[MiddlewareHeader]) -> Self {
+        let before = IdentityHeaders::capture(headers);
         Self {
             id: uuid::Uuid::new_v4().to_string(),
             time_ms: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .expect("system clock must be after the Unix epoch")
                 .as_millis() as u64,
-            request_id: head.request_id.chars().take(128).collect(),
-            model: head
-                .model
-                .as_ref()
-                .map(|model| model.chars().take(256).collect()),
+            request_id: request_id.chars().take(128).collect(),
+            model: model.map(|model| model.chars().take(256).collect()),
             status: LogStatus::MissingModel,
             rule: None,
-            after: before.clone(),
+            after: None,
             before,
             next_failed: false,
         }
@@ -131,17 +128,6 @@ impl RequestLogs {
         entries.insert(index, entry);
         if entries.len() > LOG_CAPACITY {
             entries.pop_back();
-        }
-    }
-    async fn mark_next_failed(&self, id: &str) {
-        if let Some(entry) = self
-            .entries
-            .lock()
-            .await
-            .iter_mut()
-            .find(|entry| entry.id == id)
-        {
-            entry.next_failed = true;
         }
     }
     pub async fn page(&self, offset: usize) -> Result<LogPage> {
@@ -268,45 +254,70 @@ pub async fn load(
     let (version, value) = state::get(host, "model_ua", "rules").await?;
     Ok((version, value.unwrap_or_default()))
 }
-pub async fn middleware(
+pub async fn outbound(
     logs: &RequestLogs,
-    call: RequestCall,
-) -> std::result::Result<MiddlewareResponse, PluginFault> {
-    let mut request = call.request;
-    let mut entry = RequestLog::new(&request.head);
-    if request.head.model.is_some() {
-        let config = match load(&call.host).await {
+    pins: &crate::upstream_pin::Runtime,
+    call: OutboundCall,
+) -> std::result::Result<OutboundRequest, PluginFault> {
+    // outbound 已完成宿主账号画像和默认头生成，不能用 request 阶段的入站头冒充
+    let mut entry = RequestLog::new(
+        &call.metadata.request_id,
+        call.metadata.model.as_deref(),
+        &call.request.head.headers,
+    );
+    let config = if entry.model.is_some() {
+        match load(&call.host).await {
             Ok((_, config)) => config,
             Err(error) => {
                 entry.status = LogStatus::RulesError;
                 logs.record(entry).await;
                 return Err(error);
             }
-        };
+        }
+    } else {
+        Configuration::default()
+    };
+    if entry.model.is_some() {
         entry.status = LogStatus::Unmatched;
-        if let Some((rule, mutations)) = config.mutations(request.head.model.as_deref()) {
+    }
+    // 先完成后续出站准备（包括本插件的 DeepSeek 钉选），再应用 UA，返回实际准备好的头
+    let mut request = match crate::upstream_pin::outbound(pins, call).await {
+        Ok(request) => request,
+        Err(error) => {
+            entry.next_failed = true;
+            logs.record(entry).await;
+            return Err(error);
+        }
+    };
+    if entry.model.is_some() {
+        if let Some(rule) = config.rewrite(entry.model.as_deref(), &mut request.head.headers) {
             entry.rule = Some(MatchedRule {
                 id: rule.id.clone(),
                 keyword: rule.keyword.clone(),
             });
             entry.status = LogStatus::Rewritten;
-            // 必须使用 SDK 增量接口，直接替换 head.headers 会连带重发未配置的入站身份头。
-            for mutation in mutations {
-                match mutation {
-                    MiddlewareHeaderMutation::Remove { name } => request.remove_header(name),
-                    MiddlewareHeaderMutation::Append { name, value } => {
-                        request.append_header(name, value)
-                    }
-                }
-            }
         }
     }
-    entry.after = IdentityHeaders::capture(&request.head.headers);
-    let id = entry.id.clone();
+    entry.after = Some(IdentityHeaders::capture(&request.head.headers));
     logs.record(entry).await;
-    let result = call.next.run(request).await;
-    if result.is_err() {
-        logs.mark_next_failed(&id).await;
-    }
-    result
+    Ok(request)
+}
+
+// 自有 Cline 转换不经过原生 Provider 出站链，保留该路径的 UA 改写，但不伪造宿主画像日志
+pub async fn adapter_headers(
+    host: &HostClient,
+    model: &str,
+    headers: &mut Vec<(String, Vec<u8>)>,
+) -> std::result::Result<(), PluginFault> {
+    let (_, config) = load(host).await?;
+    let mut values = headers
+        .drain(..)
+        .map(|(name, value)| MiddlewareHeader { name, value })
+        .collect();
+    config.rewrite(Some(model), &mut values);
+    *headers = values
+        .into_iter()
+        .map(|header| (header.name, header.value))
+        .collect();
+    Ok(())
 }

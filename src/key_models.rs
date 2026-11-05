@@ -2,7 +2,6 @@
 
 use crate::{
     api::{ApiError, Result},
-    model_ua::{self, RequestLogs},
     state,
 };
 use gateway_plugin_sdk::{
@@ -48,7 +47,9 @@ async fn ensure_key(host: &HostClient, key: &str) -> Result<()> {
     let mut cursor = None;
     let mut count = 0;
     loop {
-        let page = host.list_keys(KeyListRequest { cursor, limit: 200 }).await?;
+        let page = host
+            .list_keys(KeyListRequest { cursor, limit: 200 })
+            .await?;
         if page.keys.iter().any(|entry| entry.id == key) {
             return Ok(());
         }
@@ -58,7 +59,13 @@ async fn ensure_key(host: &HostClient, key: &str) -> Result<()> {
         }
         match page.next_cursor {
             Some(next) => cursor = Some(next),
-            None => return Err(ApiError::new(404, "key_not_found", "API密钥已删除，请重新选择")),
+            None => {
+                return Err(ApiError::new(
+                    404,
+                    "key_not_found",
+                    "API密钥已删除，请重新选择",
+                ));
+            }
         }
     }
 }
@@ -117,14 +124,11 @@ pub async fn save(host: &HostClient, request: Save) -> Result<Value> {
     Ok(json!({"version": version, "value": request.value}))
 }
 
-pub async fn middleware(
-    logs: &RequestLogs,
-    call: RequestCall,
-) -> std::result::Result<MiddlewareResponse, PluginFault> {
+pub async fn middleware(call: RequestCall) -> std::result::Result<MiddlewareResponse, PluginFault> {
     let catalog = call.request.head.endpoint == "/v1/models";
     // 用量等无模型的只读查询不属于模型权限范围
     if !catalog && call.request.head.operation == "query" && call.request.head.model.is_none() {
-        return model_ua::middleware(logs, call).await;
+        return call.next.run(call.request).await;
     }
     let allowed = match allowed_models(&call.host, &call.request.head.client_key_id).await {
         Ok(allowed) => allowed,
@@ -139,7 +143,7 @@ pub async fn middleware(
         }
     };
     let Some(allowed) = allowed else {
-        return model_ua::middleware(logs, call).await;
+        return call.next.run(call.request).await;
     };
     // 图片等原生 JSON 端点尚未提供 head.model，按正文中的公开 model 检查
     let model = call.request.head.model.clone().or_else(|| {
@@ -162,7 +166,7 @@ pub async fn middleware(
         );
     }
     let protocol = call.request.head.protocol.clone();
-    let mut response = match model_ua::middleware(logs, call).await {
+    let mut response = match call.next.run(call.request).await {
         Ok(response) => response,
         Err(error) if !catalog => return Err(error),
         Err(_) => {

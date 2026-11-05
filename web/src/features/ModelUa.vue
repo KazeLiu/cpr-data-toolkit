@@ -70,7 +70,7 @@ const logLabels: Record<UaLogStatus, string> = {
 }
 function hasExtraChanges(entry: UaRequestLog) {
   return (
-    entry.before.originator !== entry.after.originator || entry.before.version !== entry.after.version
+    entry.after !== null && (entry.before.originator !== entry.after.originator || entry.before.version !== entry.after.version)
   )
 }
 function headerValue(value: string | null) {
@@ -261,8 +261,7 @@ onMounted(async () => {
   <section class="panel">
     <section class="section">
     <p class="muted">
-      忽略大小写，按顺序使用首条命中规则 · 未命中时保留API密钥身份 · 作用范围沿用宿主 request
-      绑定，空绑定范围表示全局
+      按出站模型忽略大小写匹配首条规则 · 未命中时保留宿主身份 · 启用 outbound 绑定，空绑定范围表示全局
     </p>
     <div class="toolbar">
       <ZButton :disabled="!rules.loaded || rules.busy || rules.rows.length >= 100" @click="edit(-1)"
@@ -332,8 +331,9 @@ onMounted(async () => {
         <span class="muted">最近 {{ logs.capacity }} 条 · 最新在前 · 重启插件后清空</span>
       </div>
       <p class="muted">
-        改写前为插件接收的 UA，不是API密钥默认 UA · 改写后为插件交给宿主的 UA · 预览与安全验证不计入日志
+        改写前为宿主生成的出站 UA，改写后为本插件完成准备并交给上游传输的 UA · 将本插件放在出站链最外层，避免返回后被其他插件覆盖
       </p>
+      <p class="muted">Cline 转换独立应用 UA 规则，不生成原生出站日志 · 预览与安全验证不计入日志</p>
       <p v-if="logs.error" class="error" role="alert">{{ logs.error }}</p>
       <ZTable
         :columns="logColumns"
@@ -343,7 +343,7 @@ onMounted(async () => {
         size="small"
         :empty-text="
           logs.loaded
-            ? '暂无检测记录 · 发送模型请求后刷新 · 仍为空时检查插件启用状态与 request 绑定范围'
+            ? '暂无出站记录 · 发送模型请求后刷新 · 检查 outbound 绑定范围'
             : '读取日志后查看实际请求'
         "
       >
@@ -367,7 +367,7 @@ onMounted(async () => {
             <span v-if="row.rule" class="mono">
               包含 {{ row.rule.keyword }}
             </span>
-            <span v-if="row.nextFailed" class="error">下游调用失败</span>
+            <span v-if="row.nextFailed" class="error">出站准备失败</span>
           </div>
         </template>
         <template #before="{ row }">
@@ -384,7 +384,7 @@ onMounted(async () => {
           </div>
         </template>
         <template #after="{ row }">
-          <div class="ua-log-cell">
+          <div v-if="row.after" class="ua-log-cell">
             <span class="mono ua-log-header">{{ headerValue(row.after.userAgent) }}</span>
             <div v-if="hasExtraChanges(row)" class="ua-log-headers">
               <dl>
@@ -395,6 +395,7 @@ onMounted(async () => {
               </dl>
             </div>
           </div>
+          <span v-else class="muted">未形成出站请求</span>
         </template>
       </ZTable>
       <TablePagination :offset="logs.offset" :total="logs.total" :page-size="logs.pageSize" :busy="logs.busy" @change="loadLogs" />
