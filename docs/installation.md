@@ -1,12 +1,14 @@
 # 安装 CPR 数据工具箱
 
-当前版本为 **2.3**，内部版本 `2.3.0`，要求 CPR **3.40.0 或更新的兼容版本**，使用 RPC v7、公开 SDK 0.1.0、upstream_adapter v5 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.40.0 的提交 `789609dd`](https://github.com/zyycn/codex-proxy-rs/commit/789609dd53663b323e43567d2476f7f83b6b77a1)
+当前版本为 **2.4**，内部版本 `2.4.0`，要求 CPR **3.40.0 或更新的兼容版本**，使用 RPC v7、公开 SDK 0.1.0、upstream_adapter v5 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.40.0 的提交 `789609dd`](https://github.com/zyycn/codex-proxy-rs/commit/789609dd53663b323e43567d2476f7f83b6b77a1)
 
-从 [2.3 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v2.3.0)下载对应平台的 `.tar.gz` 和 `.sha256`，或下载 ZIP 后解压。通过宿主 GitHub 来源安装时，仓库填写 `KazeLiu/cpr-data-toolkit`，标签填写 `v2.3.0`
+从 [2.4 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v2.4.0)下载对应平台的 `.tar.gz` 和 `.sha256`，或下载 ZIP 后解压。通过宿主 GitHub 来源安装时，仓库填写 `KazeLiu/cpr-data-toolkit`，标签填写 `v2.4.0`
 
 ## 在原插件实例上升级
 
-先升级宿主至 3.40.0 或更新兼容版本，再在原插件实例升级到 `v2.3.0`，不要卸载或清空状态。升级前保留常规宿主备份，升级后关闭再打开插件管理页
+先升级宿主至 3.40.0 或更新兼容版本，再在原插件实例升级到 `v2.4.0`，不要卸载或清空状态。升级前保留常规宿主备份，升级后关闭再打开插件管理页
+
+2.4 自动为精确 1017 且仅允许 deepseek 的启用规则加入区域筛选，无需重填已有规则；日志增加响应模型与「详情」弹窗，查看上游用量和路由信息，不展示正文或凭据。见 [发布说明](releases/2.4.md)
 
 2.3 更新全部标签页样式与界面文案，沿用现有主题、配置和状态结构，见 [发布说明](releases/2.3.md)
 

@@ -45,6 +45,7 @@ pub fn registration() -> ManagementRegistration {
         "api/upstream-pin/save",
         "api/upstream-pin/delete",
         "api/upstream-pin/logs",
+        "api/upstream-pin/logs/detail",
         "api/upstream-pin/logs/clear",
         "api/models",
         "api/model-priority/lookup",
@@ -275,6 +276,7 @@ async fn route(
             pin_logs.clear();
             Ok(json!({"cleared":true}))
         }
+        ("POST", "api/upstream-pin/logs/detail") => pin_logs.detail(api::decode(&call.payload)?),
         ("POST", "api/model-priority/logs") => {
             let request: LogQuery = api::decode(&call.payload)?;
             Ok(serde_json::to_value(

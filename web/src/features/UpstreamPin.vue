@@ -8,7 +8,7 @@ import { computed, reactive, watch } from 'vue'
 import { message } from '../api'
 import { getCline, saveCline } from '../api/cline'
 import { getQuotaSources } from '../api/upstream'
-import { clearPinLogs, deletePin, getPinLogs, getPins, savePin } from '../api/upstream-pin'
+import { clearPinLogs, deletePin, getPinDetail, getPinLogs, getPins, savePin } from '../api/upstream-pin'
 import { copyText } from '../clipboard'
 import TablePagination from '../components/TablePagination.vue'
 import { formatDateTime } from '../dates'
@@ -48,6 +48,9 @@ const editor = reactive({
 })
 const removal = reactive({ open: false, rule: null as PinRule | null, error: '' })
 const logs = reactive({ entries: [] as PinLog[], offset: 0, total: 0, busy: false, error: '' })
+const detail = reactive({ open: false, busy: false, error: '', value: null as Awaited<ReturnType<typeof getPinDetail>> | null })
+const officialRule = computed(() => editor.model.trim() === 'cline-pass/deepseek-v4.1-flash-1017'
+  && split(editor.providers).length === 1 && split(editor.providers)[0]?.toLowerCase() === 'deepseek')
 const accountOptions = computed(() => state.accounts.map(account => ({ value: account.id, label: `${account.name}${account.enabled ? '' : '（已停用）'}` })))
 const conversionRows = computed(() => [...new Set([...conversion.accountIds, ...conversion.activeAccountIds])].map(id => ({
   id,
@@ -72,7 +75,43 @@ const logColumns: TableColumn<PinLog>[] = [
   { key: 'target', label: '账号 / 请求模型名称', kind: 'custom', size: '3xl' },
   { key: 'routing', label: '已应用参数', kind: 'custom', size: 'xl' },
   { key: 'result', label: '上游来源信息', kind: 'custom', size: 'lg' },
+  { key: 'timing', label: '首字 / 耗时', kind: 'custom', size: 'lg' },
+  { key: 'actions', label: '操作', kind: 'actions', size: 'sm' },
 ]
+function elapsed(value: number | null) {
+  return value === null ? '未提供' : `${(value / 1000).toFixed(2)} 秒`
+}
+const detailUsage = computed(() => {
+  const usage = detail.value?.response.usage as Record<string, unknown> | undefined
+  const input = usage?.prompt_tokens ?? usage?.input_tokens
+  const output = usage?.completion_tokens ?? usage?.output_tokens
+  const promptDetails = (usage?.prompt_tokens_details ?? usage?.input_tokens_details) as Record<string, unknown> | undefined
+  const cached = promptDetails?.cached_tokens ?? usage?.prompt_cache_hit_tokens
+  const elapsedMs = detail.value?.entry.durationMs
+  const outputMs = elapsedMs === null || elapsedMs === undefined ? null : elapsedMs - (detail.value?.entry.ttftMs ?? 0)
+  return {
+    input: typeof input === 'number' ? input : '未提供',
+    output: typeof output === 'number' ? output : '未提供',
+    cached: typeof cached === 'number' ? cached : '未提供',
+    rate: typeof cached === 'number' && typeof input === 'number' && input > 0 ? `${(cached / input * 100).toFixed(1)}%` : '未提供',
+    speed: typeof output === 'number' && outputMs !== null && outputMs > 0 ? `${(output * 1000 / outputMs).toFixed(1)} Token/秒` : '未提供',
+  }
+})
+async function showDetail(row: PinLog) {
+  detail.open = true
+  detail.busy = true
+  detail.error = ''
+  detail.value = null
+  try {
+    detail.value = await getPinDetail(row)
+  }
+  catch (error) {
+    detail.error = message(error)
+  }
+  finally {
+    detail.busy = false
+  }
+}
 function name(id: string) {
   return state.accounts.find(account => account.id === id)?.name ?? id
 }
@@ -300,6 +339,7 @@ watch(() => props.active, (active) => {
         <ZButton type="primary" :disabled="!state.loaded || state.busy || !state.accounts.length" @click="edit()">添加规则</ZButton>
       </div>
       <p class="field-help">Cline 原生账号先完成协议转换，Responses 反代账号可单独钉选，需启用「出站请求准备」</p>
+      <p class="field-help">1017 模型仅允许 deepseek 时自动附加区域筛选，实际来源与响应模型以日志为准</p>
       <ZTable size="small" :columns="columns" :data="state.rules" :loading="state.busy" empty-text="暂无规则">
         <template #empty><p class="table-empty">暂无规则</p></template>
         <template #account="{ row }">{{ name(row.accountId) }}</template>
@@ -324,12 +364,15 @@ watch(() => props.active, (active) => {
         <template #empty><p class="table-empty">暂无钉选记录</p></template>
         <template #time="{ row }">{{ formatDateTime(row.timeMs) }}</template>
         <template #target="{ row }"><div>{{ name(row.accountId) }}</div><code>{{ row.model }}</code></template>
-        <template #routing="{ row }"><div>{{ row.providers.join(', ') || '未命中' }}</div><div v-if="row.providers.length && row.has.length" class="muted">{{ row.has.join(', ') }}</div></template>
+        <template #routing="{ row }"><div>{{ row.providers.join(', ') || '未命中' }}</div><div v-if="row.providers.length && row.has.length" class="muted">{{ row.has.join(', ') }}</div><div v-if="row.inferenceRegion" class="muted">已附加区域筛选</div></template>
         <template #result="{ row }">
           <span :class="{ 'status-success': sourceMatches(row) }" :aria-label="sourceMatches(row) ? `${row.finalProvider}，与钉选一致` : undefined">{{ row.finalProvider ?? '未知' }}</span>
           <div v-if="row.providers.length && row.finalProvider && !sourceMatches(row)">来源不符合钉选</div>
           <div v-if="row.failed" class="muted">准备或调用失败</div>
+          <div class="mono response-model">{{ row.servedModel ?? '响应模型未报告' }}</div>
         </template>
+        <template #timing="{ row }"><div>{{ elapsed(row.ttftMs) }}</div><div class="muted">{{ row.completed ? elapsed(row.durationMs) : '处理中' }}</div></template>
+        <template #actions="{ row }"><ZButton size="small" variant="text" @click="showDetail(row)">详情</ZButton></template>
       </ZTable>
       <TablePagination :offset="logs.offset" :total="logs.total" :page-size="25" :busy="logs.busy" @change="readLogs" />
     </section>
@@ -344,12 +387,41 @@ watch(() => props.active, (active) => {
         <div class="toolbar">
           <ZSwitch v-model="editor.enabled" :disabled="editor.busy" label="启用规则" />
         </div>
+        <p v-if="officialRule" class="field-help">自动添加 inferenceRegion，筛除私有通道；能力留空不会关闭区域筛选，停用规则或修改模型、提供方可退出</p>
         <p v-if="editor.error" class="error" role="alert">{{ editor.error }}</p>
       </div>
       <template #footer>
         <ZButton :disabled="editor.busy" @click="editor.open = false">取消</ZButton>
         <ZButton type="primary" :loading="editor.busy" :disabled="!editor.accountId || !editor.model.trim() || !split(editor.providers).length" @click="save">保存规则</ZButton>
       </template>
+    </ZDialog>
+    <ZDialog v-model="detail.open" title="上游返回详情" width="52rem">
+      <div class="panel">
+        <p v-if="detail.busy" class="muted" role="status">正在读取详情</p>
+        <p v-if="detail.error" class="error" role="alert">{{ detail.error }}</p>
+        <template v-if="detail.value">
+          <dl>
+            <dt>上游账号</dt><dd>{{ name(detail.value.entry.accountId) }}</dd>
+            <dt>请求模型名称</dt><dd class="mono">{{ detail.value.entry.model }}</dd>
+            <dt>响应模型名称</dt><dd class="mono response-model">{{ detail.value.entry.servedModel ?? '未报告' }}</dd>
+            <dt>上游来源信息</dt><dd :class="{ 'status-success': sourceMatches(detail.value.entry) }">{{ detail.value.entry.finalProvider ?? '未知' }}</dd>
+            <dt>HTTP 状态</dt><dd>{{ detail.value.entry.status ?? '未提供' }}</dd>
+            <dt>请求结果</dt><dd>{{ detail.value.entry.failed ? '失败' : detail.value.entry.completed ? '已完成' : '处理中' }}</dd>
+            <dt>首字 / 耗时</dt><dd>{{ elapsed(detail.value.entry.ttftMs) }} / {{ elapsed(detail.value.entry.durationMs) }}</dd>
+            <dt>输入 / 输出 Token</dt><dd>{{ detailUsage.input }} / {{ detailUsage.output }}</dd>
+            <dt>缓存 Token / 命中率</dt><dd>{{ detailUsage.cached }} / {{ detailUsage.rate }}</dd>
+            <dt>输出速率</dt><dd>{{ detailUsage.speed }}</dd>
+          </dl>
+          <p v-if="detail.value.message" class="error">{{ detail.value.message }}</p>
+          <h3>已应用路由参数</h3>
+          <pre class="response-json">{{ JSON.stringify({ only: detail.value.entry.providers, has: detail.value.entry.has, inferenceRegion: detail.value.entry.inferenceRegion }, null, 2) }}</pre>
+          <h3>上游响应诊断</h3>
+          <p class="field-help">展示上游回报的用量、结束原因和路由诊断字段，不包含回答正文、工具参数或凭据</p>
+          <pre class="response-json">{{ JSON.stringify(detail.value.response, null, 2) }}</pre>
+          <p v-if="detail.value.limited" class="notice">部分诊断信息超过长度或容量限制，仅保留有界内容</p>
+        </template>
+      </div>
+      <template #footer><ZButton @click="detail.open = false">关闭</ZButton></template>
     </ZDialog>
     <ZDialog v-model="removal.open" title="删除规则" :close-on-click-modal="!state.busy" :close-on-press-escape="!state.busy" :show-close="!state.busy">
       <p>删除 {{ removal.rule?.model }} 的钉选规则，后续请求恢复原有路由参数</p>
@@ -366,6 +438,8 @@ watch(() => props.active, (active) => {
 </template>
 
 <style scoped>
+.response-model { overflow-wrap: anywhere; font-weight: 600; }
+.response-json { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--z-font-size-sm); }
 .conversion-setup {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);

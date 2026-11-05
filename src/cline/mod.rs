@@ -236,6 +236,7 @@ impl Adapter {
             .and_then(|v| v.checked_mul(1000))
             .map(|delay| delay.min(24 * 60 * 60 * 1000));
         let maximum = self.maximum_stream_chunk_bytes;
+        logs.status(&key, upstream.status);
         let parallel_tool_calls = body
             .get("parallel_tool_calls")
             .and_then(Value::as_bool)
@@ -391,7 +392,7 @@ impl Stream {
         self.ended = true;
         self.response.events.clear();
         self.frames.clear();
-        self.logs.failed(&self.key);
+        self.logs.finished(&self.key, true, Some(message));
         let _ = self.body.close().await;
         let mut event = failure(kind, status, message);
         if let Some(failure) = &mut event.failure {
@@ -414,10 +415,6 @@ impl Stream {
     }
     fn observe(&mut self) {
         if let Some(metadata) = self.response.metadata_update.take() {
-            self.logs.observe(
-                &self.key,
-                &json!({"provider_metadata":self.response.metadata}),
-            );
             self.observation
                 .get_or_insert_with(|| ResponseObservation::new("http_sse"))
                 .provider_metadata = Some(metadata);
@@ -430,6 +427,7 @@ impl Stream {
     }
     fn finish(&mut self) -> std::result::Result<(), &'static str> {
         self.response.complete()?;
+        self.logs.finished(&self.key, false, None);
         self.ended = true;
         Ok(())
     }
@@ -462,10 +460,11 @@ impl Stream {
             }
             if let Some(frame) = self.frames.pop_front() {
                 let result = if frame.error {
-                    if let Ok(value) = serde_json::from_slice::<Value>(&frame.data)
-                        && let Some((kind, status, message)) = chat_failure(&value)
-                    {
-                        return Some(self.fail(kind, status, message).await);
+                    if let Ok(value) = serde_json::from_slice::<Value>(&frame.data) {
+                        self.logs.observe(&self.key, &value);
+                        if let Some((kind, status, message)) = chat_failure(&value) {
+                            return Some(self.fail(kind, status, message).await);
+                        }
                     }
                     Err("Cline SSE 返回错误事件")
                 } else if frame.data.trim_ascii() == b"[DONE]" {
@@ -478,6 +477,7 @@ impl Stream {
                     match serde_json::from_slice::<Value>(&frame.data) {
                         Err(_) => Err("Cline SSE data 不是有效 JSON"),
                         Ok(value) => {
+                            self.logs.observe(&self.key, &value);
                             if let Some((kind, status, message)) = chat_failure(&value) {
                                 return Some(self.fail(kind, status, message).await);
                             }
@@ -544,6 +544,7 @@ impl Stream {
                         );
                     }
                 };
+                self.logs.observe(&self.key, &value);
                 if let Some((kind, status, message)) = chat_failure(&value) {
                     return Some(self.fail(kind, status, message).await);
                 }

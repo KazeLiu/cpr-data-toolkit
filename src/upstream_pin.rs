@@ -1,5 +1,8 @@
 //! Cline 路由条件的发送前注入；日志只保存规则和明确回报的最终提供方
 
+mod details;
+pub use details::Query as DetailQuery;
+
 use crate::{
     api::{ApiError, Result},
     state, upstream,
@@ -14,7 +17,7 @@ use serde_json::{Map, Value, json};
 use std::{
     collections::{HashSet, VecDeque},
     sync::{Arc, Mutex},
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
 const NAMESPACE: &str = "upstream_pin";
@@ -173,6 +176,13 @@ fn invalid_body() -> PluginFault {
     PluginFault::new(ErrorCode::InvalidInput, "钉上游需要未压缩的 JSON 请求")
 }
 
+fn official_region(model: &str, providers: &[String]) -> Option<Value> {
+    (model == "cline-pass/deepseek-v4.1-flash-1017"
+        && providers.len() == 1
+        && providers[0] == "deepseek")
+        .then(|| json!({"scope":"global","providers":{"openai-compatible-private":{"scope":"zone","geoRegion":"us"}}}))
+}
+
 // 只接管 Cline 的路由命名空间，其他 providerOptions、消息和工具保留原值
 fn apply(body: &mut Map<String, Value>, rule: &Rule) -> std::result::Result<(), PluginFault> {
     let options = body.entry("providerOptions").or_insert_with(|| json!({}));
@@ -185,6 +195,9 @@ fn apply(body: &mut Map<String, Value>, rule: &Rule) -> std::result::Result<(), 
     gateway.insert("order".into(), json!(rule.providers));
     if !rule.has.is_empty() {
         gateway.insert("has".into(), json!(rule.has));
+    }
+    if let Some(region) = official_region(&rule.model, &rule.providers) {
+        gateway.insert("inferenceRegion".into(), region);
     }
     options.insert("gateway".into(), Value::Object(gateway));
     body.insert(
@@ -307,6 +320,20 @@ struct Entry {
     has: Vec<String>,
     final_provider: Option<String>,
     failed: bool,
+    served_model: Option<String>,
+    status: Option<u16>,
+    duration_ms: Option<u64>,
+    ttft_ms: Option<u64>,
+    completed: bool,
+    inference_region: Option<Value>,
+    #[serde(skip)]
+    started: Option<Instant>,
+    #[serde(skip)]
+    response: Map<String, Value>,
+    #[serde(skip)]
+    message: Option<String>,
+    #[serde(skip)]
+    detail_limited: bool,
     #[serde(skip)]
     inspect_response: bool,
 }
@@ -347,6 +374,16 @@ impl Runtime {
             has: rule.has.clone(),
             final_provider: None,
             failed: false,
+            served_model: None,
+            status: None,
+            duration_ms: None,
+            ttft_ms: None,
+            completed: false,
+            inference_region: official_region(&rule.model, &rule.providers),
+            started: Some(Instant::now()),
+            response: Map::new(),
+            message: None,
+            detail_limited: false,
             inspect_response,
         });
         entries.truncate(CAPACITY);
@@ -361,6 +398,9 @@ impl Runtime {
             })
     }
     pub(crate) fn failed(&self, key: &(String, u32)) {
+        self.finished(key, true, None);
+    }
+    pub(crate) fn status(&self, key: &(String, u32), status: u16) {
         if let Some(entry) = self
             .entries
             .lock()
@@ -368,17 +408,33 @@ impl Runtime {
             .iter_mut()
             .find(|entry| entry.request_id == key.0 && entry.attempt_index == key.1)
         {
-            entry.failed = true;
+            entry.status = Some(status);
+        }
+    }
+    pub(crate) fn finished(&self, key: &(String, u32), failed: bool, message: Option<&str>) {
+        if let Some(entry) = self
+            .entries
+            .lock()
+            .expect("pin log lock")
+            .iter_mut()
+            .find(|entry| entry.request_id == key.0 && entry.attempt_index == key.1)
+        {
+            entry.failed |= failed;
+            entry.completed = true;
+            if let Some(started) = entry.started.take() {
+                entry.duration_ms = Some(started.elapsed().as_millis() as u64);
+            }
+            if let Some(message) = message {
+                entry.message = Some(message.into());
+            }
         }
     }
     pub(crate) fn observe(&self, key: &(String, u32), value: &Value) {
         let provider =
             reported_provider(value).or_else(|| value.get("data").and_then(reported_provider));
-        let Some(provider) = provider.filter(|provider| {
+        let provider = provider.filter(|provider| {
             valid_text(provider, 128) && !provider.chars().any(char::is_whitespace)
-        }) else {
-            return;
-        };
+        });
         if let Some(entry) = self
             .entries
             .lock()
@@ -386,7 +442,10 @@ impl Runtime {
             .iter_mut()
             .find(|entry| entry.request_id == key.0 && entry.attempt_index == key.1)
         {
-            entry.final_provider = Some(provider.to_owned());
+            if let Some(provider) = provider {
+                entry.final_provider = Some(provider.to_owned());
+            }
+            details::observe(entry, value);
         }
     }
     pub fn page(&self, offset: usize) -> Result<Value> {
@@ -400,6 +459,18 @@ impl Runtime {
     }
     pub fn clear(&self) {
         self.entries.lock().expect("pin log lock").clear();
+    }
+    pub fn detail(&self, input: DetailQuery) -> Result<Value> {
+        let entries = self.entries.lock().expect("pin log lock");
+        let entry = entries
+            .iter()
+            .find(|entry| {
+                entry.request_id == input.request_id && entry.attempt_index == input.attempt_index
+            })
+            .ok_or_else(|| ApiError::new(404, "log_expired", "日志已清空或过期，请刷新日志"))?;
+        Ok(
+            json!({"entry": entry, "response": entry.response, "message": entry.message, "limited":entry.detail_limited}),
+        )
     }
 }
 
@@ -436,6 +507,7 @@ pub async fn observe(
     if !logs.needs_observation(&key) {
         return Ok(response);
     }
+    logs.status(&key, response.status);
     if response.status >= 400 {
         logs.failed(&key);
     }
@@ -468,6 +540,14 @@ pub async fn observe(
                 logs.failed(&key);
             }
             logs.observe(&key, &value);
+            if matches!(
+                value["type"].as_str(),
+                Some("response.completed" | "response.incomplete")
+            ) || (value["object"] == "response"
+                && matches!(value["status"].as_str(), Some("completed" | "incomplete")))
+            {
+                logs.finished(&key, false, None);
+            }
         }
     })?;
     Ok(response)
