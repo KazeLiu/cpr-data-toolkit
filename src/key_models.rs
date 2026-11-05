@@ -124,7 +124,10 @@ pub async fn save(host: &HostClient, request: Save) -> Result<Value> {
     Ok(json!({"version": version, "value": request.value}))
 }
 
-pub async fn middleware(call: RequestCall) -> std::result::Result<MiddlewareResponse, PluginFault> {
+pub async fn middleware(
+    cline: &crate::cline::Adapter,
+    call: RequestCall,
+) -> std::result::Result<MiddlewareResponse, PluginFault> {
     let catalog = call.request.head.endpoint == "/v1/models";
     // 用量等无模型的只读查询不属于模型权限范围
     if !catalog && call.request.head.operation == "query" && call.request.head.model.is_none() {
@@ -142,9 +145,31 @@ pub async fn middleware(call: RequestCall) -> std::result::Result<MiddlewareResp
             );
         }
     };
-    let Some(allowed) = allowed else {
-        return call.next.run(call.request).await;
+    let hidden = if catalog {
+        match cline
+            .hidden_models(
+                &call.host,
+                &call.request.head.client_key_id,
+                &call.request.head.settings,
+            )
+            .await
+        {
+            Ok(hidden) => hidden,
+            Err(_) => {
+                return error_response(
+                    &call.request.head.protocol,
+                    503,
+                    "model_catalog_unavailable",
+                    "无法确认模型目录的账号范围，请稍后重试",
+                );
+            }
+        }
+    } else {
+        HashSet::new()
     };
+    if allowed.is_none() && hidden.is_empty() {
+        return call.next.run(call.request).await;
+    }
     // 图片等原生 JSON 端点尚未提供 head.model，按正文中的公开 model 检查
     let model = call.request.head.model.clone().or_else(|| {
         serde_json::from_slice::<Value>(&call.request.body)
@@ -153,7 +178,10 @@ pub async fn middleware(call: RequestCall) -> std::result::Result<MiddlewareResp
             .as_str()
             .map(str::to_owned)
     });
-    if !catalog && !model.as_ref().is_some_and(|model| allowed.contains(model)) {
+    if !catalog
+        && let Some(allowed) = &allowed
+        && !model.as_ref().is_some_and(|model| allowed.contains(model))
+    {
         return error_response(
             &call.request.head.protocol,
             403,
@@ -202,7 +230,9 @@ pub async fn middleware(call: RequestCall) -> std::result::Result<MiddlewareResp
                 return Err(invalid_catalog());
             }
             models.retain(|model| {
-                allowed.contains(model[id].as_str().expect("catalog IDs checked above"))
+                let model = model[id].as_str().expect("catalog IDs checked above");
+                !hidden.contains(model)
+                    && allowed.as_ref().is_none_or(|allowed| allowed.contains(model))
             });
             frame.payload = serde_json::to_vec(&value).map_err(|_| invalid_catalog())?;
             Ok(vec![frame])

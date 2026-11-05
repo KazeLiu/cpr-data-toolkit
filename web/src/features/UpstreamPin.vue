@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import type { TableColumn } from '@codex-proxy/ui'
+import type { SelectOption, TableColumn } from '@codex-proxy/ui'
 import type { ClineConfiguration } from '../api/cline'
 import type { QuotaSource } from '../api/upstream'
 import type { PinLog, PinRule } from '../api/upstream-pin'
-import { ZButton, ZDialog, ZInput, ZSelect, ZSwitch, ZTable } from '@codex-proxy/ui'
+import { ZButton, ZDialog, ZIconButton, ZInput, ZPopover, ZSelect, ZSwitch, ZTable } from '@codex-proxy/ui'
 import { computed, reactive, watch } from 'vue'
 import { message } from '../api'
-import { getCline, saveCline } from '../api/cline'
+import { getCline, getClineModels, prepareClineCatalog, saveCline } from '../api/cline'
 import { getQuotaSources } from '../api/upstream'
 import { clearPinLogs, deletePin, getPinDetail, getPinLogs, getPins, savePin } from '../api/upstream-pin'
 import { copyText } from '../clipboard'
@@ -19,6 +19,9 @@ const conversion = reactive({
   accountIds: [] as string[],
   activeAccountIds: [] as string[],
   pendingConfiguration: false,
+  catalogEnabled: false,
+  activeCatalogCount: 0,
+  preparedConfiguration: '',
   selected: '',
   busy: false,
   error: '',
@@ -40,6 +43,7 @@ const editor = reactive({
   originalModel: '',
   accountId: '',
   model: '',
+  modelQuery: '',
   enabled: true,
   providers: '',
   has: '',
@@ -47,6 +51,19 @@ const editor = reactive({
   error: '',
 })
 const removal = reactive({ open: false, rule: null as PinRule | null, error: '' })
+const catalog = reactive({ models: null as string[] | null, busy: false, error: '' })
+const catalogPending = computed(() => conversion.catalogEnabled !== (conversion.activeCatalogCount > 0)
+  || (conversion.catalogEnabled && (conversion.pendingConfiguration || !!conversion.preparedConfiguration)))
+const modelOptions = computed(() => {
+  const query = editor.modelQuery.trim()
+  const search = query.toLowerCase()
+  const ids = catalog.models ?? []
+  const options: SelectOption[] = ids.filter(id => id.toLowerCase().includes(search))
+    .map(id => ({ value: id, label: id }))
+  if (query && !ids.includes(query))
+    options.push({ value: query, label: query, description: '使用此名称' })
+  return options
+})
 const logs = reactive({ entries: [] as PinLog[], offset: 0, total: 0, busy: false, error: '' })
 const detail = reactive({ open: false, busy: false, error: '', value: null as Awaited<ReturnType<typeof getPinDetail>> | null })
 const officialRule = computed(() => ['cline-pass/deepseek-v4.1-flash-1017', 'deepseek/deepseek-v4.1-flash-1017'].includes(editor.model.trim())
@@ -129,7 +146,9 @@ function applyConversion(value: ClineConfiguration) {
   conversion.version = value.version
   conversion.accountIds = value.accountIds
   conversion.activeAccountIds = value.activeAccountIds
+  conversion.activeCatalogCount = value.catalogModels.length
   conversion.pendingConfiguration = value.pendingConfiguration
+  conversion.preparedConfiguration = ''
 }
 async function changeConversion(removeId?: string) {
   conversion.busy = true
@@ -139,6 +158,8 @@ async function changeConversion(removeId?: string) {
       ? conversion.accountIds.filter(id => id !== removeId)
       : [...conversion.accountIds, conversion.selected]
     applyConversion(await saveCline(conversion.version, ids))
+    if (!ids.length)
+      conversion.catalogEnabled = false
     conversion.selected = ''
     conversion.removeId = ''
     state.notice = conversion.pendingConfiguration ? '配置待应用' : '账号选择已保存'
@@ -156,13 +177,45 @@ async function copyConfiguration() {
     conversion.error = '请先点击加入转换配置，再复制'
     return
   }
+  if (conversion.catalogEnabled && !conversion.preparedConfiguration) {
+    await prepareCatalog()
+    return
+  }
+  conversion.busy = true
   try {
-    await copyText(JSON.stringify({ clineAccountIds: conversion.accountIds }, null, 2))
+    await copyText(conversion.catalogEnabled
+      ? conversion.preparedConfiguration
+      : JSON.stringify({ clineAccountIds: conversion.accountIds }, null, 2))
     state.notice = '实例配置已复制'
   }
   catch (error) {
     conversion.error = message(error)
   }
+  finally {
+    conversion.busy = false
+  }
+}
+async function prepareCatalog() {
+  conversion.busy = true
+  conversion.error = ''
+  try {
+    const config = await prepareClineCatalog(conversion.accountIds)
+    conversion.preparedConfiguration = JSON.stringify(config)
+  }
+  catch (error) {
+    conversion.error = message(error)
+  }
+  finally {
+    conversion.busy = false
+  }
+}
+function changeCatalog(enabled: boolean) {
+  conversion.catalogEnabled = enabled
+  conversion.preparedConfiguration = ''
+  conversion.error = ''
+  state.notice = ''
+  if (enabled && !conversion.selected)
+    void prepareCatalog()
 }
 async function load() {
   if (state.busy || conversion.busy)
@@ -174,6 +227,7 @@ async function load() {
     const [config, accounts, cline] = await Promise.all([getPins(), getQuotaSources(), getCline()])
     apply(config)
     applyConversion(cline)
+    conversion.catalogEnabled = cline.catalogModels.length > 0
     state.accounts = accounts
     if (!accounts.some(account => account.id === state.selectedAccountId))
       state.selectedAccountId = accounts.find(account => account.enabled)?.id ?? accounts[0]?.id ?? ''
@@ -186,16 +240,33 @@ async function load() {
     state.busy = false
   }
 }
+async function loadCatalog() {
+  if (catalog.busy || catalog.models !== null)
+    return
+  catalog.busy = true
+  catalog.error = ''
+  try {
+    catalog.models = await getClineModels()
+  }
+  catch (error) {
+    catalog.error = message(error)
+  }
+  finally {
+    catalog.busy = false
+  }
+}
 function edit(rule?: PinRule) {
   editor.existing = !!rule
   editor.originalModel = rule?.model ?? ''
   editor.accountId = rule?.accountId ?? state.selectedAccountId
   editor.model = rule?.model ?? ''
+  editor.modelQuery = ''
   editor.providers = rule?.providers.join(', ') ?? 'deepseek'
   editor.has = rule?.has.join(', ') ?? 'vision, implicit-caching'
   editor.enabled = rule?.enabled ?? true
   editor.error = ''
   editor.open = true
+  void loadCatalog()
 }
 async function save() {
   editor.busy = true
@@ -303,16 +374,45 @@ watch(() => props.active, (active) => {
             <label class="field"><span>1 · 选择转换账号</span><ZSelect :model-value="conversion.selected" :options="conversionOptions" filterable :disabled="!state.loaded || state.busy || conversion.busy" placeholder="选择已有 Cline 账号" @update:model-value="conversion.selected = $event ?? ''" /></label>
             <ZButton type="primary" :loading="conversion.busy" :disabled="!state.loaded || state.busy || !conversion.selected" @click="changeConversion()">加入转换配置</ZButton>
           </div>
-          <p class="field-help">使用已在宿主创建、填入 Cline API密钥的 OpenAI 账号</p>
         </div>
         <div class="conversion-apply">
-          <h3>2 · 应用实例配置</h3>
-          <ZButton :disabled="!state.loaded || state.busy || conversion.busy" @click="copyConfiguration">复制实例配置</ZButton>
-          <p class="field-help">插件管理 → 本插件卡片设置 → 弹窗内设置，粘贴并保存</p>
-          <p class="field-help">启用「上游调用」，「插件失败时」选择「拒绝请求」</p>
-          <p v-if="conversion.pendingConfiguration" class="notice" role="status">应用前先停用相关账号，等待请求结束，配置完成后再恢复</p>
+          <h3>2 · 模型列表替换</h3>
+          <div class="toolbar catalog-controls">
+            <ZSwitch :model-value="conversion.catalogEnabled" :disabled="!state.loaded || state.busy || conversion.busy || !conversion.accountIds.length" label="替换下游模型列表" @update:model-value="changeCatalog" />
+            <ZPopover trigger="hover-click" placement="bottom-start">
+              <template #reference="{ id, open }">
+                <ZIconButton size="small" aria-label="模型列表替换说明" :aria-describedby="open ? id : undefined">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 11v5m0-8h.01" />
+                  </svg>
+                </ZIconButton>
+              </template>
+              <p class="catalog-tooltip">隐藏转换账号的原模型和 CPR 映射后的别名，换成 ClinePass 官方目录。其他账号的同名模型也会隐藏，已有模型白名单仍然有效</p>
+            </ZPopover>
+          </div>
+          <p v-if="!catalogPending && conversion.activeCatalogCount" class="field-help">当前配置含 {{ conversion.activeCatalogCount }} 个 ClinePass 模型</p>
+        </div>
+        <div class="conversion-apply">
+          <h3>3 · 应用实例配置</h3>
+          <ZButton :loading="conversion.busy && conversion.catalogEnabled" :disabled="!state.loaded || state.busy || conversion.busy" @click="copyConfiguration">
+            {{ conversion.catalogEnabled && !conversion.preparedConfiguration ? '生成目录配置' : '复制实例配置' }}
+          </ZButton>
+          <p v-if="catalogPending || conversion.pendingConfiguration" class="field-help" role="status">待保存到插件设置</p>
         </div>
       </div>
+      <details class="conversion-guide">
+        <summary>配置步骤</summary>
+        <ol>
+          <li>选择 Cline 账号，点击「加入转换配置」</li>
+          <li>需要替换下游列表时打开开关；只做协议转换时保持关闭</li>
+          <li>点击「复制实例配置」。如果看到「生成目录配置」，先生成再复制</li>
+          <li>到「插件管理」，打开本插件卡片的管理窗口，再点「设置」。在「插件参数」用复制的 JSON 替换原内容，点击「保存设置」</li>
+          <li>开启列表替换后，在客户端刷新模型列表，检查是否出现 <code>cline-pass/</code> 模型</li>
+        </ol>
+        <p>新增或移除转换账号时，保存前先停用相关账号并等请求结束，保存后再恢复</p>
+        <p>首次设置绑定请参照发行包的 <code>INSTALL.md</code></p>
+      </details>
       <p v-if="state.error" class="error" role="alert">{{ state.error }}</p>
       <p v-if="conversion.error && !conversion.removeId" class="error" role="alert">{{ conversion.error }}</p>
       <p v-if="state.notice" class="muted" role="status">{{ state.notice }}</p>
@@ -322,15 +422,6 @@ watch(() => props.active, (active) => {
         <template #status="{ row }">{{ row.saved && row.registered ? '当前实例已配置' : row.saved ? '待应用实例配置' : '待应用后移除' }}</template>
         <template #actions="{ row }"><ZButton v-if="row.saved" size="small" variant="text" type="danger" :disabled="state.busy || conversion.busy" @click="conversion.removeId = row.id; conversion.error = ''">移除转换</ZButton></template>
       </ZTable>
-      <div class="protocol-info">
-        <h3>Responses → Cline Chat Completions</h3>
-        <p class="field-help">固定发送至 <code>api.cline.bot/api/v1/chat/completions</code>，账号提供凭据和代理，模型映射与权限由宿主管理</p>
-        <details>
-          <summary>协议兼容范围</summary>
-          <p>支持 HTTP 文本、图片 URL、函数工具和完整历史</p>
-          <p>不支持 <code>previous_response_id</code>、WebSocket、加密推理历史或原生工具</p>
-        </details>
-      </div>
     </section>
     <section class="section">
       <h2>DeepSeek 钉选</h2>
@@ -364,7 +455,7 @@ watch(() => props.active, (active) => {
         <template #empty><p class="table-empty">暂无钉选记录</p></template>
         <template #time="{ row }">{{ formatDateTime(row.timeMs) }}</template>
         <template #target="{ row }"><div>{{ name(row.accountId) }}</div><code>{{ row.model }}</code></template>
-        <template #routing="{ row }"><div>{{ row.providers.join(', ') || '未命中' }}</div><div v-if="row.providers.length && row.has.length" class="muted">{{ row.has.join(', ') }}</div><div v-if="row.inferenceRegion" class="muted">已附加区域筛选</div></template>
+        <template #routing="{ row }"><div>{{ row.providers.join(', ') || '未命中' }}</div><div v-if="row.providers.length && row.has.length" class="muted">{{ row.has.join(', ') }}</div></template>
         <template #result="{ row }">
           <span :class="{ 'status-success': sourceMatches(row) }" :aria-label="sourceMatches(row) ? `${row.finalProvider}，与钉选一致` : undefined">{{ row.finalProvider ?? '未知' }}</span>
           <div v-if="row.providers.length && row.finalProvider && !sourceMatches(row)">来源不符合钉选</div>
@@ -382,8 +473,25 @@ watch(() => props.active, (active) => {
           <label class="field"><span>上游账号</span><ZSelect :model-value="editor.accountId" :options="accountOptions" filterable :disabled="editor.existing || editor.busy" placeholder="选择 Cline 或其反代账号" @update:model-value="editor.accountId = $event ?? ''" /></label>
           <label class="field">
             <span>请求模型名称</span>
-            <ZInput v-model="editor.model" :disabled="editor.busy" placeholder="例如 cline-pass/deepseek-v4.1-flash-1017" />
-            <small class="field-help">按完整名称精确匹配，不会修改请求中的模型<br>可从下方日志复制，有模型映射时填映射后的名称</small>
+            <ZSelect
+              :model-value="editor.model || undefined"
+              :options="modelOptions"
+              :disabled="editor.busy"
+              :empty-text="catalog.busy ? '正在读取 ClinePass 模型' : '输入完整名称以手动添加'"
+              filterable remote
+              placeholder="选择 ClinePass 模型或输入完整名称"
+              @update:model-value="editor.model = $event ?? ''"
+              @query-change="editor.modelQuery = $event"
+              @visible-change="!$event && (editor.modelQuery = '')"
+            >
+              <template #option="{ option }">
+                <span class="model-option">
+                  <span v-if="option.description">{{ option.description }}：</span><code class="mono">{{ option.label }}</code>
+                </span>
+              </template>
+            </ZSelect>
+            <small class="field-help">按映射后的完整名称匹配，不会修改请求中的模型</small>
+            <small v-if="catalog.error" class="field-help" role="status">目录读取失败，可手动输入：{{ catalog.error }}</small>
           </label>
           <label class="field"><span>允许的提供方</span><ZInput v-model="editor.providers" :disabled="editor.busy" placeholder="deepseek，多项用逗号分隔" /></label>
           <label class="field"><span>能力过滤</span><ZInput v-model="editor.has" :disabled="editor.busy" placeholder="vision, implicit-caching，留空关闭" /></label>
@@ -443,11 +551,12 @@ watch(() => props.active, (active) => {
 
 <style scoped>
 .form-grid { align-items: start; }
+.model-option { min-width: 0; text-align: left; white-space: normal; }
 .response-model { overflow-wrap: anywhere; font-weight: 600; }
 .response-json { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--z-font-size-sm); }
 .conversion-setup {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.15fr) repeat(2, minmax(0, 1fr));
   gap: 24px;
   align-items: start;
 }
@@ -459,26 +568,26 @@ watch(() => props.active, (active) => {
   padding-left: 24px;
   border-left: 1px solid var(--z-color-border-secondary);
 }
-.conversion-apply > .notice {
-  margin: 0;
-}
-.protocol-info {
-  display: grid;
-  gap: 8px;
-  padding-top: 16px;
-  border-top: 1px solid var(--z-color-border-secondary);
-  overflow-wrap: anywhere;
-}
-.protocol-info summary {
-  width: fit-content;
+.catalog-controls { gap: 4px; }
+.catalog-tooltip { width: min(18rem, 70vw); margin: 0; line-height: 1.5; }
+.conversion-guide {
   color: var(--z-color-text-secondary);
+}
+.conversion-guide summary {
+  width: fit-content;
   cursor: pointer;
 }
-.protocol-info details p {
+.conversion-guide ol {
+  display: grid;
+  gap: 4px;
   margin: 8px 0 0;
-  color: var(--z-color-text-secondary);
+  padding-inline-start: 1.5em;
+  list-style: decimal;
 }
-@container toolkit (max-width: 900px) {
+.conversion-guide p {
+  margin: 8px 0 0;
+}
+@container toolkit (max-width: 1040px) {
   .conversion-setup {
     grid-template-columns: minmax(0, 1fr);
     gap: 20px;

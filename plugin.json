@@ -3,7 +3,7 @@
   "publisher": "kazeliu",
   "name": "cpr-data-toolkit",
   "displayName": "CPR 数据工具箱",
-  "version": "2.5.0",
+  "version": "2.9.0",
   "description": "上游接入与用量管理",
   "license": "UNLICENSED",
   "engines": { "codex-proxy-rs": ">=3.40.0, <4.0.0" },
@@ -19,6 +19,31 @@
         "maxItems": 100,
         "uniqueItems": true,
         "items": { "type": "string", "minLength": 1, "maxLength": 256 }
+      },
+      "clineCatalog": {
+        "title": "ClinePass 模型列表替换",
+        "type": "object",
+        "required": ["modelIds", "originalModels"],
+        "additionalProperties": false,
+        "properties": {
+          "modelIds": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": { "type": "string", "pattern": "^cline-pass/.+", "maxLength": 256 }
+          },
+          "originalModels": {
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 100,
+            "additionalProperties": {
+              "type": "array",
+              "maxItems": 2000,
+              "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+            }
+          }
+        }
       }
     },
     "additionalProperties": false
@@ -28,6 +53,7 @@
     "maintenance": { "version": 1 },
     "scheduler": { "version": 3 },
     "observer": { "version": 2 },
+    "model_catalog": { "version": 2 },
     "upstream_adapter": {
       "version": 5,
       "inputFormats": ["openai"],

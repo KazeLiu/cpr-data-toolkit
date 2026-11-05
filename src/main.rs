@@ -43,8 +43,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         serde_json::from_value(session.handshake().configuration.clone())?;
     let cline_adapter = Arc::new(cline::Adapter::new(
         maximum_stream_chunk_bytes,
-        configuration.cline_account_ids,
-    ));
+        configuration,
+    )?);
+    let cline_catalog = cline_adapter.model_catalog();
+    let cline_middleware = Arc::clone(&cline_adapter);
     let cline_registration = Arc::clone(&cline_adapter);
     let cline_execution = Arc::clone(&cline_adapter);
     let cline_logs = Arc::clone(&pin_logs);
@@ -60,6 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
     let plugin = builder
+        .model_catalog(cline_catalog)?
         .on(
             gateway_plugin_sdk::client::methods::STATE_MIGRATE,
             |call| async move {
@@ -118,6 +121,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .middleware(move |call: gateway_plugin_sdk::client::MiddlewareCall| {
             let logs = Arc::clone(&middleware_logs);
             let pin_logs = Arc::clone(&pin_middleware_logs);
+            let cline = Arc::clone(&cline_middleware);
             async move {
                 match call {
                     gateway_plugin_sdk::client::MiddlewareCall::Http(call)
@@ -136,7 +140,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         upstream_pin::observe(pin_logs, *call).await.map(Into::into)
                     }
                     gateway_plugin_sdk::client::MiddlewareCall::Request(call) => {
-                        key_models::middleware(*call).await.map(Into::into)
+                        key_models::middleware(&cline, *call).await.map(Into::into)
                     }
                     call => call.forward().await,
                 }

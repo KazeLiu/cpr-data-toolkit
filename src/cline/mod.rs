@@ -1,5 +1,6 @@
 //! 仅接管明确选择的 OpenAI API密钥账号；网络认证和调度仍归宿主
 
+pub mod catalog;
 mod request;
 mod response;
 
@@ -10,6 +11,7 @@ use crate::{
 use gateway_plugin_sdk::{
     ErrorCode, PluginFault,
     call::{
+        catalog::ModelCatalogRegistrationV2,
         model::{CanonicalEvent, ExecutionEvent, Usage, facts::ResponseObservation},
         upstream_adapter::*,
     },
@@ -34,11 +36,13 @@ struct Configuration {
     account_ids: Vec<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InstanceConfiguration {
     #[serde(default)]
     pub cline_account_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cline_catalog: Option<catalog::Replacement>,
 }
 
 #[derive(Deserialize)]
@@ -50,6 +54,7 @@ pub struct Save {
 
 pub struct Adapter {
     active: Vec<String>,
+    catalog: Option<catalog::Replacement>,
     maximum_stream_chunk_bytes: usize,
 }
 
@@ -59,18 +64,50 @@ async fn load(host: &HostClient) -> std::result::Result<(Option<u64>, Configurat
 }
 
 impl Adapter {
-    pub fn new(maximum_stream_chunk_bytes: usize, mut account_ids: Vec<String>) -> Self {
-        account_ids.sort();
-        Self {
-            active: account_ids,
+    pub fn new(
+        maximum_stream_chunk_bytes: usize,
+        mut config: InstanceConfiguration,
+    ) -> std::result::Result<Self, &'static str> {
+        config.cline_account_ids.sort();
+        if let Some(catalog) = &config.cline_catalog {
+            catalog.validate(&config.cline_account_ids)?;
+        }
+        Ok(Self {
+            active: config.cline_account_ids,
+            catalog: config.cline_catalog,
             maximum_stream_chunk_bytes,
+        })
+    }
+    pub fn model_catalog(&self) -> ModelCatalogRegistrationV2 {
+        self.catalog.as_ref().map_or_else(
+            || ModelCatalogRegistrationV2 {
+                aliases: vec![],
+                models: vec![],
+            },
+            catalog::Replacement::registration,
+        )
+    }
+    pub async fn hidden_models(
+        &self,
+        host: &HostClient,
+        key: &str,
+        settings: &Value,
+    ) -> std::result::Result<HashSet<String>, PluginFault> {
+        match &self.catalog {
+            Some(catalog) => catalog.hidden_models(host, key, settings).await,
+            None => Ok(HashSet::new()),
         }
     }
     fn view(&self, version: Option<u64>, mut config: Configuration) -> Value {
         if version.is_none() {
             config.account_ids.clone_from(&self.active);
         }
+        let catalog_models = self
+            .catalog
+            .as_ref()
+            .map_or(&[][..], catalog::Replacement::model_ids);
         json!({"version":version,"accountIds":config.account_ids,"activeAccountIds":self.active,
+            "catalogModels":catalog_models,
             "pendingConfiguration":config.account_ids!=self.active})
     }
     pub async fn get(&self, host: &HostClient) -> Result<Value> {

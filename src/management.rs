@@ -37,9 +37,11 @@ pub fn registration() -> ManagementRegistration {
         "api/model-priority",
         "api/upstream-pin",
         "api/cline",
+        "api/cline/models",
     ];
     let post = [
         "api/cline/save",
+        "api/cline/catalog/prepare",
         "api/key-models/get",
         "api/key-models/save",
         "api/upstream-pin/save",
@@ -255,7 +257,11 @@ async fn route(
         }
         ("POST", "api/statistics/cancel") => statistics::cancel(api::decode(&call.payload)?).await,
         ("GET", "api/cline") => cline_adapter.get(host).await,
+        ("GET", "api/cline/models") => cline::catalog::models(host).await,
         ("POST", "api/cline/save") => cline_adapter.save(host, api::decode(&call.payload)?).await,
+        ("POST", "api/cline/catalog/prepare") => {
+            cline::catalog::prepare(host, api::decode(&call.payload)?).await
+        }
         ("POST", "api/key-models/get") => key_models::get(host, api::decode(&call.payload)?).await,
         ("POST", "api/key-models/save") => {
             key_models::save(host, api::decode(&call.payload)?).await

@@ -2,9 +2,11 @@
 
 Codex Proxy RS 的API密钥与 CC-Switch 用量导入、统计维护和下游模型权限管理插件，项目标识为 `cpr-data-toolkit`，开发目录为 `D:\code\cpr-data-toolkit`。
 
-项目包含 Rust 后端和 Vue 管理页，当前版本为 **2.5**（包内 `2.5.0`），要求 CPR **3.40.0 或更新的兼容版本**，使用 RPC v7、公开 SDK **0.1.0**、upstream_adapter v5 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.40.0 的提交 `789609dd`](https://github.com/zyycn/codex-proxy-rs/commit/789609dd53663b323e43567d2476f7f83b6b77a1)，安装入口见 `docs/installation.md`
+项目包含 Rust 后端和 Vue 管理页，最新发行版本为 **2.9**（包内 `2.9.0`），要求 CPR **3.40.0 或更新的兼容版本**，使用 RPC v7、公开 SDK **0.1.0**、upstream_adapter v5 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.40.0 的提交 `789609dd`](https://github.com/zyycn/codex-proxy-rs/commit/789609dd53663b323e43567d2476f7f83b6b77a1)，安装入口见 `docs/installation.md`
 
-从 [2.5 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v2.5.0)选择对应平台附件，发行状态以 Release 为准。旧宿主先升级，不能只改清单版本号
+从 [2.9 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v2.9.0)选择对应平台附件，发行状态以 Release 为准。旧宿主先升级，不能只改清单版本号
+
+2.9 支持一键替换下游 ClinePass 模型列表，按「选账号 → 模型列表替换 → 应用配置」组织页面，见 [发布说明](docs/releases/2.9.md)
 
 2.5 修复 `deepseek/` 形式的 1017 请求命中钉选却漏加区域筛选的问题，并在规则弹窗说明如何填写请求模型名称，见 [发布说明](docs/releases/2.5.md) 和 [上游跟进基线](docs/cline-upstream-sync.md)
 
@@ -46,12 +48,14 @@ Codex Proxy RS 的API密钥与 CC-Switch 用量导入、统计维护和下游模
 
 调用链为 `下游 Responses → CPR 选号 → 插件转换与钉选 → Cline Chat Completions → 插件返回 Responses`。下游只配置 CPR 地址和 CPR API密钥，不接触 Cline API密钥，也不需要 CPA 或独立转换服务。实现使用锁定 SDK 的 `upstream_adapter` v5，不修改宿主或 SDK
 
-1. 在 CPR 新增 **OpenAI API密钥** 账号，使用 `https://api.cline.bot/api/v1` 和 Cline API密钥。按 CPR 现有方式配置公开模型到完整 Cline 上游模型的映射，并授予 API密钥权限；插件不自动修改目录或权限
-2. 打开「Cline 接入」，选择账号并点击「加入转换配置」，再点击「复制实例配置」。转换固定连接官方 `https://api.cline.bot/api/v1/chat/completions`，不使用账号地址重定向到其他站点；宿主注入该账号当前凭据并使用其代理
+1. 在 CPR 新增 **OpenAI API密钥** 账号，使用 `https://api.cline.bot/api/v1` 和 Cline API密钥。需要公开别名时，按 CPR 现有方式将它映射到完整 Cline 上游模型 ID，并授予 API密钥权限
+2. 打开「Cline 接入」，选择账号并点击「加入转换配置」。需要替换下游模型列表时先打开第 2 步的开关，再到第 3 步复制实例配置。转换固定连接官方 `https://api.cline.bot/api/v1/chat/completions`，不使用账号地址重定向到其他站点；宿主注入该账号当前凭据并使用其代理
 3. 先停用相关账号并排空请求。在插件管理中点击「CPR 数据工具箱」卡片右下角的设置按钮，弹窗内再点开设置按钮，在接下来的弹窗内粘贴已复制的 JSON（`clineAccountIds`）并保存。确认 `upstream_adapter` 的 `upstream` 绑定覆盖目标API密钥、Provider 和模型，故障策略为 `reject`，然后恢复账号。页面的“当前实例已配置”表示冻结配置包含该账号，实际是否调用还取决于绑定、模型映射和权限
 4. 在同页「DeepSeek 钉选」点击「添加规则」，选择同一上游账号，填写 CPR 映射后发给 Cline 的完整请求模型名称。允许的提供方默认 `deepseek`，能力过滤默认 `vision, implicit-caching`，可以修改或清空能力过滤。保存后按账号和请求模型名称匹配，不按下游 API密钥 区分。编辑时可修改请求模型名称，保存会替换原规则；与同账号的其他规则重名时拒绝覆盖。原有 1017 规则继续保留为普通可编辑规则
 
 转换账号在发送 Chat 请求前直接应用钉选，无需另开 outbound / attempt 绑定。「请求模型名称」指发送正文的 `model`，不是上游返回的模型名称，也不是 CPR 映射前的客户端公开别名；未选择转换的账号保持原生执行。原有 Responses 反代仍可单独使用钉选，继续按原方式启用 `outbound`，观察实际来源还需 `attempt`
+
+钉选编辑器从 Cline 公开推荐目录的 `clinePass` 字段读取选项，也可手填完整模型名称。选中模型只填写当前规则。只用订阅额度时，在 CPR 账号白名单保留所需的 `cline-pass/` 上游 ID，并在「下游模型权限」为目标 API密钥仅开放对应的公开名称；不要把通用目录里的 `deepseek/` ID 配作订阅模型的备用。区域筛选参数在请求日志详情中查看。
 
 插件以保存的规则覆盖顶层 `provider` 和 `providerOptions.gateway` 路由条件：向两处写 `only/order`，`has` 只写入 gateway；其他 providerOptions 命名空间、消息和工具保留。启用规则精确匹配 `cline-pass/deepseek-v4.1-flash-1017` 或 `deepseek/deepseek-v4.1-flash-1017` 且仅允许 `deepseek` 时，自动加入 `inferenceRegion` 区域筛选，排除私有通道，不改写请求模型名称。能力留空不关闭区域筛选；其他模型、多提供方、未命中、停用或删除规则不增加该参数。最多 100 条规则，每条最多 8 个提供方及 8 项能力，配置上限 240 KiB，保存和删除使用私有状态版本比较
 
@@ -66,6 +70,14 @@ Codex Proxy RS 的API密钥与 CC-Switch 用量导入、统计维护和下游模
 需要完整历史，不支持 `previous_response_id`、conversation、WebSocket、后台任务、响应存储、加密推理历史、文件引用和 OpenAI 原生/custom 工具；不支持的输入在发送前拒绝。推理摘要不冒充完整推理回灌，插件生成的明文 `reasoning_text` 可随历史转回 Chat。日志在内存保留 200 条，每页 25 条，不保存正文或凭据
 
 转换账号选择先保存在草稿中，复制并应用到宿主实例配置后生效，单独重新启用实例不应用草稿。注册只读取握手中的冻结配置，不在私有状态尚未授权的安装阶段读取状态。移除前先停用依赖转换的账号，避免恢复原生路径后向 Cline 发送 `/responses`。钉选规则修改即时影响后续匹配请求；额度设置独立保留。目标宿主文本/工具往返、错误/断流、实际提供方和额度由用户验收
+
+### 让下游看到 ClinePass 模型
+
+在「协议转换 → 2 · 模型列表替换」打开开关，插件自动读取 ClinePass 官方目录，无需逐个选择。到「3 · 应用实例配置」复制配置，再到「插件管理 → CPR 数据工具箱卡片右下角的设置 → 弹窗里的设置」粘贴。若开关已打开，要刷新目录或把本地试用版选中的几个模型更新为全量，先点「生成目录配置」再复制。
+
+在同一设置弹窗的「高级设置」启用「上游调用」，只填 Provider 范围 `openai`，让 CPR 发布 ClinePass 模型；转换仍只接管所选账号。启用「请求开始」并选择下游拉取目录用的 API密钥，其他范围留空，让插件隐藏旧模型。保存后用该密钥刷新 `/v1/models`。已有模型白名单仍然有效，需要放行的订阅模型应填写完整 `cline-pass/` ID。
+
+过滤会隐藏生成配置时读取的转换账号原模型、CPR 模型映射到这些原模型的别名，以及其他账号的同名条目，不改写任何黑白名单。源目录变化时重新生成并保存配置；关闭开关并保存后恢复原目录。下游拉取目录不触发上游刷新或推理请求。
 
 ## 设置模型上游优先级
 
