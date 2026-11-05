@@ -248,8 +248,12 @@ async fn route(
         ("POST", "api/statistics/step") => {
             statistics::step(host, api::decode(&call.payload)?).await
         }
-        ("POST", "api/statistics/query") => statistics::query(api::decode(&call.payload)?).await,
-        ("POST", "api/statistics/export") => statistics::export(api::decode(&call.payload)?).await,
+        ("POST", "api/statistics/query") => {
+            statistics::query(host, api::decode(&call.payload)?).await
+        }
+        ("POST", "api/statistics/export") => {
+            statistics::export(host, api::decode(&call.payload)?).await
+        }
         ("POST", "api/statistics/cancel") => statistics::cancel(api::decode(&call.payload)?).await,
         ("GET", "api/cline") => cline_adapter.get(host).await,
         ("POST", "api/cline/save") => cline_adapter.save(host, api::decode(&call.payload)?).await,

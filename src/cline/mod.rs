@@ -266,6 +266,7 @@ fn failure(kind: UpstreamFailureKind, status: u16, message: &str) -> UpstreamAda
     let mut event = UpstreamAdapterEvent::new(ExecutionEvent::default());
     event.failure = Some(UpstreamFailure {
         kind,
+        error_type: None,
         status: Some(status),
         message: message.into(),
         code: Some("cline_adapter_error".into()),

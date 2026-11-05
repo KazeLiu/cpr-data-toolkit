@@ -3,7 +3,7 @@ import type { Dimension, Parent, Preset, StatRow, StatTask, Totals } from '../ap
 import { ZButton, ZDatePicker, ZDialog, ZSelect } from '@codex-proxy/ui'
 import { computed, onBeforeUnmount, reactive, watch } from 'vue'
 import { ApiError, message } from '../api'
-import { cancelStatistics, formatCosts, formatCount, formatMetric, getStatisticsMetadata, quality, startStatistics, stepStatistics } from '../api/statistics'
+import { cancelStatistics, formatCosts, formatCount, formatMetric, getStatisticsMetadata, metricDetails, quality, startStatistics, stepStatistics } from '../api/statistics'
 import StatisticsTable from '../components/StatisticsTable.vue'
 
 const props = defineProps<{ active: boolean }>()
@@ -13,10 +13,10 @@ const state = reactive({ timezone: Intl.DateTimeFormat().resolvedOptions().timeZ
   summary: null as Totals | null, details: null as { title: string, dimension: Dimension, parent: Parent } | null })
 let revision = 0
 let disposed = false
-const dimensions: { id: Dimension, title: string }[] = [{ id: 'model', title: '按模型统计' }, { id: 'key', title: '按 Key 统计' }, { id: 'group', title: '按当前 Key 分组统计' }]
+const dimensions: { id: Dimension, title: string }[] = [{ id: 'model', title: '按模型统计' }, { id: 'key', title: '按 Key 统计' }, { id: 'group', title: '按请求路由分组统计' }]
 const timezoneOptions = computed(() => state.timezones.map(value => ({ value, label: value })))
 const presetOptions = computed(() => [...state.presets.map(preset => ({ value: preset.id, label: preset.name })), { value: 'custom', label: '自定义范围' }])
-const phase = computed(() => state.task ? ({ keys: '读取当前 Key 分组', records: '读取历史请求', aggregates: '读取聚合贡献', complete: '统计完成' }[state.task.phase]) : '')
+const phase = computed(() => state.task ? ({ keys: '读取 Key 名称', directory: '读取分组名称', statistics: '查询模型与 Key 聚合', groups: '查询路由分组聚合', complete: '统计完成' }[state.task.phase]) : '')
 function selectPreset() {
   const preset = state.presets.find(preset => preset.id === state.preset)
   if (preset) state.range = [...preset.range]
@@ -129,28 +129,28 @@ onBeforeUnmount(() => {
       <p v-if="state.error" class="error" role="alert">{{ state.error }}</p>
       <p class="muted">按所选时区解释，包含开始、不包含结束 · 结束时间晚于当前时刻时截到查询开始时刻</p>
       <p v-if="state.task" class="muted" role="status">
-        {{ phase }}{{ !state.running && state.task.phase !== 'complete' ? ' · 已暂停' : '' }} · 已读 {{ state.task.scanned }} 条请求、{{ state.task.contributions }} 项聚合贡献
+        {{ phase }}{{ !state.running && state.task.phase !== 'complete' ? ' · 已暂停' : '' }} · 已读 {{ state.task.scanned }} 条聚合行
         <br>{{ state.task.startDisplay }} 至 {{ state.task.endDisplay }}（{{ state.task.timezone }}）
       </p>
     </section>
     <template v-if="state.task?.phase === 'complete'">
       <section v-if="state.summary" class="stat-overview" aria-label="所选范围汇总">
         <div><span class="muted">总请求</span><strong>{{ formatCount(state.summary.requests) }}</strong></div>
-        <div><span class="muted">总 Token</span><strong>{{ formatMetric(state.summary.tokens) }}</strong></div>
-        <div><span class="muted">缓存读取</span><strong>{{ formatMetric(state.summary.cacheRead) }}</strong></div>
-        <div><span class="muted">缓存写入</span><strong>{{ formatMetric(state.summary.cacheWrite) }}</strong></div>
+        <div><span class="muted">总 Token</span><strong :title="metricDetails(state.summary.tokens)">{{ formatMetric(state.summary.tokens) }}</strong></div>
+        <div><span class="muted">缓存读取</span><strong :title="metricDetails(state.summary.cacheRead)">{{ formatMetric(state.summary.cacheRead) }}</strong></div>
+        <div><span class="muted">缓存写入</span><strong :title="metricDetails(state.summary.cacheWrite)">{{ formatMetric(state.summary.cacheWrite) }}</strong></div>
         <div><span class="muted">已知费用</span><strong>{{ formatCosts(state.summary.costs) }}</strong></div>
         <p v-if="quality(state.summary)" class="muted stat-overview-note">{{ quality(state.summary) }}</p>
       </section>
-      <p class="muted">输入已包含缓存读写，总 Token 不重复累加缓存 · Token 和费用统计成功请求及外部聚合贡献，金额保留历史记录，不代表供应商账单</p>
+      <p class="muted">输入已包含缓存读写，总 Token 不重复累加缓存 · 统计资格沿用宿主预热、恢复及完整交付规则，金额保留历史记录</p>
       <section v-for="dimension in dimensions" :key="dimension.id" class="section">
         <h2>{{ dimension.title }}</h2>
-        <p v-if="dimension.id === 'group'" class="muted">按本次扫描读取的 Key 当前绑定关系归类，不代表请求时的历史分组 · 多组绑定分别计入各组，组间合计不能相加</p>
+        <p v-if="dimension.id === 'group'" class="muted">按请求当时保存的路由分组归类 · 多组请求分别计入各组，组间合计不能相加 · 未关联分组与外部未归属项不支持交叉筛选</p>
         <StatisticsTable :task-id="state.task.taskId" :dimension="dimension.id" @inspect="inspect(dimension.id, $event)" @summary="dimension.id === 'model' && (state.summary = $event)" />
       </section>
-      <p class="muted">仅覆盖宿主仍保留的明细与聚合贡献 · 分页期间历史修改或清理可能影响结果 · 扫描不是跨调用一致快照，任务闲置 15 分钟后清理</p>
+      <p class="muted">模型与 Key 共用聚合快照，路由分组及其交叉明细分别查询，以各表观察信息为准 · 投影更新后新数据才可见 · 任务闲置 15 分钟后清理</p>
     </template>
-    <p v-else-if="!state.task" class="muted">选择时间范围后查询，读取完成后展示全部分组，不限于前 100 项</p>
+    <p v-else-if="!state.task" class="muted">选择时间范围后查询完整聚合结果，不限于前 100 项 · 暂停在本次维度查询结束后生效</p>
     <ZDialog :model-value="state.details !== null" :title="state.details?.title ?? '交叉明细'" width="min(94vw, 90rem)" @update:model-value="!$event && (state.details = null)">
       <StatisticsTable v-if="state.details && state.task" :key="`${state.details.parent.dimension}:${state.details.parent.id}`" :task-id="state.task.taskId" :dimension="state.details.dimension" :parent="state.details.parent" :inspect="false" />
     </ZDialog>
@@ -161,7 +161,7 @@ onBeforeUnmount(() => {
 .stat-filters { display: grid; grid-template-columns: minmax(12rem, 1fr) minmax(9rem, 0.7fr) minmax(22rem, 2fr); align-items: end; gap: 12px; }
 .stat-overview { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; padding: 16px; border-radius: var(--z-border-radius); background: var(--z-color-fill-quaternary); }
 .stat-overview > div { display: grid; gap: 6px; min-width: 0; }
-.stat-overview strong { font-size: var(--z-font-size-lg); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.stat-overview strong { font-size: var(--z-font-size-lg); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; white-space: pre-line; }
 .stat-overview-note { grid-column: 1 / -1; margin: 0; }
 @container toolkit (max-width: 900px) { .stat-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stat-range { grid-column: 1 / -1; } .stat-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @container toolkit (max-width: 480px) { .stat-filters { grid-template-columns: minmax(0, 1fr); } }

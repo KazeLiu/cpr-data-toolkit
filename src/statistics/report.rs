@@ -1,18 +1,12 @@
-//! 模型、Key 和当前分组的精确汇总，保留缓存未知值与多币种费用
-
-use super::source::Key;
+//! 宿主聚合行的展示归并，不读取原始请求或重新计价
+use super::source::{Group, Key};
 use crate::api::{ApiError, Result};
 use gateway_plugin_sdk::call::services::usage::*;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    str::FromStr,
-};
-
-const MAX_CELLS: usize = 20000;
-
+use std::{collections::BTreeMap, str::FromStr};
+pub(super) const MAX_ROWS: usize = 20000;
 #[derive(Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Dimension {
@@ -20,106 +14,53 @@ pub enum Dimension {
     Key,
     Group,
 }
-
 #[derive(Default, Clone)]
 struct Metric {
     sum: i128,
     known: u64,
     missing: u64,
 }
-
 impl Metric {
-    fn add(&mut self, value: Option<i128>) {
-        if let Some(value) = value {
-            self.sum += value;
-            self.known += 1;
-        } else {
-            self.missing += 1;
-        }
-    }
-    fn merge(&mut self, other: &Self) {
-        self.sum += other.sum;
-        self.known += other.known;
-        self.missing += other.missing;
-    }
     fn view(&self) -> Value {
         json!({"value":self.sum.to_string(),"known":self.known,"missing":self.missing})
     }
 }
-
 #[derive(Default, Clone)]
 struct Amount {
-    reported: Decimal,
-    calculated: Decimal,
-    contribution: Decimal,
+    sum: Decimal,
+    native: Option<Decimal>,
+    contribution: Option<Decimal>,
 }
-
-fn add_money(left: Decimal, right: Decimal) -> Result<Decimal> {
+fn money(value: &str) -> Result<Decimal> {
+    Decimal::from_str(value).map_err(|_| ApiError::invalid("宿主费用无法按十进制读取"))
+}
+fn add(left: Decimal, right: Decimal) -> Result<Decimal> {
     left.checked_add(right)
         .ok_or_else(|| ApiError::invalid("汇总金额超出十进制表示范围"))
 }
-
+fn add_optional(left: Option<Decimal>, right: Option<Decimal>) -> Result<Option<Decimal>> {
+    match (left, right) {
+        (Some(a), Some(b)) => Ok(Some(add(a, b)?)),
+        (a, b) => Ok(a.or(b)),
+    }
+}
 #[derive(Default, Clone)]
 pub(super) struct Totals {
-    counts: [i128; 6],
+    counts: [i128; 5],
     tokens: [Metric; 5],
     costs: BTreeMap<String, Amount>,
     unpriced: i128,
     contributions: u64,
-    unknown_outcomes: i128,
+    reported: u64,
+    calculated: u64,
 }
-
 impl Totals {
-    pub(super) fn record(record: &UsageRecordData) -> Result<Self> {
-        let mut total = Self::default();
-        total.counts[0] = 1;
-        total.counts[match record.outcome {
-            UsageOutcome::Succeeded => 1,
-            UsageOutcome::Failed => 2,
-            UsageOutcome::Cancelled => 3,
-            UsageOutcome::Incomplete => 4,
-            UsageOutcome::Running => 5,
-        }] = 1;
-        if record.outcome != UsageOutcome::Succeeded {
-            return Ok(total);
-        }
-        let tokens = &record.tokens;
-        let input = tokens.input_tokens.map(|v| i128::from(v.get()));
-        let output = tokens.output_tokens.map(|v| i128::from(v.get()));
-        for (metric, value) in total.tokens.iter_mut().zip([
-            input,
-            output,
-            tokens.cached_input_tokens.map(|v| i128::from(v.get())),
-            tokens.cache_write_input_tokens.map(|v| i128::from(v.get())),
-            tokens
-                .total_tokens
-                .map(|v| i128::from(v.get()))
-                .or_else(|| input.zip(output).map(|(a, b)| a + b)),
-        ]) {
-            metric.add(value);
-        }
-        match &record.cost {
-            UsageCost::Unavailable => total.unpriced = 1,
-            UsageCost::Known {
-                source,
-                amount,
-                currency,
-            } => {
-                let value = Decimal::from_str(amount)
-                    .map_err(|_| ApiError::invalid("宿主费用无法按十进制读取"))?;
-                let amount = total.costs.entry(currency.clone()).or_default();
-                match source {
-                    UsageCostSource::ProviderReported => amount.reported = value,
-                    UsageCostSource::Calculated => amount.calculated = value,
-                }
-            }
-        }
-        Ok(total)
-    }
-
-    pub(super) fn aggregate(value: &UsageAggregate) -> Result<Self> {
+    fn statistics(value: &UsageStatisticsMetrics) -> Result<Self> {
         let mut total = Self {
-            contributions: 1,
+            unpriced: i128::from(value.cost_coverage.unavailable.get()),
+            contributions: value.contribution_count.get(),
+            reported: value.cost_coverage.provider_reported.get(),
+            calculated: value.cost_coverage.calculated.get(),
             ..Self::default()
         };
         for (index, metric) in [
@@ -132,9 +73,10 @@ impl Totals {
         .iter()
         .enumerate()
         {
-            total.counts[index] = value.counts.get(metric).map_or(0, |v| i128::from(v.get()));
+            total.counts[index] = value.values.get(metric).map_or(0, |v| i128::from(v.get()));
         }
-        total.unknown_outcomes = total.counts[0] - total.counts[1..5].iter().sum::<i128>();
+        // 三种费用覆盖状态互斥，分母只含原生完整交付请求，不能使用所有请求数
+        let eligible = total.reported + total.calculated + value.cost_coverage.unavailable.get();
         for (index, metric) in [
             UsageMetric::InputTokens,
             UsageMetric::OutputTokens,
@@ -145,74 +87,112 @@ impl Totals {
         .iter()
         .enumerate()
         {
-            total.tokens[index].add(value.counts.get(metric).map(|v| i128::from(v.get())));
+            let native = value
+                .native_token_samples
+                .get(metric)
+                .map_or(0, |v| v.get());
+            let external = value
+                .contribution_token_samples
+                .get(metric)
+                .map_or(0, |v| v.get());
+            let missing = eligible
+                .checked_sub(native)
+                .and_then(|a| total.contributions.checked_sub(external).map(|b| a + b))
+                .ok_or_else(|| {
+                    ApiError::new(502, "statistics_coverage", "宿主返回的统计覆盖数量不一致")
+                })?;
+            total.tokens[index] = Metric {
+                sum: value.values.get(metric).map_or(0, |v| i128::from(v.get())),
+                known: native + external,
+                missing,
+            };
         }
-        for (currency, value) in &value.costs {
-            total
-                .costs
-                .entry(currency.clone())
-                .or_default()
-                .contribution = Decimal::from_str(value)
-                .map_err(|_| ApiError::invalid("聚合贡献费用无法按十进制读取"))?;
-        }
-        if value.costs.is_empty() {
-            total.unpriced = total.counts[0].max(0);
+        for cost in &value.costs {
+            total.costs.insert(
+                cost.currency.clone(),
+                Amount {
+                    sum: money(&cost.amount)?,
+                    native: cost.native_amount.as_deref().map(money).transpose()?,
+                    contribution: cost.contribution_amount.as_deref().map(money).transpose()?,
+                },
+            );
         }
         Ok(total)
     }
-
     fn merge(&mut self, other: &Self) -> Result<()> {
-        for (left, right) in self.counts.iter_mut().zip(other.counts) {
-            *left += right;
+        for (a, b) in self.counts.iter_mut().zip(other.counts) {
+            *a += b;
         }
-        for (left, right) in self.tokens.iter_mut().zip(&other.tokens) {
-            left.merge(right);
+        for (a, b) in self.tokens.iter_mut().zip(&other.tokens) {
+            a.sum += b.sum;
+            a.known += b.known;
+            a.missing += b.missing;
         }
         self.unpriced += other.unpriced;
         self.contributions += other.contributions;
-        self.unknown_outcomes += other.unknown_outcomes;
+        self.reported += other.reported;
+        self.calculated += other.calculated;
         for (currency, value) in &other.costs {
             let amount = self.costs.entry(currency.clone()).or_default();
-            amount.reported = add_money(amount.reported, value.reported)?;
-            amount.calculated = add_money(amount.calculated, value.calculated)?;
-            amount.contribution = add_money(amount.contribution, value.contribution)?;
+            amount.sum = add(amount.sum, value.sum)?;
+            amount.native = add_optional(amount.native, value.native)?;
+            amount.contribution = add_optional(amount.contribution, value.contribution)?;
         }
         Ok(())
     }
-
-    pub(super) fn view(&self) -> Result<Value> {
-        let costs = self.costs.iter().map(|(currency, value)| {
-            Ok(json!({"currency":currency,"amount":add_money(add_money(value.reported,value.calculated)?,value.contribution)?.normalize().to_string(),
-                "reported":value.reported.normalize().to_string(),"calculated":value.calculated.normalize().to_string(),"contribution":value.contribution.normalize().to_string()}))
-        }).collect::<Result<Vec<_>>>()?;
+    pub fn view(&self) -> Result<Value> {
+        let costs=self.costs.iter().map(|(currency,v)| json!({"currency":currency,"amount":v.sum.normalize().to_string(),"native":v.native.map(|a|a.normalize().to_string()),"contribution":v.contribution.map(|a|a.normalize().to_string())})).collect::<Vec<_>>();
         let input = &self.tokens[0];
         let read = &self.tokens[2];
-        let ratio = if input.sum > 0 && input.missing == 0 && read.missing == 0 {
-            Some(read.sum as f64 / input.sum as f64)
-        } else {
-            None
-        };
+        let ratio = (input.sum > 0
+            && input.known > 0
+            && read.known > 0
+            && input.missing == 0
+            && read.missing == 0)
+            .then(|| read.sum as f64 / input.sum as f64);
         Ok(
-            json!({"requests":self.counts[0].to_string(),"succeeded":self.counts[1].to_string(),"failed":self.counts[2].to_string(),
-            "cancelled":self.counts[3].to_string(),"incomplete":self.counts[4].to_string(),"running":self.counts[5].to_string(),
-            "input":input.view(),"output":self.tokens[1].view(),"cacheRead":read.view(),"cacheWrite":self.tokens[3].view(),"tokens":self.tokens[4].view(),
-            "cacheRatio":ratio,"costs":costs,"unpriced":self.unpriced.to_string(),"contributions":self.contributions,"unknownOutcomes":self.unknown_outcomes.to_string()}),
+            json!({"requests":self.counts[0].to_string(),"succeeded":self.counts[1].to_string(),"failed":self.counts[2].to_string(),"cancelled":self.counts[3].to_string(),"incomplete":self.counts[4].to_string(),"unknownOutcomes":(self.counts[0]-self.counts[1..].iter().sum::<i128>()).to_string(),"input":input.view(),"output":self.tokens[1].view(),"cacheRead":read.view(),"cacheWrite":self.tokens[3].view(),"tokens":self.tokens[4].view(),"cacheRatio":ratio,"costs":costs,"unpriced":self.unpriced.to_string(),"contributions":self.contributions,"reportedCount":self.reported,"calculatedCount":self.calculated}),
         )
     }
 }
-
-#[derive(Default)]
-struct Cell {
+pub(super) struct Cell {
+    group: UsageStatisticsGroup,
     totals: Totals,
-    aliases: BTreeSet<String>,
 }
-
+#[derive(Default)]
+pub(super) struct DataSet {
+    pub summary: Option<Totals>,
+    cells: Vec<Cell>,
+    pub observation: Option<UsageReadObservation>,
+}
+impl DataSet {
+    pub fn push(&mut self, row: UsageStatisticsRow) -> Result<()> {
+        let totals = Totals::statistics(&row.metrics)?;
+        if let Some(group) = row.group {
+            if self.cells.len() >= MAX_ROWS {
+                return Err(ApiError::invalid("聚合行超过 20000 项，请缩小时间范围"));
+            }
+            self.cells.push(Cell { group, totals });
+        } else {
+            self.summary = Some(totals);
+        }
+        Ok(())
+    }
+    pub fn len(&self) -> usize {
+        self.cells.len()
+    }
+    pub fn snapshot(&self) -> Value {
+        json!(self.observation)
+    }
+}
 #[derive(Default)]
 pub(super) struct Report {
-    cells: BTreeMap<(String, String, String), Cell>,
     pub keys: BTreeMap<String, Key>,
+    pub groups: BTreeMap<String, Group>,
+    pub models: DataSet,
+    pub routing: DataSet,
+    pub detail: Option<(String, DataSet)>,
 }
-
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Query {
@@ -227,14 +207,12 @@ pub struct Query {
     pub ascending: bool,
     pub parent: Option<Parent>,
 }
-
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Parent {
     pub dimension: Dimension,
     pub id: String,
 }
-
 #[derive(Clone, Copy, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Sort {
@@ -242,158 +220,160 @@ pub enum Sort {
     Tokens,
     Cost,
 }
-
 pub(super) struct Row {
     pub id: String,
     pub name: String,
-    pub provider: String,
-    pub aliases: BTreeSet<String>,
     pub totals: Totals,
+    inspect: bool,
 }
-
 impl Row {
     pub fn view(&self) -> Result<Value> {
         Ok(
-            json!({"id":self.id,"name":self.name,"provider":self.provider,"aliases":self.aliases,"totals":self.totals.view()?}),
+            json!({"id":self.id,"name":self.name,"totals":self.totals.view()?,"canInspect":self.inspect}),
         )
     }
 }
-
+fn identity(group: &UsageStatisticsGroup, dimension: Dimension) -> Result<String> {
+    let value = match dimension {
+        Dimension::Model => &group.model,
+        Dimension::Key => &group.client_key_ref,
+        Dimension::Group => &group.routing_group_ref,
+    };
+    // KeyModel 的外部未归属标记可能仅因另一维度缺失，按目标维度重新归类
+    Ok(serde_json::to_string(&(
+        value,
+        group.unassigned_contribution && value.is_none(),
+    ))?)
+}
 impl Report {
-    pub fn add(
-        &mut self,
-        provider: String,
-        model: String,
-        key: String,
-        alias: Option<String>,
-        totals: Totals,
-    ) -> Result<()> {
-        let identity = (provider, model, key);
-        if !self.cells.contains_key(&identity) && self.cells.len() >= MAX_CELLS {
-            return Err(ApiError::invalid(
-                "模型与 Key 组合超过 20000 项，请缩小时间范围",
-            ));
-        }
-        let cell = self.cells.entry(identity).or_default();
-        cell.totals.merge(&totals)?;
-        if let Some(alias) = alias {
-            if !cell.aliases.contains(&alias) && cell.aliases.len() >= MAX_CELLS {
-                return Err(ApiError::invalid("请求模型别名超过容量，请缩小时间范围"));
-            }
-            cell.aliases.insert(alias);
-        }
-        Ok(())
+    pub fn group_filter(&self, query: &Query) -> Result<Option<String>> {
+        let Some(parent) = query
+            .parent
+            .as_ref()
+            .filter(|p| p.dimension == Dimension::Group)
+        else {
+            return Ok(None);
+        };
+        let cell = self
+            .routing
+            .cells
+            .iter()
+            .find(|c| identity(&c.group, Dimension::Group).is_ok_and(|id| id == parent.id))
+            .ok_or_else(|| ApiError::invalid("路由分组不存在"))?;
+        cell.group
+            .routing_group_ref
+            .clone()
+            .map(Some)
+            .ok_or_else(|| ApiError::invalid("未关联分组和外部未归属项不支持分组交叉筛选"))
     }
-
-    fn groups(&self, key: &str) -> Vec<(String, String)> {
-        match self.keys.get(key) {
-            None => vec![("unknown".into(), "未归属／已删除 Key".into())],
-            Some(key) if key.groups.is_empty() => {
-                vec![("all".into(), "未绑定分组（全部账号）".into())]
-            }
-            Some(key) => key
-                .groups
-                .iter()
-                .map(|group| (group.id.clone(), group.name.clone()))
-                .collect(),
-        }
-    }
-
-    pub fn rows(&self, query: &Query) -> Result<(Totals, Vec<Row>)> {
-        if query.search.len() > 1024 {
-            return Err(ApiError::invalid("统计搜索内容过长"));
-        }
-        let mut summary = Totals::default();
-        let mut rows = BTreeMap::<String, Row>::new();
-        let search = query.search.trim().to_lowercase();
-        for ((provider, model, key), cell) in &self.cells {
-            let model_id = serde_json::to_string(&(provider, model))?;
-            let groups = self.groups(key);
-            if query
-                .parent
+    fn data(&self, query: &Query) -> Result<&DataSet> {
+        if let Some(parent) = query
+            .parent
+            .as_ref()
+            .filter(|p| p.dimension == Dimension::Group)
+        {
+            return self
+                .detail
                 .as_ref()
-                .is_some_and(|parent| match parent.dimension {
-                    Dimension::Model => parent.id != model_id,
-                    Dimension::Key => parent.id != *key,
-                    Dimension::Group => !groups.iter().any(|(id, _)| *id == parent.id),
-                })
-            {
-                continue;
-            }
-            summary.merge(&cell.totals)?;
-            let identities = match query.dimension {
-                Dimension::Model => vec![(
-                    model_id,
-                    if model.is_empty() {
-                        "未归属模型".into()
-                    } else {
-                        model.clone()
-                    },
-                )],
-                Dimension::Key => vec![(
-                    key.clone(),
-                    self.keys
-                        .get(key)
-                        .map(|k| k.name.clone())
-                        .unwrap_or_else(|| {
-                            if key.is_empty() {
-                                "未归属 Key".into()
-                            } else {
-                                format!("已删除 Key · {key}")
-                            }
-                        }),
-                )],
-                Dimension::Group => groups,
-            };
-            for (id, name) in identities {
-                if !rows.contains_key(&id) && rows.len() >= MAX_CELLS {
-                    return Err(ApiError::invalid("分组结果超过 20000 项，请缩小时间范围"));
-                }
-                let row = rows.entry(id.clone()).or_insert_with(|| Row {
-                    id,
-                    name,
-                    provider: if query.dimension == Dimension::Model {
-                        provider.clone()
-                    } else {
-                        String::new()
-                    },
-                    aliases: BTreeSet::new(),
-                    totals: Totals::default(),
-                });
-                row.totals.merge(&cell.totals)?;
-                if query.dimension == Dimension::Model {
-                    row.aliases.extend(cell.aliases.iter().cloned());
-                }
-            }
+                .filter(|(id, _)| id == &parent.id)
+                .map(|(_, data)| data)
+                .ok_or_else(|| ApiError::conflict("分组明细尚未读取"));
         }
+        Ok(if query.dimension == Dimension::Group {
+            &self.routing
+        } else {
+            &self.models
+        })
+    }
+    pub fn snapshot(&self, query: &Query) -> Result<Value> {
+        Ok(self.data(query)?.snapshot())
+    }
+    pub fn rows(&self, query: &Query) -> Result<(Totals, Vec<Row>)> {
+        if query.search.len() > 1024
+            || (query.dimension == Dimension::Group && query.parent.is_some())
+        {
+            return Err(ApiError::invalid("统计筛选无效"));
+        }
+        let data = self.data(query)?;
+        let filtered = query
+            .parent
+            .as_ref()
+            .filter(|p| p.dimension != Dimension::Group);
+        let mut summary = if filtered.is_none() {
+            data.summary
+                .clone()
+                .ok_or_else(|| ApiError::conflict("统计尚未完整结束"))?
+        } else {
+            Totals::default()
+        };
+        let mut rows = BTreeMap::<String, Row>::new();
+        for cell in &data.cells {
+            if let Some(parent) = filtered {
+                if identity(&cell.group, parent.dimension)? != parent.id {
+                    continue;
+                }
+                summary.merge(&cell.totals)?;
+            }
+            let id = identity(&cell.group, query.dimension)?;
+            let value = match query.dimension {
+                Dimension::Model => &cell.group.model,
+                Dimension::Key => &cell.group.client_key_ref,
+                Dimension::Group => &cell.group.routing_group_ref,
+            };
+            let external = cell.group.unassigned_contribution && value.is_none();
+            let name = if external {
+                "外部贡献（未归属）".into()
+            } else {
+                match query.dimension {
+                    Dimension::Model => value.clone().unwrap_or_else(|| "未归属模型".into()),
+                    Dimension::Key => value
+                        .as_ref()
+                        .map(|id| {
+                            self.keys
+                                .get(id)
+                                .map(|k| k.name.clone())
+                                .unwrap_or_else(|| "已删除 Key".into())
+                        })
+                        .unwrap_or_else(|| "未归属 Key".into()),
+                    Dimension::Group => value
+                        .as_ref()
+                        .map(|id| {
+                            self.groups
+                                .get(id)
+                                .map(|g| g.name.clone())
+                                .unwrap_or_else(|| "已删除分组".into())
+                        })
+                        .unwrap_or_else(|| "未关联路由分组".into()),
+                }
+            };
+            let row = rows.entry(id.clone()).or_insert_with(|| Row {
+                id,
+                name,
+                totals: Totals::default(),
+                inspect: query.dimension != Dimension::Group || value.is_some(),
+            });
+            row.totals.merge(&cell.totals)?;
+        }
+        let search = query.search.trim().to_lowercase();
         let mut rows = rows
             .into_values()
             .filter(|row| {
                 search.is_empty()
-                    || format!("{} {} {}", row.name, row.id, row.provider)
+                    || format!("{} {}", row.name, row.id)
                         .to_lowercase()
                         .contains(&search)
             })
             .collect::<Vec<_>>();
-        let mut ranked = rows
-            .drain(..)
-            .map(|row| {
-                let amount = row
-                    .totals
-                    .costs
-                    .get("USD")
-                    .map(|v| add_money(add_money(v.reported, v.calculated)?, v.contribution))
-                    .transpose()?
-                    .unwrap_or_default();
-                Ok((row, amount))
-            })
-            .collect::<Result<Vec<_>>>()?;
-        ranked.sort_by(|(a, a_cost), (b, b_cost)| {
+        rows.sort_by(|a, b| {
             let rank = match query.sort {
                 Sort::Requests => a.totals.counts[0].cmp(&b.totals.counts[0]),
                 Sort::Tokens => a.totals.tokens[4].sum.cmp(&b.totals.tokens[4].sum),
-                // 多币种不换汇，金额排序只比较 USD；其他币种仍完整展示和导出
-                Sort::Cost => a_cost.cmp(b_cost),
+                Sort::Cost => a
+                    .totals
+                    .costs
+                    .get("USD")
+                    .map_or(Decimal::ZERO, |v| v.sum)
+                    .cmp(&b.totals.costs.get("USD").map_or(Decimal::ZERO, |v| v.sum)),
             };
             (if query.ascending {
                 rank
@@ -402,6 +382,6 @@ impl Report {
             })
             .then_with(|| a.id.cmp(&b.id))
         });
-        Ok((summary, ranked.into_iter().map(|(row, _)| row).collect()))
+        Ok((summary, rows))
     }
 }

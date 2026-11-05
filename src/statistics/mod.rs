@@ -1,4 +1,4 @@
-//! 用户主动发起的只读统计任务，逐页推进并在结束前拒绝导出不完整结果
+//! 按维度推进聚合报表，每次 SDK 快照在当前管理父调用内读完
 
 mod report;
 mod source;
@@ -10,7 +10,10 @@ use crate::{
 };
 use chrono::{DateTime, Datelike, Duration, NaiveDateTime, TimeZone, Utc};
 use chrono_tz::Tz;
-use gateway_plugin_sdk::{call::services::usage::UsageRecordFilter, client::HostClient};
+use gateway_plugin_sdk::{
+    call::services::usage::{UsageGrouping, UsageRecordFilter},
+    client::HostClient,
+};
 use report::{Dimension, Query, Report, Row};
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -19,9 +22,13 @@ use std::{
     sync::{Arc, OnceLock},
     time::{Duration as StdDuration, Instant},
 };
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, Notify};
 
-type Jobs = Mutex<BTreeMap<String, Arc<Mutex<Job>>>>;
+struct JobHandle {
+    data: Mutex<Job>,
+    cancel: Notify,
+}
+type Jobs = Mutex<BTreeMap<String, Arc<JobHandle>>>;
 static JOBS: OnceLock<Jobs> = OnceLock::new();
 const TTL: StdDuration = StdDuration::from_secs(15 * 60);
 const PAGE_SIZE: usize = 50;
@@ -29,8 +36,9 @@ const PAGE_SIZE: usize = 50;
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Phase {
     Keys,
-    Records,
-    Aggregates,
+    Directory,
+    Statistics,
+    Groups,
     Complete,
 }
 
@@ -40,9 +48,9 @@ struct Job {
     filter: UsageRecordFilter,
     phase: Phase,
     cursor: Option<String>,
+    group_page: usize,
     step: usize,
     scanned: usize,
-    contributions: usize,
     touched: Instant,
     blocked: bool,
     report: Report,
@@ -58,8 +66,8 @@ impl Job {
                 .format("%Y-%m-%d %H:%M:%S")
                 .to_string()
         };
-        json!({"taskId":self.id,"step":self.step,"phase":match self.phase {Phase::Keys=>"keys",Phase::Records=>"records",Phase::Aggregates=>"aggregates",Phase::Complete=>"complete"},
-            "scanned":self.scanned,"contributions":self.contributions,"keys":self.report.keys.len(),"timezone":self.timezone,
+        json!({"taskId":self.id,"step":self.step,"phase":match self.phase {Phase::Keys=>"keys",Phase::Directory=>"directory",Phase::Statistics=>"statistics",Phase::Groups=>"groups",Phase::Complete=>"complete"},
+            "scanned":self.scanned,"keys":self.report.keys.len(),"timezone":self.timezone,
             "startMs":self.filter.start_ms,"endMs":self.filter.end_ms,"startDisplay":display(self.filter.start_ms),"endDisplay":display(self.filter.end_ms),"blocked":self.blocked})
     }
 }
@@ -129,7 +137,8 @@ pub fn metadata(input: Metadata) -> Result<Value> {
 pub async fn expire() {
     let mut jobs = JOBS.get_or_init(Default::default).lock().await;
     jobs.retain(|_, job| {
-        job.try_lock()
+        job.data
+            .try_lock()
             .map_or(true, |job| job.touched.elapsed() < TTL)
     });
 }
@@ -137,7 +146,7 @@ pub async fn expire() {
 pub async fn start(input: Start) -> Result<Value> {
     let zone = timezone(&input.timezone)?;
     let start = local(&input.start_time, zone)?.timestamp_millis();
-    // 扫描开始后新增的请求不进入本次范围，但已有历史的修改和清理仍可能影响分页
+    // 固定用户时间上界，各维度另有宿主返回的快照锚点与投影代次
     let end = local(&input.end_time, zone)?
         .timestamp_millis()
         .min(now().timestamp_millis());
@@ -158,19 +167,25 @@ pub async fn start(input: Start) -> Result<Value> {
         filter: usage::filter(start, end),
         phase: Phase::Keys,
         cursor: None,
+        group_page: 1,
         step: 0,
         scanned: 0,
-        contributions: 0,
         touched: Instant::now(),
         blocked: false,
         report: Report::default(),
     };
     let view = job.view();
-    jobs.insert(id, Arc::new(Mutex::new(job)));
+    jobs.insert(
+        id,
+        Arc::new(JobHandle {
+            data: Mutex::new(job),
+            cancel: Notify::new(),
+        }),
+    );
     Ok(view)
 }
 
-async fn job(id: &str) -> Result<Arc<Mutex<Job>>> {
+async fn job(id: &str) -> Result<Arc<JobHandle>> {
     expire().await;
     JOBS.get_or_init(Default::default)
         .lock()
@@ -187,17 +202,20 @@ async fn job(id: &str) -> Result<Arc<Mutex<Job>>> {
 }
 
 pub async fn cancel(input: Task) -> Result<Value> {
-    JOBS.get_or_init(Default::default)
+    if let Some(handle) = JOBS
+        .get_or_init(Default::default)
         .lock()
         .await
-        .remove(&input.task_id);
+        .remove(&input.task_id)
+    {
+        handle.cancel.notify_one();
+    }
     Ok(json!({"cancelled":true}))
 }
 
-// shortcut: 待宿主 #592 提供通用聚合后，移除逐请求阶段，直接分页消费聚合行并保留页面报表合同
 pub async fn step(host: &HostClient, input: Step) -> Result<Value> {
     let handle = job(&input.task_id).await?;
-    let mut job = handle.lock().await;
+    let mut job = handle.data.lock().await;
     job.touched = Instant::now();
     if input.step > job.step {
         return Err(ApiError::conflict("统计步骤不匹配，请重新查询"));
@@ -209,93 +227,95 @@ pub async fn step(host: &HostClient, input: Step) -> Result<Value> {
     if input.step < job.step || job.phase == Phase::Complete {
         return Ok(job.view());
     }
-    let phase = job.phase;
     let filter = job.filter.clone();
-    let cursor = job.cursor.clone();
-    let (next, additions) = match phase {
+    match job.phase {
         Phase::Keys => {
-            let page = source::keys(host, cursor.as_deref()).await?;
+            let page = source::keys(host, job.cursor.as_deref()).await?;
             for key in page.items {
                 job.report.keys.insert(key.id.clone(), key);
             }
-            (page.next_cursor, Vec::new())
+            job.cursor = page.next_cursor;
+            if job.cursor.is_none() {
+                job.phase = Phase::Directory;
+            }
         }
-        Phase::Records => {
-            let page = source::records(host, filter, cursor).await?;
-            let additions = page
-                .items
-                .into_iter()
-                .map(|record| {
-                    let data = record.data;
-                    let totals = report::Totals::record(&data)?;
-                    Ok((
-                        data.provider.unwrap_or_default(),
-                        data.model
-                            .or_else(|| data.requested_model.clone())
-                            .unwrap_or_default(),
-                        data.client_key_ref,
-                        data.requested_model,
-                        totals,
-                    ))
-                })
-                .collect::<Result<Vec<_>>>()?;
-            (page.next_cursor, additions)
+        Phase::Directory => {
+            let page = source::groups(host, job.group_page).await?;
+            for group in page.items {
+                job.report.groups.insert(group.id.clone(), group);
+            }
+            if job.group_page >= page.page.total_pages {
+                job.phase = Phase::Statistics;
+            } else {
+                job.group_page += 1;
+            }
         }
-        Phase::Aggregates => {
-            let page = source::aggregates(host, filter, cursor).await?;
-            let additions = page
-                .items
-                .into_iter()
-                .map(|value| {
-                    let totals = report::Totals::aggregate(&value)?;
-                    let dimensions = value.identity.dimensions;
-                    Ok((
-                        dimensions.provider.unwrap_or_default(),
-                        dimensions.model.unwrap_or_default(),
-                        dimensions.client_key_ref.unwrap_or_default(),
-                        None,
-                        totals,
-                    ))
-                })
-                .collect::<Result<Vec<_>>>()?;
-            (page.next_cursor, additions)
+        Phase::Statistics => {
+            let data =
+                source::statistics(host, filter, UsageGrouping::KeyModel, None, &handle.cancel)
+                    .await?;
+            job.scanned += data.len();
+            job.report.models = data;
+            job.phase = Phase::Groups;
+        }
+        Phase::Groups => {
+            let data = source::statistics(
+                host,
+                filter,
+                UsageGrouping::RoutingGroup,
+                None,
+                &handle.cancel,
+            )
+            .await?;
+            job.scanned += data.len();
+            job.report.routing = data;
+            job.phase = Phase::Complete;
         }
         Phase::Complete => unreachable!(),
-    };
-    let processed = additions.len();
-    for (provider, model, key, alias, totals) in additions {
-        if let Err(error) = job.report.add(provider, model, key, alias, totals) {
-            job.blocked = true;
-            return Err(error);
-        }
-    }
-    match phase {
-        Phase::Records => job.scanned += processed,
-        Phase::Aggregates => job.contributions += processed,
-        _ => (),
-    }
-    job.cursor = next;
-    if job.cursor.is_none() {
-        job.phase = match phase {
-            Phase::Keys => Phase::Records,
-            Phase::Records => Phase::Aggregates,
-            _ => Phase::Complete,
-        };
     }
     job.step += 1;
     job.touched = Instant::now();
     Ok(job.view())
 }
 
-pub async fn query(input: Query) -> Result<Value> {
+async fn prepare_detail(
+    host: &HostClient,
+    job: &mut Job,
+    input: &Query,
+    cancel: &Notify,
+) -> Result<()> {
+    if let Some(group) = job.report.group_filter(input)? {
+        let parent = input.parent.as_ref().unwrap();
+        if !job
+            .report
+            .detail
+            .as_ref()
+            .is_some_and(|(id, _)| id == &parent.id)
+        {
+            let data = source::statistics(
+                host,
+                job.filter.clone(),
+                UsageGrouping::KeyModel,
+                Some(group),
+                cancel,
+            )
+            .await?;
+            job.report.detail = Some((parent.id.clone(), data));
+        }
+    }
+    Ok(())
+}
+
+pub async fn query(host: &HostClient, input: Query) -> Result<Value> {
     let handle = job(&input.task_id).await?;
-    let mut job = handle.lock().await;
+    let mut job = handle.data.lock().await;
     job.touched = Instant::now();
     if job.phase != Phase::Complete || job.blocked {
         return Err(ApiError::conflict(
             "统计尚未完成，不能作为完整结果查看或导出",
         ));
     }
+    prepare_detail(host, &mut job, &input, &handle.cancel).await?;
     let (summary, rows) = job.report.rows(&input)?;
     let items = rows
         .iter()
@@ -304,7 +324,7 @@ pub async fn query(input: Query) -> Result<Value> {
         .map(Row::view)
         .collect::<Result<Vec<_>>>()?;
     Ok(
-        json!({"summary":summary.view()?,"items":items,"total":rows.len(),"offset":input.offset,"pageSize":PAGE_SIZE}),
+        json!({"summary":summary.view()?,"items":items,"total":rows.len(),"offset":input.offset,"pageSize":PAGE_SIZE,"observation":job.report.snapshot(&input)?}),
     )
 }
 
@@ -322,13 +342,14 @@ fn csv_field(value: &str) -> String {
     )
 }
 
-pub async fn export(input: Query) -> Result<Value> {
+pub async fn export(host: &HostClient, input: Query) -> Result<Value> {
     let handle = job(&input.task_id).await?;
-    let mut job = handle.lock().await;
+    let mut job = handle.data.lock().await;
     job.touched = Instant::now();
     if job.phase != Phase::Complete || job.blocked {
         return Err(ApiError::conflict("统计尚未完成，不能导出"));
     }
+    prepare_detail(host, &mut job, &input, &handle.cancel).await?;
     let (_, rows) = job.report.rows(&input)?;
     let prepared = rows
         .into_iter()
@@ -352,35 +373,34 @@ pub async fn export(input: Query) -> Result<Value> {
         "开始 UTC",
         "结束 UTC（不含）",
         "名称",
-        "ID",
-        "Provider",
+        "分组身份",
         "请求数",
         "成功",
         "失败",
         "取消",
         "未完成",
-        "运行中",
-        "终态未归属",
+        "状态未细分",
         "输入 Token",
         "输出 Token",
         "缓存读取",
         "缓存写入",
         "总 Token",
         "缓存读取占比",
-        "未计价请求／贡献",
+        "原生未计价请求",
         "输入缺失项",
         "输出缺失项",
         "缓存读缺失项",
         "缓存写缺失项",
         "总 Token 缺失项",
-        "客户端请求模型",
+        "上游回报请求数",
+        "宿主估算请求数",
+        "快照观察信息",
     ]
     .map(str::to_owned)
     .to_vec();
     for currency in &currencies {
         header.extend(
-            ["已知费用", "上游回报", "宿主估算", "聚合贡献"]
-                .map(|label| format!("{currency} {label}")),
+            ["已知费用", "原生费用", "聚合贡献"].map(|label| format!("{currency} {label}")),
         );
     }
     let mut csv = format!(
@@ -405,7 +425,6 @@ pub async fn export(input: Query) -> Result<Value> {
             end.clone(),
             row.name,
             row.id,
-            row.provider,
         ];
         fields.extend(
             [
@@ -414,14 +433,13 @@ pub async fn export(input: Query) -> Result<Value> {
                 "failed",
                 "cancelled",
                 "incomplete",
-                "running",
                 "unknownOutcomes",
             ]
             .map(text),
         );
         fields.extend(
             ["input", "output", "cacheRead", "cacheWrite", "tokens"].map(|key| {
-                if totals[key]["known"] == 0 && totals[key]["missing"].as_u64().unwrap_or(0) > 0 {
+                if totals[key]["known"] == 0 {
                     "未知".into()
                 } else {
                     totals[key]["value"].as_str().unwrap_or_default().to_owned()
@@ -439,20 +457,20 @@ pub async fn export(input: Query) -> Result<Value> {
             ["input", "output", "cacheRead", "cacheWrite", "tokens"]
                 .map(|key| totals[key]["missing"].to_string()),
         );
-        fields.push(row.aliases.into_iter().collect::<Vec<_>>().join(" / "));
+        fields.push(totals["reportedCount"].to_string());
+        fields.push(totals["calculatedCount"].to_string());
+        fields.push(job.report.snapshot(&input)?.to_string());
         for currency in &currencies {
             let cost = totals["costs"]
                 .as_array()
                 .unwrap()
                 .iter()
                 .find(|cost| cost["currency"].as_str() == Some(currency.as_str()));
-            fields.extend(
-                ["amount", "reported", "calculated", "contribution"].map(|key| {
-                    cost.and_then(|cost| cost[key].as_str())
-                        .unwrap_or_default()
-                        .to_owned()
-                }),
-            );
+            fields.extend(["amount", "native", "contribution"].map(|key| {
+                cost.and_then(|cost| cost[key].as_str())
+                    .unwrap_or_default()
+                    .to_owned()
+            }));
         }
         csv.push_str(
             &fields
