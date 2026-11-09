@@ -1,12 +1,14 @@
 # 安装 CPR 数据工具箱
 
-当前版本为 **2.9**，内部版本 `2.9.0`，要求 CPR **3.40.0 或更新的兼容版本**，使用 RPC v7、公开 SDK 0.1.0、upstream_adapter v5 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.40.0 的提交 `789609dd`](https://github.com/zyycn/codex-proxy-rs/commit/789609dd53663b323e43567d2476f7f83b6b77a1)
+当前版本为 **3.0**，内部版本 `3.0.0`，要求 CPR **3.40.0 或更新的兼容版本**，使用 RPC v7、公开 SDK 0.1.0、upstream_adapter v5 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.40.0 的提交 `789609dd`](https://github.com/zyycn/codex-proxy-rs/commit/789609dd53663b323e43567d2476f7f83b6b77a1)
 
-从 [2.9 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v2.9.0)下载对应平台的 `.tar.gz` 和 `.sha256`，或下载 ZIP 后解压。通过宿主 GitHub 来源安装时，仓库填写 `KazeLiu/cpr-data-toolkit`，标签填写 `v2.9.0`
+从 [3.0 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v3.0.0)下载对应平台的 `.tar.gz` 和 `.sha256`，或下载 ZIP 后解压。通过宿主 GitHub 来源安装时，仓库填写 `KazeLiu/cpr-data-toolkit`，标签填写 `v3.0.0`
 
 ## 在原插件实例上升级
 
-先升级宿主至 3.40.0 或更新兼容版本，再在原插件实例升级到 `v2.9.0`，不要卸载或清空状态。升级前保留常规宿主备份，升级后关闭再打开插件管理页
+先升级宿主至 3.40.0 或更新兼容版本，再在原插件实例升级到 `v3.0.0`，不要卸载或清空状态。升级前保留常规宿主备份，升级后关闭再打开插件管理页
+
+**Cline 已停止接受旧钉选参数**。升级保留现有规则，遇到路由拒绝时不自动移除限制重试。若接受自动选路，在「Cline 接入 → DeepSeek 钉选」编辑对应规则，关闭「启用规则」后保存，并移除客户端的 `provider` / `providerOptions`。自动选路可能使用私有通道，新规则默认关闭，见 [发布说明](releases/3.0.md)
 
 2.9 的模型列表替换默认关闭，已有转换账号与钉选规则不受影响。开启后须在第 3 步复制配置，并到插件设置粘贴保存。区域筛选参数在「转换与钉选日志 → 详情」查看，列表不再单独显示区域提示
 
@@ -68,7 +70,7 @@ CPR 上游额度改用宿主原生 CPR Link：上游管理员在给当前连接�
 
 受限API密钥的模型身份无法确定时拒绝请求，包括当前无法取得模型身份的 multipart 图片编辑。`/v1/quota` 仅披露白名单中的模型原名，别名对应的实际下游目录以 `/v1/models` 为准。停用插件或未命中绑定时，插件权限规则不生效
 
-## 在同一页启用 Cline 转换与 DeepSeek 钉选
+## 配置 Cline 转换与管理历史钉选
 
 本包包含 Cline 协议转换、DeepSeek 钉选和 Cline Pass 查询。锁定 SDK 已提供 upstream_adapter v5，无需修改 SDK 或宿主
 
@@ -77,7 +79,7 @@ CPR 上游额度改用宿主原生 CPR Link：上游管理员在给当前连接�
 1. 在 CPR 新增 OpenAI API密钥账号，填入 `https://api.cline.bot/api/v1` 和 Cline API密钥；按现有方式配置 Cline 模型映射及下游API密钥权限
 2. 在「Cline 接入」选择已有账号，点击「加入转换配置」。需要替换模型列表时先打开第 2 步的开关，再到第 3 步点击「复制实例配置」。账号只提供凭据和代理，转换固定调用官方 Chat Completions 端点
 3. 先停用相关账号并排空请求。在插件管理中点击「CPR 数据工具箱」卡片右下角的设置按钮，弹窗内再点开设置按钮，在接下来的弹窗内粘贴已复制的 JSON（`clineAccountIds` 数组）并保存。启用插件 `upstream_adapter` 的 `upstream` 绑定，Provider 为 `openai`，覆盖目标API密钥 和模型，故障策略使用 `reject`，然后恢复账号
-4. 在同一 Tab 的「DeepSeek 钉选」点击「添加规则」，选择上游账号，填写 CPR 映射后发送正文 `model` 中的请求模型名称。提供方默认 `deepseek`，能力默认 `vision, implicit-caching`，均可修改。规则只影响选中账号的这个请求模型，不按下游 API密钥 区分。编辑时可修改请求模型名称，保存后替换原规则，不覆盖其他同名规则；原有 1017 规则保留
+4. 自动选路无需添加钉选规则。已有规则保持原启用状态，遇到路由拒绝需要手动编辑并关闭「启用规则」后保存；这会恢复 Cline 自动选路，不保证固定 DeepSeek 官方。新规则默认关闭，保留参数编辑以供未来上游恢复或兼容反代使用
 5. 下游继续调用 CPR 的 Responses 地址并使用 CPR API密钥。发送后在同页刷新日志查看参数和「上游来源信息」；来源与钉选一致时显示绿色，未回报时显示未知，未命中规则显示「未命中」
 
 转换账号直接应用钉选并观察 Chat 元数据，不需要 outbound / attempt。原有 Responses 反代仍按原方式启用这两个绑定。规则不改变 CPR 调度；转换支持 HTTP 完整历史、文本、图片 URL、函数工具及 JSON / SSE 响应，不支持原生续接、加密历史或 WebSocket。日志最多 200 条，不记录正文或凭据，来源不符会提示，不自动重试

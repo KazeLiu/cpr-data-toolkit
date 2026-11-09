@@ -44,7 +44,7 @@ const editor = reactive({
   accountId: '',
   model: '',
   modelQuery: '',
-  enabled: true,
+  enabled: false,
   providers: '',
   has: '',
   busy: false,
@@ -263,7 +263,7 @@ function edit(rule?: PinRule) {
   editor.modelQuery = ''
   editor.providers = rule?.providers.join(', ') ?? 'deepseek'
   editor.has = rule?.has.join(', ') ?? 'vision, implicit-caching'
-  editor.enabled = rule?.enabled ?? true
+  editor.enabled = rule?.enabled ?? false
   editor.error = ''
   editor.open = true
   void loadCatalog()
@@ -430,7 +430,7 @@ watch(() => props.active, (active) => {
         <ZButton type="primary" :disabled="!state.loaded || state.busy || !state.accounts.length" @click="edit()">添加规则</ZButton>
       </div>
       <p class="field-help">Cline 原生账号先完成协议转换，Responses 反代账号可单独钉选，需启用「出站请求准备」</p>
-      <p class="field-help">1017 模型仅允许 deepseek 时自动附加区域筛选，实际来源与响应模型以日志为准</p>
+      <p class="notice" role="status">Cline 当前拒绝钉选、区域和能力过滤参数，启用规则可能返回 403，恢复自动选路需编辑对应规则并关闭「启用规则」后保存，来源可能变为私有通道</p>
       <ZTable size="small" :columns="columns" :data="state.rules" :loading="state.busy" empty-text="暂无规则">
         <template #empty><p class="table-empty">暂无规则</p></template>
         <template #account="{ row }">{{ name(row.accountId) }}</template>
@@ -499,7 +499,8 @@ watch(() => props.active, (active) => {
         <div class="toolbar">
           <ZSwitch v-model="editor.enabled" :disabled="editor.busy" label="启用规则" />
         </div>
-        <p v-if="officialRule" class="field-help">自动添加 inferenceRegion，筛除私有通道；能力留空不会关闭区域筛选，停用规则或修改模型、提供方可退出</p>
+        <p class="notice">新规则默认关闭，已有规则保持原设置，上游拒绝路由参数时不会自动取消钉选或重发请求</p>
+        <p v-if="officialRule" class="field-help">此历史配置包含 inferenceRegion，当前 Cline 会拒绝该参数</p>
         <p v-if="editor.error" class="error" role="alert">{{ editor.error }}</p>
       </div>
       <template #footer>

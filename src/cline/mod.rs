@@ -29,6 +29,9 @@ use std::{
 
 const NAMESPACE: &str = "cline_adapter";
 const ADAPTER: &str = "cline-chat";
+const ROUTING_REJECTION: &str =
+    "Error 403: client-supplied \"providerOptions\" model routing is not supported";
+const ROUTING_REJECTION_HELP: &str = "Cline 不再接受客户端路由参数，请在 Cline 接入中停用对应钉选规则，并移除客户端的 provider/providerOptions 后重试；自动选路可能进入私有通道";
 
 #[derive(Default, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -348,12 +351,28 @@ fn http_failure(status: u16) -> UpstreamFailureKind {
     }
 }
 
+fn routing_rejected(value: &Value) -> bool {
+    value
+        .pointer("/error/message")
+        .or_else(|| value.get("error").filter(|error| error.is_string()))
+        .or_else(|| value.get("message"))
+        .and_then(Value::as_str)
+        == Some(ROUTING_REJECTION)
+}
+
 fn chat_failure(raw: &Value) -> Option<(UpstreamFailureKind, u16, &'static str)> {
     let value = if raw["success"] == true {
         &raw["data"]
     } else {
         raw
     };
+    if routing_rejected(value) || value.pointer("/choices/0").is_some_and(routing_rejected) {
+        return Some((
+            UpstreamFailureKind::InvalidRequest,
+            403,
+            ROUTING_REJECTION_HELP,
+        ));
+    }
     let choice = value.pointer("/choices/0");
     let error = value
         .get("error")
@@ -532,6 +551,34 @@ impl Stream {
                 continue;
             }
             if !(200..300).contains(&self.status) {
+                if self.status == 403 {
+                    // 只识别上游明确的路由拒绝，不将普通权限 403 当成参数问题
+                    let mut bytes = Vec::new();
+                    let complete = loop {
+                        match self.body.read().await {
+                            Ok(Some(chunk)) if bytes.len() + chunk.len() <= 64 * 1024 => {
+                                bytes.extend(chunk);
+                            }
+                            Ok(None) => break true,
+                            Ok(Some(_)) => break false,
+                            Err(error) => return Some(self.network_error(error).await),
+                        }
+                    };
+                    if complete
+                        && serde_json::from_slice::<Value>(&bytes)
+                            .is_ok_and(|value| routing_rejected(&value))
+                    {
+                        // 不删除用户的钉选条件重试，避免静默改用私有通道
+                        return Some(
+                            self.fail(
+                                UpstreamFailureKind::InvalidRequest,
+                                403,
+                                ROUTING_REJECTION_HELP,
+                            )
+                            .await,
+                        );
+                    }
+                }
                 let kind = http_failure(self.status);
                 let status = if (400..600).contains(&self.status) {
                     self.status

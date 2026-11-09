@@ -3,12 +3,26 @@
 ## 已处理基线
 
 - 上游：[xiao-qiu-qiu/ClinePassBridge](https://github.com/xiao-qiu-qiu/ClinePassBridge)
-- 已审查提交：`af2d5f051bc4b566cb2d043589255809e6af15d8`
-- 日期：2026-11-05
-- 对应插件版本：2.5（2.5.0）
-- 上次参考基线：`f8266a91540cfa8f56fe9884403adef9a35aa771`
+- 已审查提交：`98bb4d0ff8069a9595ea191e762933ebea7fd6f8`
+- 上游发行版：v0.4.7
+- 日期：2026-11-09
+- 对应插件版本：3.0（3.0.0）
+- 上次参考基线：`af2d5f051bc4b566cb2d043589255809e6af15d8`
 
 ## 本次采用
+
+上游 v0.4.7 确认 Cline 当前返回 `Error 403: client-supplied "providerOptions" model routing is not supported`。旧的提供方、能力和区域约束已被拒绝。比较基线后新增的三个提交：响应模型样式已由插件现有加粗显示覆盖；额度估算警告不适用，插件读取官方 usage-limits 而不估算美元额度；路由拒绝影响本插件，作如下适配：
+
+- HTTP 403 的错误正文最多读取 64 KiB，只精确识别该拒绝信息，普通权限 403 保持原处理。流内相同的明确错误共用识别条件
+- 识别后返回参数错误及固定提示，日志详情记录可操作的停用方法，不暴露原始错误正文。读取取消、网络中断和响应释放仍归现有流生命周期处理
+- 页面告知钉选已受限，新规则默认关闭。已有规则、启用状态、宿主账号和密钥权限完整保留，管理员可编辑规则并明确关闭后恢复自动选路
+- 不采用上游的强制「不钉」迁移和删参数重试：自动选路可能进入私有通道，不能悄悄放宽用户已保存的提供方限制。用户接受该变化后可停用规则并移除客户端路由参数，无需新增策略或迁移私有状态 schema
+
+未发送真实模型请求，上述上游变化依据 [v0.4.7 发行说明](https://github.com/xiao-qiu-qiu/ClinePassBridge/releases/tag/v0.4.7)、`routing_fallback.go`、`provider_policy_migration.go`、`executor.go` 与更新后的能力说明核对。
+
+本轮未运行测试或启动宿主。前端定向 lint 无错误，保留既有单行模板的换行警告，类型检查与构建通过。修改模块的格式检查通过；全仓格式和严格 clippy 被未改文件中的旧格式、collapsible_if、type_complexity、manual_is_multiple_of 问题阻挡，未顺带重写这些模块。
+
+## 历史区域方法（当前 Cline 已拒绝）
 
 上游 `internal/bridge/official_routing.go` 与 `docs/upstream-capability-filter.md` 已修正旧结论：2026-11-04 的实验中，单独的 `only + has` 仍会进入私有通道。插件在启用的账号规则精确匹配 `cline-pass/deepseek-v4.1-flash-1017` 或 `deepseek/deepseek-v4.1-flash-1017`、允许列表恰为 `["deepseek"]` 时，在现有 `providerOptions.gateway` 中加入：
 

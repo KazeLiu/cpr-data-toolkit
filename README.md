@@ -2,9 +2,11 @@
 
 Codex Proxy RS 的API密钥与 CC-Switch 用量导入、统计维护和下游模型权限管理插件，项目标识为 `cpr-data-toolkit`，开发目录为 `D:\code\cpr-data-toolkit`。
 
-项目包含 Rust 后端和 Vue 管理页，最新发行版本为 **2.9**（包内 `2.9.0`），要求 CPR **3.40.0 或更新的兼容版本**，使用 RPC v7、公开 SDK **0.1.0**、upstream_adapter v5 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.40.0 的提交 `789609dd`](https://github.com/zyycn/codex-proxy-rs/commit/789609dd53663b323e43567d2476f7f83b6b77a1)，安装入口见 `docs/installation.md`
+项目包含 Rust 后端和 Vue 管理页，最新发行版本为 **3.0**（包内 `3.0.0`），要求 CPR **3.40.0 或更新的兼容版本**，使用 RPC v7、公开 SDK **0.1.0**、upstream_adapter v5 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.40.0 的提交 `789609dd`](https://github.com/zyycn/codex-proxy-rs/commit/789609dd53663b323e43567d2476f7f83b6b77a1)，安装入口见 `docs/installation.md`
 
-从 [2.9 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v2.9.0)选择对应平台附件，发行状态以 Release 为准。旧宿主先升级，不能只改清单版本号
+从 [3.0 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v3.0.0)选择对应平台附件，发行状态以 Release 为准。旧宿主先升级，不能只改清单版本号
+
+**Cline 当前拒绝客户端钉选参数**。3.0 识别这类路由拒绝并提示如何恢复，保留已有规则，不自动取消钉选或重试；新规则默认关闭，见 [发布说明](docs/releases/3.0.md)
 
 2.9 支持一键替换下游 ClinePass 模型列表，按「选账号 → 模型列表替换 → 应用配置」组织页面，见 [发布说明](docs/releases/2.9.md)
 
@@ -44,22 +46,24 @@ Codex Proxy RS 的API密钥与 CC-Switch 用量导入、统计维护和下游模
 
 打开「下游模型权限」，选择API密钥，开启「限制模型」，勾选允许的下游模型后保存。在宿主启用插件的 `request` 绑定，API密钥范围留空或包含目标API密钥，账号范围留空，失败策略选择「拒绝请求」。白名单按下游模型 ID 精确匹配、区分大小写，不扩大宿主的分组权限；启用后白名单为空表示全部禁止。详细边界见 [下游模型权限](docs/key-model-access.md)
 
-## 通过 CPR 调用 Cline 并钉住 DeepSeek
+## 通过 CPR 调用 Cline
+
+[上游 v0.4.7](https://github.com/xiao-qiu-qiu/ClinePassBridge/releases/tag/v0.4.7) 报告 Cline 已停止接受客户端 `providerOptions`，原有提供方、能力和区域筛选会返回指定的 403。要恢复自动选路，在「DeepSeek 钉选」编辑对应规则，关闭「启用规则」并保存，同时移除客户端发送的 `provider` / `providerOptions`。自动选路可能使用私有通道，无法靠这些旧参数固定官方来源。
 
 调用链为 `下游 Responses → CPR 选号 → 插件转换与钉选 → Cline Chat Completions → 插件返回 Responses`。下游只配置 CPR 地址和 CPR API密钥，不接触 Cline API密钥，也不需要 CPA 或独立转换服务。实现使用锁定 SDK 的 `upstream_adapter` v5，不修改宿主或 SDK
 
 1. 在 CPR 新增 **OpenAI API密钥** 账号，使用 `https://api.cline.bot/api/v1` 和 Cline API密钥。需要公开别名时，按 CPR 现有方式将它映射到完整 Cline 上游模型 ID，并授予 API密钥权限
 2. 打开「Cline 接入」，选择账号并点击「加入转换配置」。需要替换下游模型列表时先打开第 2 步的开关，再到第 3 步复制实例配置。转换固定连接官方 `https://api.cline.bot/api/v1/chat/completions`，不使用账号地址重定向到其他站点；宿主注入该账号当前凭据并使用其代理
 3. 先停用相关账号并排空请求。在插件管理中点击「CPR 数据工具箱」卡片右下角的设置按钮，弹窗内再点开设置按钮，在接下来的弹窗内粘贴已复制的 JSON（`clineAccountIds`）并保存。确认 `upstream_adapter` 的 `upstream` 绑定覆盖目标API密钥、Provider 和模型，故障策略为 `reject`，然后恢复账号。页面的“当前实例已配置”表示冻结配置包含该账号，实际是否调用还取决于绑定、模型映射和权限
-4. 在同页「DeepSeek 钉选」点击「添加规则」，选择同一上游账号，填写 CPR 映射后发给 Cline 的完整请求模型名称。允许的提供方默认 `deepseek`，能力过滤默认 `vision, implicit-caching`，可以修改或清空能力过滤。保存后按账号和请求模型名称匹配，不按下游 API密钥 区分。编辑时可修改请求模型名称，保存会替换原规则；与同账号的其他规则重名时拒绝覆盖。原有 1017 规则继续保留为普通可编辑规则
+4. 新钉选规则默认关闭，自动选路无需添加规则。已有规则保留账号、请求模型名称、启用状态和参数；需要恢复自动选路时，编辑规则并关闭「启用规则」后保存。停用规则即时影响后续请求，无需重新复制实例配置
 
 转换账号在发送 Chat 请求前直接应用钉选，无需另开 outbound / attempt 绑定。「请求模型名称」指发送正文的 `model`，不是上游返回的模型名称，也不是 CPR 映射前的客户端公开别名；未选择转换的账号保持原生执行。原有 Responses 反代仍可单独使用钉选，继续按原方式启用 `outbound`，观察实际来源还需 `attempt`
 
 钉选编辑器从 Cline 公开推荐目录的 `clinePass` 字段读取选项，也可手填完整模型名称。选中模型只填写当前规则。只用订阅额度时，在 CPR 账号白名单保留所需的 `cline-pass/` 上游 ID，并在「下游模型权限」为目标 API密钥仅开放对应的公开名称；不要把通用目录里的 `deepseek/` ID 配作订阅模型的备用。区域筛选参数在请求日志详情中查看。
 
-插件以保存的规则覆盖顶层 `provider` 和 `providerOptions.gateway` 路由条件：向两处写 `only/order`，`has` 只写入 gateway；其他 providerOptions 命名空间、消息和工具保留。启用规则精确匹配 `cline-pass/deepseek-v4.1-flash-1017` 或 `deepseek/deepseek-v4.1-flash-1017` 且仅允许 `deepseek` 时，自动加入 `inferenceRegion` 区域筛选，排除私有通道，不改写请求模型名称。能力留空不关闭区域筛选；其他模型、多提供方、未命中、停用或删除规则不增加该参数。最多 100 条规则，每条最多 8 个提供方及 8 项能力，配置上限 240 KiB，保存和删除使用私有状态版本比较
+保留的历史规则在启用时仍覆盖顶层 `provider` 和 `providerOptions.gateway`：向两处写 `only/order`，`has` 只写入 gateway；其他 providerOptions 命名空间、消息和工具保留。1017 模型且仅允许 `deepseek` 时仍加入原有 `inferenceRegion`，但当前 Cline 会拒绝这些参数。未命中、停用或删除规则不增加路由参数。最多 100 条规则，每条最多 8 个提供方及 8 项能力，配置上限 240 KiB，保存和删除使用私有状态版本比较
 
-区域规则依据 [ClinePassBridge 最新的对照说明](https://github.com/xiao-qiu-qiu/ClinePassBridge/blob/af2d5f051bc4b566cb2d043589255809e6af15d8/docs/upstream-capability-filter.md)：旧 only/has 组合已不能可靠固定官方。`us` 是筛选参数，不代表推理位置。具体模型和订阅可用性以 Cline 当前账号为准，插件不调用推理接口自动探测
+历史区域规则的适用结论已被 [上游 2026-11-06 的更新](https://github.com/xiao-qiu-qiu/ClinePassBridge/blob/98bb4d0ff8069a9595ea191e762933ebea7fd6f8/docs/upstream-capability-filter.md) 撤回。3.0 识别明确的路由拒绝，作为参数问题返回并在日志详情给出固定安全提示，不把它误当成凭据失效；普通权限 403 保持原处理。不向下游透传或在日志转存原始错误正文，不自动删除参数重发。具体模型和订阅可用性以 Cline 当前账号为准
 
 发送请求后，在同页点击「刷新日志」。转换直接读取 Chat 响应及 delta 中的 `provider_metadata.gateway.routing.finalProvider`（也识别 `providerMetadata`），并将元数据带回 Responses。「上游来源信息」显示这次请求实际回报的提供方，与已应用钉选一致时显示绿色；未钉选、来源不符或缺失时保持普通文字，缺失显示未知。未命中规则只显示「未命中」，日志不展示请求 ID 和尝试序号。来源不符不自动重放；提供方限制由 Cline 执行
 
