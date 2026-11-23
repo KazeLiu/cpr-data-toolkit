@@ -1,12 +1,12 @@
 [package]
 name = "cpr-data-toolkit"
-version = "3.0.0"
+version = "3.1.0"
 edition = "2024"
 rust-version = "1.99.1"
 publish = false
 
 [dependencies]
-gateway-plugin-sdk = { git = "https://github.com/zyycn/codex-proxy-rs.git", rev = "789609dd53663b323e43567d2476f7f83b6b77a1", version = "=0.1.0", features = ["io"] }
+gateway-plugin-sdk = { git = "https://github.com/zyycn/codex-proxy-rs.git", rev = "c99bf1ac35be6dc50393893f0dfec30444d7991b", version = "=0.1.0", features = ["io"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = { version = "1.0.150", features = ["arbitrary_precision"] }
 tokio = { version = "1.52.3", features = ["io-std", "macros", "rt", "sync", "time"] }

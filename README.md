@@ -2,9 +2,9 @@
 
 Codex Proxy RS 的API密钥与 CC-Switch 用量导入、统计维护和下游模型权限管理插件，项目标识为 `cpr-data-toolkit`，开发目录为 `D:\code\cpr-data-toolkit`。
 
-项目包含 Rust 后端和 Vue 管理页，最新发行版本为 **3.0**（包内 `3.0.0`），要求 CPR **3.40.0 或更新的兼容版本**，使用 RPC v7、公开 SDK **0.1.0**、upstream_adapter v5 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.40.0 的提交 `789609dd`](https://github.com/zyycn/codex-proxy-rs/commit/789609dd53663b323e43567d2476f7f83b6b77a1)，安装入口见 `docs/installation.md`
+项目包含 Rust 后端和 Vue 管理页，当前版本为 **3.1**（包内 `3.1.0`），要求 CPR **3.51.0 或更新的兼容版本**。3.1 适配 `scheduler` v4，保留已有规则和状态；仍使用 RPC v7、upstream_adapter v5 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.54.4 的提交 `c99bf1ac`](https://github.com/zyycn/codex-proxy-rs/commit/c99bf1ac35be6dc50393893f0dfec30444d7991b)
 
-从 [3.0 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v3.0.0)选择对应平台附件，发行状态以 Release 为准。旧宿主先升级，不能只改清单版本号
+从 [3.1 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v3.1.0)选择对应平台附件，在原插件实例上升级。详见[安装说明](docs/installation.md)
 
 **Cline 当前拒绝客户端钉选参数**。3.0 识别这类路由拒绝并提示如何恢复，保留已有规则，不自动取消钉选或重试；新规则默认关闭，见 [发布说明](docs/releases/3.0.md)
 
@@ -153,11 +153,11 @@ Kimi 编程订阅与 Command Code 查询期限十五秒，其他模式十秒，�
 
 ### SDK 来源
 
-SDK 和打包 CLI 固定到 [CPR v3.40.0 的提交 `789609dd`](https://github.com/zyycn/codex-proxy-rs/commit/789609dd53663b323e43567d2476f7f83b6b77a1)。插件只使用公开 `gateway-plugin-sdk` 0.1.0，不依赖宿主内部模块
+SDK 和打包 CLI 固定到 [CPR v3.54.4 的提交 `c99bf1ac`](https://github.com/zyycn/codex-proxy-rs/commit/c99bf1ac35be6dc50393893f0dfec30444d7991b)。插件只使用公开 `gateway-plugin-sdk` 0.1.0，不依赖宿主内部模块
 
 新增第三方查询类型只需修改插件。通用账号 HTTP、入口验证、授权检查与原生额度明细接口已随 CPR 3.33.0 发布
 
-页面会检查所需接口，缺失时显示宿主升级提示和「重新检查」，分别禁用额度查询或分享操作；后台不会反复调用缺失的查询接口，其他标签页仍可使用。该提示适用于插件可启动的 RPC v7 宿主，RPC v6 及更早宿主不能启动本版本，应先升级宿主
+页面会分别检查额度查询与分享所需接口。缺失时禁用对应操作，并提供「重新检查」；其他标签页仍可使用。安装 3.1 前需确认宿主支持 RPC v7 与 `scheduler` v4
 
 ## 配置模型 UA
 
@@ -246,15 +246,15 @@ cargo build --release --locked --target $target
 打包 CLI 与 SDK 使用同一固定提交：
 
 ```powershell
-cargo install --locked --git https://github.com/zyycn/codex-proxy-rs.git --rev 789609dd53663b323e43567d2476f7f83b6b77a1 codex-proxy-plugin-cli --root .tools/plugin-cli-v7
-.tools/plugin-cli-v7/bin/cpr-plugin package --manifest plugin.json --binary "target/$target/release/cpr-data-toolkit" --target $target --resource-map web=web/dist --output-dir dist
+cargo install --locked --git https://github.com/zyycn/codex-proxy-rs.git --rev c99bf1ac35be6dc50393893f0dfec30444d7991b codex-proxy-plugin-cli --root .tools/plugin-cli-v3.54.4
+.tools/plugin-cli-v3.54.4/bin/cpr-plugin package --manifest plugin.json --binary "target/$target/release/cpr-data-toolkit" --target $target --resource-map web=web/dist --output-dir dist
 ```
 
-该版本 CLI 支持 `x86_64-unknown-linux-gnu`、`aarch64-unknown-linux-gnu` 和 `aarch64-apple-darwin`，没有 Windows 原生包目标。资源映射将 `web/dist` 中的三个页面文件放入包内 `web/`；输出包位于 `dist/`。详见[固定版本打包合同](https://github.com/zyycn/codex-proxy-rs/blob/789609dd53663b323e43567d2476f7f83b6b77a1/backend/apps/plugin-cli/README.md)。
+该版本 CLI 支持 `x86_64-unknown-linux-gnu`、`aarch64-unknown-linux-gnu` 和 `aarch64-apple-darwin`，没有 Windows 原生包目标。资源映射将 `web/dist` 中的三个页面文件放入包内 `web/`；输出包位于 `dist/`。详见[固定版本打包合同](https://github.com/zyycn/codex-proxy-rs/blob/c99bf1ac35be6dc50393893f0dfec30444d7991b/backend/apps/plugin-cli/README.md)。
 
 ### 本机 Windows 交叉构建
 
-本机使用项目内 Node 24.21.0、pnpm 12.6.0、cargo-zigbuild 0.23.4、Zig 0.14.1 和官方打包 CLI，以及 Rust 1.99.1 的 ARM64、x86_64 Linux target。工具位于忽略的 `.tools/`；从项目根目录执行：
+本机使用项目内 Node 24.21.0、pnpm 12.6.0、cargo-zigbuild 0.23.4、Zig 0.14.1，以及 Rust 1.99.1 的 ARM64、x86_64 Linux target。按上节命令安装固定版本的打包 CLI 后，从项目根目录执行：
 
 ```powershell
 $env:Path = "$PWD/.tools/node-v24.21.0-win-x64;$PWD/.tools/cargo-zigbuild-0.23.4/bin;$env:Path"
@@ -262,14 +262,14 @@ $env:Path = "$PWD/.tools/node-v24.21.0-win-x64;$PWD/.tools/cargo-zigbuild-0.23.4
 $env:CARGO_ZIGBUILD_ZIG_PATH = "$PWD/.tools/zig-pypi/ziglang/zig.exe"
 $env:CARGO_ZIGBUILD_CACHE_DIR = "$PWD/.tools/zig-cache"
 cargo +1.99.1 zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.17
-.tools/plugin-cli-v7/bin/cpr-plugin.exe package --manifest plugin.json --binary target/aarch64-unknown-linux-gnu/release/cpr-data-toolkit --target aarch64-unknown-linux-gnu --resource-map web=web/dist --output-dir dist
+.tools/plugin-cli-v3.54.4/bin/cpr-plugin.exe package --manifest plugin.json --binary target/aarch64-unknown-linux-gnu/release/cpr-data-toolkit --target aarch64-unknown-linux-gnu --resource-map web=web/dist --output-dir dist
 ```
 
 构建 x86_64 时将命令中的 target 替换为 `x86_64-unknown-linux-gnu`。提交依赖锁文件，保留固定下载地址与包完整性记录。
 
 ### 交付与版本递增
 
-2.5 的发行目标为 Linux x86_64、Linux ARM64 和 macOS ARM64，提供原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见 `docs/installation.md`，发布说明见 `docs/releases/2.5.md`。
+发行目标为 Linux x86_64、Linux ARM64 和 macOS ARM64，提供原生 `.tar.gz`、官方 CLI 生成的 `.sha256` 以及 ZIP。ZIP 内含对应原生包、校验文件和 `INSTALL.md`，解压后在 CPR 插件管理页上传 `.tar.gz`。平台选择见[安装说明](docs/installation.md)，本次变更见 [3.1 发布说明](docs/releases/3.1.md)。
 
 以后每次交付新包增加 `0.1`；打包前同步 `plugin.json`、`Cargo.toml`、`web/package.json` 和 Cargo 锁文件中的本项目版本。失败修复及同一次打包重试不重复递增，约定见 `AGENTS.md`。
 

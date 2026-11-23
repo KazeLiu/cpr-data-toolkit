@@ -1,12 +1,12 @@
 # 安装 CPR 数据工具箱
 
-当前版本为 **3.0**，内部版本 `3.0.0`，要求 CPR **3.40.0 或更新的兼容版本**，使用 RPC v7、公开 SDK 0.1.0、upstream_adapter v5 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.40.0 的提交 `789609dd`](https://github.com/zyycn/codex-proxy-rs/commit/789609dd53663b323e43567d2476f7f83b6b77a1)
+当前版本为 **3.1**，内部版本 `3.1.0`，要求 CPR **3.51.0 或更新的兼容版本**，使用 RPC v7、scheduler v4、upstream_adapter v5 和 middleware v6。SDK 与打包 CLI 固定到 [CPR v3.54.4 的提交 `c99bf1ac`](https://github.com/zyycn/codex-proxy-rs/commit/c99bf1ac35be6dc50393893f0dfec30444d7991b)
 
-从 [3.0 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v3.0.0)下载对应平台的 `.tar.gz` 和 `.sha256`，或下载 ZIP 后解压。通过宿主 GitHub 来源安装时，仓库填写 `KazeLiu/cpr-data-toolkit`，标签填写 `v3.0.0`
+从 [3.1 Release](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v3.1.0)下载对应平台的 `.tar.gz` 和 `.sha256`，或下载 ZIP 后解压。通过宿主 GitHub 来源安装时，仓库填写 `KazeLiu/cpr-data-toolkit`，标签填写 `v3.1.0`
 
 ## 在原插件实例上升级
 
-先升级宿主至 3.40.0 或更新兼容版本，再在原插件实例升级到 `v3.0.0`，不要卸载或清空状态。升级前保留常规宿主备份，升级后关闭再打开插件管理页
+先升级宿主至 3.51.0 或更新兼容版本，再在原插件实例升级到 `v3.1.0`，不要卸载或清空状态。3.1 沿用现有实例配置、能力绑定和私有状态 schema，无需重建优先级规则。升级前保留常规宿主备份，升级后关闭再打开插件管理页
 
 **Cline 已停止接受旧钉选参数**。升级保留现有规则，遇到路由拒绝时不自动移除限制重试。若接受自动选路，在「Cline 接入 → DeepSeek 钉选」编辑对应规则，关闭「启用规则」后保存，并移除客户端的 `provider` / `providerOptions`。自动选路可能使用私有通道，新规则默认关闭，见 [发布说明](releases/3.0.md)
 
@@ -24,7 +24,7 @@
 
 迁移由宿主分批校验和事务提交，失败时不通过插件删除旧状态。若仍遇到升级错误，保留原实例并记录宿主版本和错误详情，不以清库或重装绕过
 
-额度功能所需的账号 HTTP、入口认证、授权检查和原生额度接口已包含在 CPR 3.33.0 中。接口缺失时页面会提示升级，分别禁用受影响的查询或分享操作，点击「重新检查」可再次检测；其他标签页不受影响。旧版本安装附件不再提供，源码与 Git 标签保留；RPC v6 及更早宿主应先升级
+额度功能所需的账号 HTTP、入口认证、授权检查和原生额度接口已包含在 CPR 3.33.0 中。接口缺失时页面会提示升级，分别禁用受影响的查询或分享操作，点击「重新检查」可再次检测；其他标签页不受影响。仍在使用 CPR 3.40.0–3.50.x 时可继续使用 [插件 3.0](https://github.com/KazeLiu/cpr-data-toolkit/releases/tag/v3.0.0)，升级宿主后再更新插件
 
 按 CPR 宿主进程的平台选择 Linux x86_64、Linux ARM64 或 macOS ARM64 构建目标，不按打开管理页的电脑平台选择。Linux 目标为 glibc 2.17 或更高；仅有 musl 的系统或容器不能直接运行，没有 Windows 正式包
 

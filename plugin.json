@@ -3,10 +3,10 @@
   "publisher": "kazeliu",
   "name": "cpr-data-toolkit",
   "displayName": "CPR 数据工具箱",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "上游接入与用量管理",
   "license": "UNLICENSED",
-  "engines": { "codex-proxy-rs": ">=3.40.0, <4.0.0" },
+  "engines": { "codex-proxy-rs": ">=3.51.0, <4.0.0" },
   "main": "bin/plugin",
   "runtime": "trustedProcess",
   "configurationSchema": {
@@ -51,7 +51,7 @@
   "contributes": {
     "management": { "version": 2 },
     "maintenance": { "version": 1 },
-    "scheduler": { "version": 3 },
+    "scheduler": { "version": 4 },
     "observer": { "version": 2 },
     "model_catalog": { "version": 2 },
     "upstream_adapter": {
